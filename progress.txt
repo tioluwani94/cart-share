@@ -88,3 +88,26 @@
   - ConvexProviderWithClerk connects Convex to Clerk authentication
 - Auth state persists across app restarts via SecureStore (iOS Keychain, Android Keystore)
 - Typecheck passes
+
+## US-006: Build playful welcome screen with Google OAuth [COMPLETED]
+- Installed expo-web-browser (v15.0.10) and expo-linking (v8.0.11) for OAuth flows
+- Created components/welcome/AnimatedGroceryIcons.tsx:
+  - Floating grocery emoji icons (avocado, apple, carrot, cheese, bread)
+  - Staggered entrance animations with spring physics
+  - Continuous floating animation with subtle rotation
+  - Uses react-native-reanimated for smooth 60fps animations
+- Updated app/(auth)/welcome.tsx with warm, inviting design:
+  - Animated grocery icons at top using FadeInUp animation
+  - Playful headline: "Shop smarter, together"
+  - Friendly value proposition: "The fun way for couples to manage grocery lists"
+  - Feature list with emojis (Real-time shared lists, Scan receipts, Track spending)
+  - Google OAuth button with coral primary color and Google "G" icon
+  - Satisfying press animation via Button component (scale 0.97)
+  - Branded loading spinner with coral rotating border
+  - Friendly error messages ("Something went wrong. Please try again!")
+  - Decorative food emoji elements at bottom (orange, broccoli, grapes) at 10% opacity
+  - Staggered entrance animations for all content sections
+  - Redirect to household-setup after successful sign-in
+  - Auto-redirect to tabs if already signed in
+- Created app/household-setup.tsx placeholder for post-auth redirect
+- Typecheck passes
