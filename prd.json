@@ -1,0 +1,882 @@
+{
+  "project": "CartShare",
+  "branchName": "ralph/cartshare-mvp",
+  "description": "CartShare - A sleek, fun, and playful real-time collaborative grocery shopping app for couples with shared lists, receipt scanning, and spending analytics. Design emphasizes delightful micro-interactions, warm colors, and personality-filled experiences.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Initialize Expo project with NativeWind and brand theme",
+      "description": "As a developer, I need the base Expo project configured with NativeWind and the CartShare brand color palette.",
+      "acceptanceCriteria": [
+        "Expo SDK 52+ project initialized",
+        "NativeWind 4.2+ installed and configured",
+        "tailwind.config.js created with brand colors: coral (#FF6B6B), teal (#4ECDC4), yellow (#FFE66D), warm grays",
+        "Custom color tokens: primary, secondary, accent, background-light (#FAFAFA), background-dark (#1A1A2E)",
+        "global.css created with @tailwind directives",
+        "babel.config.js configured with nativewind/babel preset",
+        "metro.config.js configured with NativeWind",
+        "nativewind-env.d.ts reference added",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Set up Convex backend with schema",
+      "description": "As a developer, I need the Convex backend initialized with the complete database schema.",
+      "acceptanceCriteria": [
+        "Convex installed and initialized",
+        "convex/schema.ts created with users table (clerkId, email, name, imageUrl, timestamps)",
+        "households table added (name, inviteCode, ownerId, timestamps)",
+        "householdMembers table added (householdId, userId, role, joinedAt)",
+        "lists table added (householdId, name, category, isArchived, createdBy, timestamps)",
+        "items table added (listId, name, quantity, unit, notes, category, isCompleted, addedBy, completedBy, completedAt, timestamps)",
+        "shoppingSessions table added (householdId, listId, totalAmount, storeName, shopperId, receiptImageId, sessionDate, createdAt)",
+        "All indexes defined as per PRD",
+        "npx convex dev runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create base navigation structure with Expo Router",
+      "description": "As a developer, I need the app navigation structure set up with Expo Router.",
+      "acceptanceCriteria": [
+        "app/_layout.tsx created as root layout",
+        "app/(auth)/_layout.tsx created for auth flow",
+        "app/(auth)/welcome.tsx created for OAuth sign-in screen",
+        "app/(tabs)/_layout.tsx created with tab navigator",
+        "app/(tabs)/index.tsx placeholder for home/lists",
+        "app/(tabs)/analytics.tsx placeholder",
+        "app/(tabs)/settings.tsx placeholder",
+        "app/list/[id].tsx placeholder for list detail",
+        "app/+not-found.tsx created",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create playful reusable UI components",
+      "description": "As a developer, I need sleek, fun UI components with the CartShare design language.",
+      "acceptanceCriteria": [
+        "lib/cn.ts created with clsx + tailwind-merge utility",
+        "components/ui/Button.tsx with coral primary, teal secondary, scale-down press animation",
+        "components/ui/Card.tsx with rounded-2xl corners, warm shadow, subtle hover scale",
+        "components/ui/Input.tsx with floating label animation, friendly error messages",
+        "components/ui/Checkbox.tsx with satisfying check animation using react-native-reanimated",
+        "components/ui/index.ts barrel export created",
+        "All components use brand colors from tailwind config",
+        "Minimum 48pt touch targets on interactive elements",
+        "Press states include subtle scale transform (0.97)",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Integrate Clerk authentication provider",
+      "description": "As a developer, I need Clerk auth provider integrated with Convex.",
+      "acceptanceCriteria": [
+        "@clerk/clerk-expo installed",
+        "ConvexProviderWithClerk wrapper created in root layout",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable used",
+        "EXPO_PUBLIC_CONVEX_URL environment variable used",
+        "convex/auth.config.ts created for Clerk JWT validation",
+        "Auth state persists across app restarts using SecureStore",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Build playful welcome screen with Google OAuth",
+      "description": "As a user, I want a delightful first impression when signing into CartShare.",
+      "acceptanceCriteria": [
+        "app/(auth)/welcome.tsx with warm, inviting design",
+        "Friendly illustration or animated grocery icons at top",
+        "Playful headline: 'Shop smarter, together' or similar warm copy",
+        "Value proposition with personality (not corporate)",
+        "Continue with Google button in coral primary color with icon",
+        "Button has satisfying press animation",
+        "Subtle background gradient or decorative food elements",
+        "Loading state with branded spinner animation",
+        "Success redirects to household setup (new) or home (existing)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add Apple Sign-In to welcome screen",
+      "description": "As an iOS user, I want to sign in with Apple (required for App Store).",
+      "acceptanceCriteria": [
+        "Continue with Apple button styled per Apple HIG (black/white)",
+        "Positioned below Google button with consistent spacing",
+        "Apple authentication flow works on iOS",
+        "User created/matched in Convex after success",
+        "Same press animation as Google button",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Create Convex user sync from Clerk webhook",
+      "description": "As a developer, I need users synced from Clerk to Convex database.",
+      "acceptanceCriteria": [
+        "convex/http.ts created with webhook route",
+        "convex/users.ts has createOrUpdate mutation",
+        "Webhook validates Clerk signature using CLERK_WEBHOOK_SECRET",
+        "User record created/updated on user.created and user.updated events",
+        "User lookup by clerkId works via index",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Build warm household creation flow",
+      "description": "As a new user, I want an inviting experience when creating my household.",
+      "acceptanceCriteria": [
+        "app/household-setup.tsx with friendly onboarding design",
+        "Welcoming headline: 'Start your shopping adventure!' or similar",
+        "Playful illustration of couple or home",
+        "convex/households.ts has create mutation",
+        "Mutation generates unique 6-character alphanumeric invite code",
+        "Form with floating label input for household name",
+        "Create button with coral color and satisfying animation",
+        "Invite code displayed large with fun copy: 'Share this code with your partner!'",
+        "Copy button with success feedback (checkmark + haptic)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Build household join flow",
+      "description": "As a user, I want to join an existing household using an invite code.",
+      "acceptanceCriteria": [
+        "Join household option on setup screen with 'Have a code?' link",
+        "convex/households.ts has join mutation",
+        "Mutation validates invite code exists",
+        "Mutation enforces max 2 members per household",
+        "Large, spaced input for 6-character code (like OTP input)",
+        "Error messages are friendly: 'Hmm, that code doesn't look right' instead of 'Invalid code'",
+        "Error if household full: 'This household is already full!'",
+        "Success shows celebration animation before redirect",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Create lists Convex queries and mutations",
+      "description": "As a developer, I need backend functions for list management.",
+      "acceptanceCriteria": [
+        "convex/lists.ts created",
+        "getByHousehold query returns non-archived lists for household",
+        "Query validates user is member of household",
+        "create mutation adds new list with name and householdId",
+        "archive mutation sets isArchived to true",
+        "update mutation allows renaming list",
+        "All functions validate authentication",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Build vibrant home screen with list cards",
+      "description": "As a user, I want an energetic home screen that makes me excited to shop.",
+      "acceptanceCriteria": [
+        "app/(tabs)/index.tsx with warm greeting: 'Hey [Name]!' or time-based greeting",
+        "Lists fetched via useQuery with real-time updates",
+        "components/lists/ListCard.tsx with playful design",
+        "Cards have rounded-2xl, warm shadow, coral accent border or gradient",
+        "Each card shows list name in friendly font",
+        "Item count with fun format: '5 items to grab' or '3/8 done!'",
+        "Progress indicator (bar or circular) with teal fill",
+        "Staggered entrance animation for cards on load",
+        "FAB with + icon, coral background, bouncy press animation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Build delightful empty state for home",
+      "description": "As a new user with no lists, I want an encouraging empty state.",
+      "acceptanceCriteria": [
+        "Empty state shows when no lists exist",
+        "Friendly illustration (empty cart, waving avocado, etc.)",
+        "Playful copy: 'Your lists are feeling lonely!' or 'Time to start shopping!'",
+        "Prominent CTA button: 'Create your first list'",
+        "Button has inviting animation (gentle pulse or bounce)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Build fun create list sheet",
+      "description": "As a user, I want a playful experience when creating new lists.",
+      "acceptanceCriteria": [
+        "Bottom sheet or modal with smooth spring animation",
+        "Friendly header: 'New Shopping List' with subtle icon",
+        "Input for list name with floating label",
+        "Optional category chips (Groceries, Costco, Target) with playful icons",
+        "Category chips have satisfying selection animation",
+        "Create button calls lists.create mutation",
+        "Success shows brief celebration before navigating to list",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Create items Convex queries and mutations",
+      "description": "As a developer, I need backend functions for item management.",
+      "acceptanceCriteria": [
+        "convex/items.ts created",
+        "getByList query returns all items for a list",
+        "Query validates user has access via household membership",
+        "add mutation creates item with name, optional quantity/unit",
+        "add mutation records addedBy user",
+        "toggleComplete mutation updates isCompleted, completedBy, completedAt",
+        "update mutation allows editing name, quantity, notes, category",
+        "remove mutation deletes item",
+        "All functions validate authentication",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Build engaging list detail screen",
+      "description": "As a user, I want a fun, functional list view for shopping.",
+      "acceptanceCriteria": [
+        "app/list/[id].tsx with list name in large, friendly header",
+        "Progress summary: '3 of 8 items' with teal progress bar",
+        "Items fetched via useQuery with real-time updates",
+        "components/lists/ListItem.tsx with clean, spacious design",
+        "Each item has rounded checkbox, name, quantity badge",
+        "Completed items have strikethrough with slight fade",
+        "Completed section collapsible with 'Done!' header",
+        "FlashList for performant rendering",
+        "Pull-to-refresh with branded animation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Build sticky add item input",
+      "description": "As a user, I want to quickly add items with a fun input experience.",
+      "acceptanceCriteria": [
+        "components/lists/AddItemInput.tsx pinned at bottom",
+        "Rounded input with placeholder: 'Add an item...'",
+        "Teal accent on focus",
+        "Add button with + icon, coral background",
+        "Input clears with subtle animation after add",
+        "New item slides in from bottom with bounce",
+        "Light haptic feedback on successful add",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Implement satisfying checkbox animation",
+      "description": "As a user, I want checking items off to feel rewarding.",
+      "acceptanceCriteria": [
+        "Checkbox uses react-native-reanimated for smooth animation",
+        "Check animation: circle fills with coral, checkmark draws in",
+        "Subtle scale bounce on completion (1.0 → 1.1 → 1.0)",
+        "Optional: tiny confetti particles on check (3-5 particles)",
+        "Light haptic feedback (Haptics.impactAsync light)",
+        "Completed item text animates to strikethrough",
+        "Partner sees change within 1 second via real-time sync",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Implement playful swipe-to-delete",
+      "description": "As a user, I want a satisfying swipe gesture to remove items.",
+      "acceptanceCriteria": [
+        "react-native-gesture-handler for swipe detection",
+        "Swipe left reveals red background with trash icon",
+        "Background color intensifies as swipe progresses",
+        "Trash icon scales up slightly during swipe",
+        "Release triggers delete with item sliding out",
+        "Light haptic on reveal, medium haptic on delete",
+        "Partner sees deletion in real-time",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Build item edit sheet",
+      "description": "As a user, I want to easily edit item details.",
+      "acceptanceCriteria": [
+        "Long press or tap opens bottom sheet",
+        "Sheet slides up with spring animation",
+        "Edit form: name input, quantity stepper, unit picker, notes textarea",
+        "Quantity stepper with + / - buttons, playful number animation",
+        "Save button in coral, Delete in red outline",
+        "Changes sync to partner in real-time",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Add quantity badges and units",
+      "description": "As a user, I want to see quantities in a fun, glanceable format.",
+      "acceptanceCriteria": [
+        "Quantity displayed as badge/pill next to item name",
+        "Badge uses secondary teal color",
+        "Format: '2 lbs', '1 gallon', '6 ct'",
+        "Unit picker in add/edit with common options",
+        "Picker uses playful chip selection UI",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Display list progress with celebration",
+      "description": "As a user, I want to see progress and celebrate completion.",
+      "acceptanceCriteria": [
+        "ListCard shows progress: '5/8 items' with progress bar",
+        "Progress bar fills with teal, has rounded ends",
+        "100% completion triggers celebration on list detail",
+        "Celebration: confetti burst + 'All done!' message",
+        "Celebration auto-dismisses after 2 seconds",
+        "Option to scan receipt appears after celebration",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Implement list archiving with animation",
+      "description": "As a user, I want to archive lists with satisfying feedback.",
+      "acceptanceCriteria": [
+        "Archive option in header menu (three dots)",
+        "Confirmation with friendly copy: 'Archive this list?'",
+        "Archive animation: card shrinks and fades out",
+        "Success toast: 'List archived! ✓'",
+        "Archived lists accessible in settings",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Add colorful category sorting",
+      "description": "As a user, I want items organized by category with visual distinction.",
+      "acceptanceCriteria": [
+        "constants/categories.ts with categories and colors/icons",
+        "Categories: Produce (green), Dairy (blue), Meat (red), Bakery (orange), Frozen (cyan), Pantry (brown), Beverages (purple), Other (gray)",
+        "Category selector uses colored chips with icons",
+        "Sort by Category groups items under colored headers",
+        "Headers have category icon and playful typography",
+        "Smooth reorder animation when toggling sort",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Show partner avatars on items",
+      "description": "As a user, I want to see who added items in a friendly way.",
+      "acceptanceCriteria": [
+        "Small circular avatar (24px) on each item row",
+        "Avatar positioned at right edge, slightly overlapping",
+        "Shows profile photo or colored initials",
+        "Initials use fun background gradient",
+        "Subtle tooltip on long press: 'Added by [Name]'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Add playful partner activity toasts",
+      "description": "As a user, I want fun notifications when my partner makes changes.",
+      "acceptanceCriteria": [
+        "Toast appears at top when partner adds item",
+        "Toast design: rounded pill with partner avatar + message",
+        "Message: '[Name] added Milk 🥛' with relevant emoji",
+        "Toast slides down with spring animation",
+        "Auto-dismiss after 3 seconds with fade out",
+        "Tapping toast scrolls to new item",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Set up MMKV for local caching",
+      "description": "As a developer, I need MMKV configured for offline data caching.",
+      "acceptanceCriteria": [
+        "react-native-mmkv installed",
+        "MMKV storage instance created in lib/storage.ts",
+        "Helper functions for get/set/remove with JSON serialization",
+        "Storage keys defined for lists and items cache",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Implement friendly offline indicator",
+      "description": "As a user, I want reassuring feedback when I'm offline.",
+      "acceptanceCriteria": [
+        "lib/useNetworkStatus.ts hook using @react-native-community/netinfo",
+        "components/layout/OfflineIndicator.tsx with warm design",
+        "Indicator: yellow banner with cloud icon",
+        "Friendly message: 'You're offline — no worries, we've got your list!'",
+        "Banner slides down smoothly when offline",
+        "Slides up with checkmark when back online",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Cache active lists and items in MMKV",
+      "description": "As a user, I want to see my lists when opening the app offline.",
+      "acceptanceCriteria": [
+        "Lists cached to MMKV after successful query",
+        "Items cached per list after successful query",
+        "On app open, check cache first if offline",
+        "Cached data displayed with offline indicator",
+        "Cache invalidated when data older than 5 minutes and online",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Build offline mutation queue",
+      "description": "As a user, I want changes made offline to sync when I'm back online.",
+      "acceptanceCriteria": [
+        "lib/useOfflineQueue.ts hook created",
+        "Queue stores mutations: { id, fn, args, timestamp }",
+        "Queue persisted in MMKV",
+        "addToQueue function for queueing mutations",
+        "processQueue function for syncing when online",
+        "Queue processed in order by timestamp",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Enable offline item interactions",
+      "description": "As a user, I want to add and check items while shopping offline.",
+      "acceptanceCriteria": [
+        "Adding item offline queues mutation and updates cache",
+        "Checking item offline queues mutation and updates cache",
+        "UI updates immediately with optimistic update",
+        "Queued items show subtle sync icon indicator",
+        "Same satisfying animations work offline",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Implement sync with celebration",
+      "description": "As a user, I want satisfying feedback when offline changes sync.",
+      "acceptanceCriteria": [
+        "Network listener triggers queue processing on reconnect",
+        "Queued mutations sent to Convex in order",
+        "Conflicts resolved via last-write-wins",
+        "Offline banner changes to 'Syncing...' with spinner",
+        "Success: banner shows 'All synced! ✓' then dismisses",
+        "Partner sees synced changes after processing",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Create shopping sessions Convex functions",
+      "description": "As a developer, I need backend functions for shopping session tracking.",
+      "acceptanceCriteria": [
+        "convex/sessions.ts created",
+        "create mutation accepts householdId, totalAmount, storeName, shopperId, listId",
+        "getByHousehold query returns sessions ordered by date",
+        "getByDateRange query for analytics filtering",
+        "totalAmount stored in cents (integer)",
+        "All functions validate authentication",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Build fun receipt camera interface",
+      "description": "As a user, I want an engaging experience when scanning receipts.",
+      "acceptanceCriteria": [
+        "app/scan-receipt.tsx with playful camera UI",
+        "Fun header: 'Snap your receipt!' with camera emoji",
+        "Animated guide frame that pulses subtly",
+        "Capture button: large coral circle with camera icon",
+        "Button has satisfying scale animation on press",
+        "Flash of white on capture like real camera",
+        "Preview shows with 'Looks good!' and 'Retake' options",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "Upload receipt with progress animation",
+      "description": "As a developer, I need receipt upload with engaging feedback.",
+      "acceptanceCriteria": [
+        "convex/storage.ts has generateUploadUrl mutation",
+        "Client uploads image to generated URL",
+        "Upload progress shown with animated progress ring",
+        "Progress ring uses coral color, fills clockwise",
+        "Playful message during upload: 'Crunching numbers...'",
+        "Error shows friendly retry option",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "Integrate Google Cloud Vision OCR action",
+      "description": "As a developer, I need OCR processing for receipt images.",
+      "acceptanceCriteria": [
+        "convex/vision.ts action created",
+        "processReceipt action takes imageId parameter",
+        "Action gets signed URL from Convex storage",
+        "Action calls Google Cloud Vision TEXT_DETECTION API",
+        "Action extracts total using regex patterns",
+        "Returns { extractedTotal, rawText, success }",
+        "GOOGLE_CLOUD_VISION_API_KEY stored in Convex env vars",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Build celebratory receipt confirmation UI",
+      "description": "As a user, I want exciting feedback when my receipt is processed.",
+      "acceptanceCriteria": [
+        "Processing shows animated scanning effect over receipt preview",
+        "Success: confetti burst + large extracted total",
+        "Message: 'Found it! $XX.XX' in friendly typography",
+        "Confirm button: 'That's right!' in coral",
+        "Edit option: 'Not quite' opens manual input",
+        "Failure shows friendly message: 'We couldn't read that' with manual entry",
+        "Processing completes within 5 seconds",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Create shopping session with success animation",
+      "description": "As a user, I want satisfying confirmation when saving my trip.",
+      "acceptanceCriteria": [
+        "Confirm calls sessions.create mutation",
+        "Session records totalAmount, shopperId, sessionDate",
+        "Success shows full-screen celebration",
+        "Celebration: checkmark animation + 'Trip saved!'",
+        "Shows fun stat: 'You've shopped X times this month!'",
+        "Auto-navigate to home after 2 seconds",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "Build vibrant analytics screen",
+      "description": "As a user, I want an engaging view of my spending patterns.",
+      "acceptanceCriteria": [
+        "app/(tabs)/analytics.tsx with warm, inviting design",
+        "Large current month total in friendly format: '$487.32 this month'",
+        "Playful subhead: 'Here's where your groceries went!'",
+        "Query sums totalAmount for current month sessions",
+        "Empty state with encouraging illustration",
+        "Empty message: 'Scan your first receipt to unlock insights!'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "Add animated spending chart",
+      "description": "As a user, I want a beautiful, animated spending visualization.",
+      "acceptanceCriteria": [
+        "components/analytics/SpendingChart.tsx using victory-native or similar",
+        "Bar chart with coral bars, rounded tops",
+        "Bars animate in sequentially on load",
+        "X-axis: last 6 months with friendly labels (Jan, Feb)",
+        "Y-axis: spending with $ format",
+        "Tapping bar shows tooltip with exact amount",
+        "Chart accessible via VoiceOver",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "Add fun month-over-month comparison",
+      "description": "As a user, I want engaging comparison of my spending trends.",
+      "acceptanceCriteria": [
+        "Comparison card below chart",
+        "Shows: 'vs last month' with arrow indicator",
+        "Down arrow + green: 'You spent $50 less! 🎉'",
+        "Up arrow + coral: 'You spent $30 more'",
+        "Percentage badge with trend direction",
+        "First month shows: 'Keep shopping to see trends!'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-042",
+      "title": "Build warm settings screen",
+      "description": "As a user, I want a friendly settings experience.",
+      "acceptanceCriteria": [
+        "app/(tabs)/settings.tsx with warm design",
+        "Household section with large name display",
+        "Partner avatars side by side with names",
+        "Invite code in copyable card format",
+        "Copy button with checkmark success animation",
+        "Sign out button in outline style at bottom",
+        "Friendly confirmation: 'See you soon!'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043",
+      "title": "Add shopping session history",
+      "description": "As a user, I want to browse my past shopping trips.",
+      "acceptanceCriteria": [
+        "Session history section on analytics screen",
+        "Cards show: date, amount, store name (if set)",
+        "Cards have receipt thumbnail if available",
+        "Friendly date format: 'Yesterday', 'Last Tuesday'",
+        "Tapping card shows receipt image full screen",
+        "Empty state: 'Your shopping history will appear here'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044",
+      "title": "Add delightful tab bar",
+      "description": "As a user, I want a fun, animated tab navigation.",
+      "acceptanceCriteria": [
+        "Custom tab bar with rounded icons",
+        "Icons: Home (house), Analytics (chart), Settings (gear)",
+        "Active tab has coral fill with subtle glow",
+        "Inactive tabs in warm gray",
+        "Scale animation on tap (0.9 → 1.0)",
+        "Labels below icons in friendly font",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-045",
+      "title": "Add accessibility labels throughout",
+      "description": "As a user with disabilities, I need the app to work with VoiceOver.",
+      "acceptanceCriteria": [
+        "All buttons have descriptive accessibilityLabel",
+        "Checkboxes announce: 'Milk, unchecked' / 'Milk, checked'",
+        "Progress announces: '5 of 8 items complete'",
+        "Charts have summary: 'Spending chart, January through June'",
+        "Tab bar icons have labels",
+        "Celebration animations have accessible announcements",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-046",
+      "title": "Support Dynamic Type and contrast",
+      "description": "As a user with vision needs, I need accessible text and colors.",
+      "acceptanceCriteria": [
+        "Text sizes scale with Dynamic Type settings",
+        "Layout adapts to 200%+ scaling without overlap",
+        "All text meets 4.5:1 contrast on backgrounds",
+        "Interactive elements work without color alone",
+        "Dark mode maintains contrast ratios",
+        "Typecheck passes"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047",
+      "title": "Add loading states with personality",
+      "description": "As a user, I want fun feedback during loading moments.",
+      "acceptanceCriteria": [
+        "Custom loading spinner with CartShare branding",
+        "Spinner uses coral/teal gradient rotation",
+        "Skeleton screens for list loading with shimmer",
+        "Skeleton uses warm gray tones",
+        "Pull-to-refresh uses branded animation",
+        "Loading messages rotate: 'Fetching groceries...', 'Almost there...'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-048",
+      "title": "Final polish and integration testing",
+      "description": "As a developer, I need to verify the complete delightful experience.",
+      "acceptanceCriteria": [
+        "Complete flow: OAuth → household → list → items → receipt → analytics",
+        "All animations smooth at 60fps",
+        "Haptic feedback works on physical device",
+        "Real-time sync verified between devices",
+        "Offline flow works with proper feedback",
+        "Empty states appear correctly",
+        "Dark mode looks polished throughout",
+        "App launches in under 2 seconds",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
