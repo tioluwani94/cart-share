@@ -51,24 +51,18 @@ function LoadingSpinner() {
   );
 }
 
-/**
- * Google icon SVG as a simple component
- */
-function GoogleIcon() {
-  return (
-    <View className="mr-3 h-5 w-5 items-center justify-center">
-      <Text className="text-lg">G</Text>
-    </View>
-  );
-}
-
 export default function WelcomeScreen() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const { startOAuthFlow: startGoogleOAuth } = useOAuth({
+    strategy: "oauth_google",
+  });
+  const { startOAuthFlow: startAppleOAuth } = useOAuth({
+    strategy: "oauth_apple",
+  });
 
   // Redirect URL for OAuth callback
   const redirectUrl = Linking.createURL("/(auth)/welcome");
@@ -78,7 +72,7 @@ export default function WelcomeScreen() {
       setIsLoading(true);
       setError(null);
 
-      const { createdSessionId, setActive } = await startOAuthFlow({
+      const { createdSessionId, setActive } = await startGoogleOAuth({
         redirectUrl,
       });
 
@@ -96,7 +90,32 @@ export default function WelcomeScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [startOAuthFlow, redirectUrl, router]);
+  }, [startGoogleOAuth, redirectUrl, router]);
+
+  const handleAppleSignIn = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { createdSessionId, setActive } = await startAppleOAuth({
+        redirectUrl,
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+
+        // TODO: Check if user has a household
+        // For now, redirect to household setup for new users
+        // In future, we'll check Convex for existing household membership
+        router.replace("/household-setup");
+      }
+    } catch (err) {
+      console.error("OAuth error:", err);
+      setError("Something went wrong. Please try again!");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startAppleOAuth, redirectUrl, router]);
 
   // If already signed in, redirect
   if (isSignedIn) {
@@ -188,7 +207,23 @@ export default function WelcomeScreen() {
                 </View>
               </Button>
 
-              {/* Apple Sign-In will be added in US-007 */}
+              {/* Apple Sign-In - styled per Apple HIG */}
+              <Button
+                onPress={handleAppleSignIn}
+                size="lg"
+                variant="outline"
+                className="mt-3 w-full border-2 border-warm-gray-900 bg-warm-gray-900"
+                accessibilityLabel="Continue with Apple"
+              >
+                <View className="flex-row items-center">
+                  <View className="mr-3 items-center justify-center">
+                    <Text className="text-xl text-white"></Text>
+                  </View>
+                  <Text className="text-lg font-semibold text-white">
+                    Continue with Apple
+                  </Text>
+                </View>
+              </Button>
 
               <Text className="mt-6 text-center text-sm text-warm-gray-400">
                 By continuing, you agree to our Terms of Service
