@@ -72,3 +72,19 @@
 - Created components/ui/index.ts barrel export
 - All components use brand colors from tailwind config
 - Typecheck passes
+
+## US-005: Integrate Clerk authentication provider [COMPLETED]
+- Installed @clerk/clerk-expo (v2.19.17) for authentication
+- Installed expo-secure-store (v15.0.8) for secure token storage
+- Created convex/auth.config.ts for Clerk JWT validation:
+  - Configures Convex to validate JWTs from Clerk
+  - Uses CLERK_JWT_ISSUER_DOMAIN environment variable
+- Updated app/_layout.tsx with ConvexProviderWithClerk wrapper:
+  - Initialized ConvexReactClient with EXPO_PUBLIC_CONVEX_URL
+  - Created tokenCache using SecureStore for auth persistence
+  - Implemented getToken/saveToken methods with error handling
+  - ClerkProvider wraps the app with publishable key from EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+  - ClerkLoaded ensures auth is ready before rendering
+  - ConvexProviderWithClerk connects Convex to Clerk authentication
+- Auth state persists across app restarts via SecureStore (iOS Keychain, Android Keystore)
+- Typecheck passes
