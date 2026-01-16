@@ -12,6 +12,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "convex": "^1.31.5",
     "expo": "~52.0.0",
     "expo-router": "~4.0.0",
     "expo-status-bar": "~2.0.0",

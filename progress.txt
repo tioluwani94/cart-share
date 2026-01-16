@@ -14,3 +14,21 @@
 - Verified metro.config.js configured with withNativeWind
 - Verified nativewind-env.d.ts reference in tsconfig.json
 - Typecheck passes
+
+## US-002: Set up Convex backend with schema [COMPLETED]
+- Installed convex package (v1.31.5)
+- Created convex/schema.ts with complete database schema:
+  - users table (clerkId, email, name, imageUrl, createdAt, updatedAt)
+    - Indexes: by_clerk_id, by_email
+  - households table (name, inviteCode, ownerId, createdAt, updatedAt)
+    - Indexes: by_owner, by_invite_code
+  - householdMembers table (householdId, userId, role, joinedAt)
+    - Indexes: by_household, by_user, by_household_and_user
+  - lists table (householdId, name, category, isArchived, createdBy, createdAt, updatedAt)
+    - Indexes: by_household, by_household_and_archived, by_created_by
+  - items table (listId, name, quantity, unit, notes, category, isCompleted, addedBy, completedBy, completedAt, createdAt, updatedAt)
+    - Indexes: by_list, by_list_and_completed, by_added_by
+  - shoppingSessions table (householdId, listId, totalAmount, storeName, shopperId, receiptImageId, sessionDate, createdAt)
+    - Indexes: by_household, by_household_and_date, by_shopper, by_list
+- Note: npx convex dev requires user authentication (run `pnpm dlx convex dev` to connect)
+- Typecheck passes
