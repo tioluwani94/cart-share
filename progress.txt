@@ -111,3 +111,18 @@
   - Auto-redirect to tabs if already signed in
 - Created app/household-setup.tsx placeholder for post-auth redirect
 - Typecheck passes
+
+## US-007: Add Apple Sign-In to welcome screen [COMPLETED]
+- Added Apple OAuth using Clerk's oauth_apple strategy
+- Created handleAppleSignIn callback with same flow as Google:
+  - Shows loading spinner during authentication
+  - Displays friendly error message on failure
+  - Redirects to household-setup on success
+- Added "Continue with Apple" button styled per Apple HIG:
+  - Black background (warm-gray-900) with white text
+  - Apple logo icon () using SF Symbols
+  - Positioned below Google button with mt-3 spacing
+  - Same satisfying press animation as Google button (scale 0.97)
+  - Proper accessibility label for VoiceOver
+- Removed unused GoogleIcon function
+- Typecheck passes
