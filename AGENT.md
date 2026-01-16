@@ -34,7 +34,7 @@ CartShare is a real-time collaborative grocery shopping mobile app for couples. 
 - Test file organization
 
 ### Agent MUST ask before:
-- Adding new npm dependencies
+- Adding new pnpm dependencies
 - Modifying Convex schema (schema.ts)
 - Changing authentication flow
 - Adding new environment variables
@@ -86,7 +86,7 @@ CartShare is a real-time collaborative grocery shopping mobile app for couples. 
 ## Validation Checklist
 
 Before marking any task complete:
-- [ ] TypeScript compiles without errors (`npx tsc --noEmit`)
+- [ ] TypeScript compiles without errors (`pnpm tsc --noEmit`)
 - [ ] Code follows NativeWind patterns (no StyleSheet)
 - [ ] Convex functions validate authentication
 - [ ] Convex queries use indexes for filtered data
@@ -141,9 +141,9 @@ Before marking any task complete:
 ## Emergency Procedures
 
 ### If Convex deployment fails:
-1. Check `npx convex logs` for errors
+1. Check `pnpm dlx convex logs` for errors
 2. Verify schema changes are backward compatible
-3. Roll back if needed with `npx convex deploy --cmd 'git checkout HEAD~1 convex/'`
+3. Roll back if needed with `pnpm dlx convex deploy --cmd 'git checkout HEAD~1 convex/'`
 
 ### If auth breaks:
 1. Clear SecureStore tokens

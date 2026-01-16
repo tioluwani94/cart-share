@@ -2,10 +2,10 @@
 
 ## Build Commands
 
-- `npm run start` - Start Expo development server
-- `npm run ios` - Run on iOS simulator
-- `npx convex dev` - Start Convex development server
-- `npx convex deploy` - Deploy Convex to production
+- `pnpm start` - Start Expo development server
+- `pnpm ios` - Run on iOS simulator
+- `pnpm dlx convex dev` - Start Convex development server
+- `pnpm dlx convex deploy` - Deploy Convex to production
 
 ## Code Style
 
