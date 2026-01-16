@@ -32,3 +32,15 @@
     - Indexes: by_household, by_household_and_date, by_shopper, by_list
 - Note: npx convex dev requires user authentication (run `pnpm dlx convex dev` to connect)
 - Typecheck passes
+
+## US-003: Create base navigation structure with Expo Router [COMPLETED]
+- Created app/(auth)/_layout.tsx for auth flow with Stack navigator
+- Created app/(auth)/welcome.tsx placeholder for OAuth sign-in screen
+- Created app/(tabs)/_layout.tsx with tab navigator (Home, Analytics, Settings)
+- Created app/(tabs)/index.tsx placeholder for home/lists with empty state
+- Created app/(tabs)/analytics.tsx placeholder with empty state
+- Created app/(tabs)/settings.tsx placeholder with empty state
+- Created app/list/[id].tsx placeholder for list detail with dynamic routing
+- Created app/+not-found.tsx with playful 404 page
+- Removed root app/index.tsx (tabs/index.tsx is now the home screen)
+- Typecheck passes
