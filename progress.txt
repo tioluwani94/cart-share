@@ -126,3 +126,17 @@
   - Proper accessibility label for VoiceOver
 - Removed unused GoogleIcon function
 - Typecheck passes
+
+## US-008: Create Convex user sync from Clerk webhook [COMPLETED]
+- Created convex/users.ts with user management functions:
+  - createOrUpdate internal mutation for webhook sync
+  - getByClerkId query for user lookup by Clerk ID
+  - getCurrentUser query for authenticated user lookup
+- Created convex/http.ts with Clerk webhook endpoint:
+  - POST /clerk-webhook route
+  - Validates Svix signature using CLERK_WEBHOOK_SECRET
+  - Handles user.created and user.updated events
+  - Extracts email, name, and imageUrl from Clerk payload
+- Installed svix package (v1.84.1) for webhook signature verification
+- User lookup by clerkId works via by_clerk_id index
+- Typecheck passes
