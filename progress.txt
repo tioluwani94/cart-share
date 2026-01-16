@@ -44,3 +44,31 @@
 - Created app/+not-found.tsx with playful 404 page
 - Removed root app/index.tsx (tabs/index.tsx is now the home screen)
 - Typecheck passes
+
+## US-004: Create playful reusable UI components [COMPLETED]
+- Installed clsx and tailwind-merge packages for className utility
+- Installed expo-haptics for haptic feedback
+- Created lib/cn.ts with clsx + tailwind-merge utility function
+- Created components/ui/Button.tsx:
+  - Variants: primary (coral), secondary (teal), outline, ghost
+  - Sizes: sm (40px), md (48px), lg (56px) - all meeting 48pt touch target minimum
+  - Scale-down press animation (0.97) using react-native-reanimated
+  - Loading state with ActivityIndicator
+  - Full accessibility support (role, state, label)
+- Created components/ui/Card.tsx:
+  - Rounded-2xl corners with warm shadow styling
+  - Optional pressable with scale animation (0.98)
+  - CardHeader, CardContent, CardFooter sub-components
+- Created components/ui/Input.tsx:
+  - Floating label animation using react-native-reanimated
+  - Label moves up and scales down when focused/filled
+  - Teal focus border, coral error border
+  - Friendly error message display
+- Created components/ui/Checkbox.tsx:
+  - Check animation with coral fill and checkmark draw
+  - Scale bounce on completion (1.0 → 1.1 → 1.0)
+  - Light haptic feedback via expo-haptics
+  - Full accessibility support for VoiceOver
+- Created components/ui/index.ts barrel export
+- All components use brand colors from tailwind config
+- Typecheck passes
