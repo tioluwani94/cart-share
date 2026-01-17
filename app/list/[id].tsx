@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ListItem, AddItemInput, EditItemSheet } from "@/components/lists";
 import BottomSheet from "@gorhom/bottom-sheet";
+import { ChevronLeft, ChevronDown } from "lucide-react-native";
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -187,7 +188,7 @@ export default function ListDetailScreen() {
             className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100"
             accessibilityLabel="Go back"
           >
-            <Text className="text-lg">←</Text>
+            <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
           </Pressable>
           <View className="flex-1">
             <View className="flex-row items-center">
@@ -282,7 +283,7 @@ export default function ListDetailScreen() {
                 accessibilityLabel={`${completedExpanded ? "Collapse" : "Expand"} completed items`}
               >
                 <Animated.View style={chevronStyle}>
-                  <Text className="text-lg text-warm-gray-500">▼</Text>
+                  <ChevronDown size={20} color="#78716C" strokeWidth={2} />
                 </Animated.View>
                 <Text className="ml-2 text-base font-semibold text-warm-gray-600">
                   Done! ({completedItems.length})

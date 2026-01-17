@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
-import { View, TextInput, Pressable, Keyboard } from "react-native";
+import { View, TextInput, Pressable } from "react-native";
+import { Plus } from "lucide-react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -139,13 +140,11 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
           accessibilityRole="button"
           accessibilityState={{ disabled: isAddDisabled }}
         >
-          <Animated.Text
-            className={`text-2xl font-bold ${
-              isAddDisabled ? "text-warm-gray-500" : "text-white"
-            }`}
-          >
-            +
-          </Animated.Text>
+          <Plus
+            size={24}
+            color={isAddDisabled ? "#78716C" : "#FFFFFF"}
+            strokeWidth={2.5}
+          />
         </AnimatedPressable>
       </View>
     </View>

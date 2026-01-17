@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { ChevronLeft } from "lucide-react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -139,11 +140,11 @@ export default function JoinHouseholdScreen() {
         <Animated.View entering={FadeIn.delay(100)}>
           <Pressable
             onPress={() => router.back()}
-            className="mb-4 self-start rounded-full p-2"
+            className="mb-4 h-10 w-10 items-center justify-center self-start rounded-full bg-warm-gray-100"
             accessibilityLabel="Go back"
             accessibilityRole="button"
           >
-            <Text className="text-2xl">←</Text>
+            <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
           </Pressable>
         </Animated.View>
 

@@ -19,6 +19,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import BottomSheet from "@gorhom/bottom-sheet";
+import { Plus } from "lucide-react-native";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -163,7 +164,7 @@ export default function HomeScreen() {
           accessibilityRole="button"
           className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-coral shadow-warm-lg"
         >
-          <Text className="text-2xl font-light text-white">+</Text>
+          <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
         </AnimatedPressable>
       )}
 

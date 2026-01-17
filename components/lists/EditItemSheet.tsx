@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, forwardRef, useEffect } from "react";
-import { View, Text, Pressable, TextInput, Keyboard, ScrollView } from "react-native";
+import { View, Text, Pressable, TextInput, Keyboard } from "react-native";
+import { Pencil, Minus, Plus, Trash2 } from "lucide-react-native";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -147,13 +148,11 @@ function QuantityStepper({
         accessibilityLabel="Decrease quantity"
         accessibilityRole="button"
       >
-        <Text
-          className={`text-2xl font-bold ${
-            value <= 0 ? "text-warm-gray-300" : "text-warm-gray-700"
-          }`}
-        >
-          −
-        </Text>
+        <Minus
+          size={20}
+          color={value <= 0 ? "#D4D2CC" : "#57534E"}
+          strokeWidth={2.5}
+        />
       </Pressable>
 
       {/* Quantity display */}
@@ -173,7 +172,7 @@ function QuantityStepper({
         accessibilityLabel="Increase quantity"
         accessibilityRole="button"
       >
-        <Text className="text-2xl font-bold text-white">+</Text>
+        <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
       </Pressable>
     </View>
   );
@@ -334,8 +333,8 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
         >
           {/* Header */}
           <View className="mb-6 flex-row items-center justify-center">
-            <Text className="mr-2 text-xl">✏️</Text>
-            <Text className="text-lg font-semibold text-warm-gray-900">
+            <Pencil size={20} color="#FF6B6B" strokeWidth={2} />
+            <Text className="ml-2 text-lg font-semibold text-warm-gray-900">
               Edit Item
             </Text>
           </View>
@@ -422,7 +421,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
             <Pressable
               onPress={handleDelete}
               disabled={isSaving || isDeleting}
-              className={`min-h-[56px] items-center justify-center rounded-2xl border-2 ${
+              className={`min-h-[56px] flex-row items-center justify-center rounded-2xl border-2 ${
                 isSaving || isDeleting
                   ? "border-warm-gray-200"
                   : "border-red-500"
@@ -430,8 +429,13 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
               accessibilityLabel="Delete item"
               accessibilityRole="button"
             >
+              <Trash2
+                size={18}
+                color={isSaving || isDeleting ? "#A3A096" : "#EF4444"}
+                strokeWidth={2}
+              />
               <Text
-                className={`text-base font-semibold ${
+                className={`ml-2 text-base font-semibold ${
                   isSaving || isDeleting ? "text-warm-gray-400" : "text-red-500"
                 }`}
               >

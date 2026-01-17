@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { Check, Trash2 } from "lucide-react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -348,7 +349,7 @@ export function ListItem({
           ]}
         >
           <Animated.View style={trashIconStyle}>
-            <TrashIcon />
+            <Trash2 size={22} color="#FFFFFF" strokeWidth={2} />
           </Animated.View>
         </Animated.View>
 
@@ -394,7 +395,7 @@ export function ListItem({
                     className="h-7 w-7 items-center justify-center rounded-full border-2"
                   >
                     <Animated.View style={checkmarkStyle}>
-                      <CheckIcon />
+                      <Check size={14} color="#FFFFFF" strokeWidth={3} />
                     </Animated.View>
                   </Animated.View>
                 </AnimatedPressable>
@@ -463,75 +464,3 @@ export function ListItem({
   );
 }
 
-function CheckIcon() {
-  return (
-    <View className="h-3 w-3">
-      <View
-        className="absolute h-[2px] w-[6px] bg-white"
-        style={{
-          top: 7,
-          left: 1,
-          transform: [{ rotate: "45deg" }],
-        }}
-      />
-      <View
-        className="absolute h-[2px] w-[10px] bg-white"
-        style={{
-          top: 5,
-          left: 3,
-          transform: [{ rotate: "-45deg" }],
-        }}
-      />
-    </View>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <View className="h-6 w-6 items-center justify-center">
-      {/* Trash can body */}
-      <View
-        className="absolute h-4 w-4 rounded-b-sm bg-white"
-        style={{
-          bottom: 2,
-        }}
-      />
-      {/* Trash can lid */}
-      <View
-        className="absolute h-1 w-5 rounded-t-sm bg-white"
-        style={{
-          top: 3,
-        }}
-      />
-      {/* Trash can handle */}
-      <View
-        className="absolute h-1 w-2 rounded-t-full bg-white"
-        style={{
-          top: 1,
-        }}
-      />
-      {/* Trash lines */}
-      <View
-        className="absolute h-2.5 w-0.5 rounded-full bg-red-500"
-        style={{
-          bottom: 4,
-          left: 8,
-        }}
-      />
-      <View
-        className="absolute h-2.5 w-0.5 rounded-full bg-red-500"
-        style={{
-          bottom: 4,
-          left: 11,
-        }}
-      />
-      <View
-        className="absolute h-2.5 w-0.5 rounded-full bg-red-500"
-        style={{
-          bottom: 4,
-          left: 14,
-        }}
-      />
-    </View>
-  );
-}

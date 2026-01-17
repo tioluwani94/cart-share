@@ -1,4 +1,5 @@
-import { Pressable, View } from "react-native";
+import { Pressable } from "react-native";
+import { Check } from "lucide-react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -109,33 +110,9 @@ export function Checkbox({
         className="h-6 w-6 items-center justify-center rounded-lg border-2"
       >
         <Animated.View style={checkmarkAnimatedStyle}>
-          <CheckIcon />
+          <Check size={14} color="#FFFFFF" strokeWidth={3} />
         </Animated.View>
       </Animated.View>
     </AnimatedPressable>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <View className="h-3 w-3">
-      {/* Simple checkmark using Views */}
-      <View
-        className="absolute h-[2px] w-[6px] bg-white"
-        style={{
-          top: 7,
-          left: 1,
-          transform: [{ rotate: "45deg" }],
-        }}
-      />
-      <View
-        className="absolute h-[2px] w-[10px] bg-white"
-        style={{
-          top: 5,
-          left: 3,
-          transform: [{ rotate: "-45deg" }],
-        }}
-      />
-    </View>
   );
 }
