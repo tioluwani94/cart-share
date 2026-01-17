@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -10,10 +10,14 @@ import Animated, {
   withDelay,
   interpolateColor,
   runOnJS,
+  interpolate,
+  Extrapolation,
+  Easing,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 import { Id } from "@/convex/_generated/dataModel";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface ListItemProps {
   id: Id<"items">;
@@ -22,8 +26,12 @@ interface ListItemProps {
   unit?: string;
   isCompleted: boolean;
   onToggle: (itemId: Id<"items">) => void;
+  onDelete?: (itemId: Id<"items">) => void;
   index: number;
 }
+
+const DELETE_THRESHOLD = -80;
+const SWIPE_REVEAL_THRESHOLD = -40;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -94,6 +102,7 @@ export function ListItem({
   unit,
   isCompleted,
   onToggle,
+  onDelete,
   index,
 }: ListItemProps) {
   const scale = useSharedValue(1);
@@ -102,6 +111,14 @@ export function ListItem({
   const strikethroughProgress = useSharedValue(isCompleted ? 1 : 0);
   const textOpacity = useSharedValue(isCompleted ? 0.7 : 1);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Swipe gesture values
+  const translateX = useSharedValue(0);
+  const itemHeight = useSharedValue(60);
+  const marginBottom = useSharedValue(12);
+  const opacity = useSharedValue(1);
+  const hasTriggeredRevealHaptic = useSharedValue(false);
 
   const triggerHaptic = () => {
     try {
@@ -111,10 +128,23 @@ export function ListItem({
     }
   };
 
+  const triggerMediumHaptic = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      // Haptics not available
+    }
+  };
+
   const triggerConfetti = () => {
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 800);
   };
+
+  const handleDelete = useCallback(() => {
+    setIsDeleting(true);
+    onDelete?.(id);
+  }, [id, onDelete]);
 
   const handleToggle = () => {
     const newCompleted = !isCompleted;
@@ -177,6 +207,96 @@ export function ListItem({
     opacity: strikethroughProgress.value,
   }));
 
+  // Swipe gesture for delete
+  const swipeGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-10, 10])
+    .onUpdate((event) => {
+      // Only allow left swipe
+      if (event.translationX < 0) {
+        translateX.value = event.translationX;
+
+        // Trigger haptic on reveal threshold
+        if (event.translationX < SWIPE_REVEAL_THRESHOLD && !hasTriggeredRevealHaptic.value) {
+          hasTriggeredRevealHaptic.value = true;
+          runOnJS(triggerHaptic)();
+        } else if (event.translationX > SWIPE_REVEAL_THRESHOLD) {
+          hasTriggeredRevealHaptic.value = false;
+        }
+      }
+    })
+    .onEnd((event) => {
+      if (event.translationX < DELETE_THRESHOLD) {
+        // Delete the item
+        runOnJS(triggerMediumHaptic)();
+        translateX.value = withTiming(-400, { duration: 200 });
+        itemHeight.value = withDelay(100, withTiming(0, { duration: 200 }));
+        marginBottom.value = withDelay(100, withTiming(0, { duration: 200 }));
+        opacity.value = withDelay(100, withTiming(0, { duration: 150 }));
+        runOnJS(handleDelete)();
+      } else {
+        // Snap back
+        translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+        hasTriggeredRevealHaptic.value = false;
+      }
+    });
+
+  // Animated styles for swipe
+  const swipeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    height: itemHeight.value,
+    marginBottom: marginBottom.value,
+    opacity: opacity.value,
+    overflow: "hidden" as const,
+  }));
+
+  // Background color intensifies as swipe progresses
+  const deleteBackgroundStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      translateX.value,
+      [0, -40, -80, -120],
+      [0, 0.3, 0.7, 1],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      backgroundColor: interpolateColor(
+        progress,
+        [0, 1],
+        ["#FEE2E2", "#EF4444"] // light red to red
+      ),
+      opacity: interpolate(
+        translateX.value,
+        [0, -20],
+        [0, 1],
+        Extrapolation.CLAMP
+      ),
+    };
+  });
+
+  // Trash icon scales up during swipe
+  const trashIconStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      translateX.value,
+      [0, -40, -80],
+      [0.8, 1, 1.2],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ scale }],
+      opacity: interpolate(
+        translateX.value,
+        [0, -30],
+        [0, 1],
+        Extrapolation.CLAMP
+      ),
+    };
+  });
+
   // Format quantity display
   const quantityDisplay =
     quantity && quantity > 0
@@ -189,96 +309,131 @@ export function ListItem({
     <Animated.View
       entering={FadeIn.delay(index * 50).duration(300)}
       exiting={FadeOut.duration(200)}
-      className="mb-3"
+      style={containerAnimatedStyle}
     >
-      <Pressable
-        onPress={handleToggle}
-        className="flex-row items-center rounded-2xl bg-white px-4 py-4"
-        style={{
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isCompleted }}
-        accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}`}
-      >
-        {/* Checkbox with confetti */}
-        <View className="relative">
-          <AnimatedPressable
-            onPress={handleToggle}
-            style={checkboxContainerStyle}
-            className="mr-4"
-          >
-            <Animated.View
-              style={checkboxFillStyle}
-              className="h-7 w-7 items-center justify-center rounded-full border-2"
-            >
-              <Animated.View style={checkmarkStyle}>
-                <CheckIcon />
-              </Animated.View>
-            </Animated.View>
-          </AnimatedPressable>
+      <View className="relative overflow-hidden rounded-2xl">
+        {/* Delete background with trash icon */}
+        <Animated.View
+          style={[
+            deleteBackgroundStyle,
+            {
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+              borderRadius: 16,
+              justifyContent: "center",
+              alignItems: "flex-end",
+              paddingRight: 24,
+            },
+          ]}
+        >
+          <Animated.View style={trashIconStyle}>
+            <TrashIcon />
+          </Animated.View>
+        </Animated.View>
 
-          {/* Confetti particles - 5 tiny particles */}
-          {showConfetti &&
-            CONFETTI_EMOJIS.map((emoji, i) => (
-              <ConfettiParticle
-                key={i}
-                emoji={emoji}
-                delay={i * 50}
-                startX={(i - 2) * 8}
-              />
-            ))}
-        </View>
-
-        {/* Item name and quantity */}
-        <View className="flex-1 flex-row items-center">
-          <View className="relative flex-1">
-            <Animated.Text
-              style={textAnimatedStyle}
-              className={`text-base font-medium ${
-                isCompleted ? "text-warm-gray-400" : "text-warm-gray-800"
-              }`}
-              numberOfLines={2}
+        {/* Swipeable item content */}
+        <GestureDetector gesture={swipeGesture}>
+          <Animated.View style={swipeAnimatedStyle}>
+            <Pressable
+              onPress={handleToggle}
+              className="flex-row items-center rounded-2xl bg-white px-4 py-4"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isCompleted }}
+              accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}. Swipe left to delete.`}
+              accessibilityActions={[{ name: "delete", label: "Delete item" }]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === "delete") {
+                  handleDelete();
+                }
+              }}
             >
-              {name}
-            </Animated.Text>
-            {/* Animated strikethrough line */}
-            <Animated.View
-              style={[
-                strikethroughStyle,
-                {
-                  position: "absolute",
-                  height: 1.5,
-                  backgroundColor: "#A3A096",
-                  top: "50%",
-                  left: 0,
-                },
-              ]}
-            />
-          </View>
+              {/* Checkbox with confetti */}
+              <View className="relative">
+                <AnimatedPressable
+                  onPress={handleToggle}
+                  style={checkboxContainerStyle}
+                  className="mr-4"
+                >
+                  <Animated.View
+                    style={checkboxFillStyle}
+                    className="h-7 w-7 items-center justify-center rounded-full border-2"
+                  >
+                    <Animated.View style={checkmarkStyle}>
+                      <CheckIcon />
+                    </Animated.View>
+                  </Animated.View>
+                </AnimatedPressable>
 
-          {/* Quantity badge */}
-          {quantityDisplay && (
-            <View
-              className={`ml-3 rounded-full px-3 py-1 ${
-                isCompleted ? "bg-warm-gray-200" : "bg-teal/20"
-              }`}
-            >
-              <Text
-                className={`text-sm font-medium ${
-                  isCompleted ? "text-warm-gray-400" : "text-teal"
-                }`}
-              >
-                {quantityDisplay}
-              </Text>
-            </View>
-          )}
-        </View>
-      </Pressable>
+                {/* Confetti particles - 5 tiny particles */}
+                {showConfetti &&
+                  CONFETTI_EMOJIS.map((emoji, i) => (
+                    <ConfettiParticle
+                      key={i}
+                      emoji={emoji}
+                      delay={i * 50}
+                      startX={(i - 2) * 8}
+                    />
+                  ))}
+              </View>
+
+              {/* Item name and quantity */}
+              <View className="flex-1 flex-row items-center">
+                <View className="relative flex-1">
+                  <Animated.Text
+                    style={textAnimatedStyle}
+                    className={`text-base font-medium ${
+                      isCompleted ? "text-warm-gray-400" : "text-warm-gray-800"
+                    }`}
+                    numberOfLines={2}
+                  >
+                    {name}
+                  </Animated.Text>
+                  {/* Animated strikethrough line */}
+                  <Animated.View
+                    style={[
+                      strikethroughStyle,
+                      {
+                        position: "absolute",
+                        height: 1.5,
+                        backgroundColor: "#A3A096",
+                        top: "50%",
+                        left: 0,
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Quantity badge */}
+                {quantityDisplay && (
+                  <View
+                    className={`ml-3 rounded-full px-3 py-1 ${
+                      isCompleted ? "bg-warm-gray-200" : "bg-teal/20"
+                    }`}
+                  >
+                    <Text
+                      className={`text-sm font-medium ${
+                        isCompleted ? "text-warm-gray-400" : "text-teal"
+                      }`}
+                    >
+                      {quantityDisplay}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          </Animated.View>
+        </GestureDetector>
+      </View>
     </Animated.View>
   );
 }
@@ -300,6 +455,56 @@ function CheckIcon() {
           top: 5,
           left: 3,
           transform: [{ rotate: "-45deg" }],
+        }}
+      />
+    </View>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <View className="h-6 w-6 items-center justify-center">
+      {/* Trash can body */}
+      <View
+        className="absolute h-4 w-4 rounded-b-sm bg-white"
+        style={{
+          bottom: 2,
+        }}
+      />
+      {/* Trash can lid */}
+      <View
+        className="absolute h-1 w-5 rounded-t-sm bg-white"
+        style={{
+          top: 3,
+        }}
+      />
+      {/* Trash can handle */}
+      <View
+        className="absolute h-1 w-2 rounded-t-full bg-white"
+        style={{
+          top: 1,
+        }}
+      />
+      {/* Trash lines */}
+      <View
+        className="absolute h-2.5 w-0.5 rounded-full bg-red-500"
+        style={{
+          bottom: 4,
+          left: 8,
+        }}
+      />
+      <View
+        className="absolute h-2.5 w-0.5 rounded-full bg-red-500"
+        style={{
+          bottom: 4,
+          left: 11,
+        }}
+      />
+      <View
+        className="absolute h-2.5 w-0.5 rounded-full bg-red-500"
+        style={{
+          bottom: 4,
+          left: 14,
         }}
       />
     </View>

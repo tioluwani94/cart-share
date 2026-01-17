@@ -351,3 +351,88 @@
   - List not found error state with "Go Back" button
 - Updated components/lists/index.ts to export ListItem
 - Typecheck passes
+
+## US-017: Build sticky add item input [COMPLETED]
+- Created components/lists/AddItemInput.tsx pinned at bottom:
+  - Uses absolute positioning with bottom: 0 for sticky behavior
+  - Top border and shadow for visual separation from list
+  - Rounded-2xl input field with warm-gray background
+  - Placeholder: "Add an item..."
+  - Teal border accent on focus (2px border-teal)
+  - TextInput with returnKeyType="done" for quick submission
+- Add button with coral background:
+  - Large + icon centered in 48x48 rounded-2xl button
+  - Disabled state with warm-gray-300 background
+  - Scale spring animation on press (0.9 → 1.0)
+  - Bounce animation on submit (0.85 → 1.0)
+- Input clear animation after successful add:
+  - Subtle opacity fade (1.0 → 0.3 → 1.0)
+  - Input value cleared after mutation succeeds
+  - Focus maintained for quick consecutive adds
+- Light haptic feedback:
+  - ImpactFeedbackStyle.Light on successful add
+  - NotificationFeedbackType.Error on failure
+- Integrated into app/list/[id].tsx:
+  - Added addItem mutation import
+  - Created handleAddItem callback
+  - Added 100px bottom padding to FlashList content
+  - AddItemInput positioned at bottom of SafeAreaView
+- Updated components/lists/index.ts to export AddItemInput
+- Typecheck passes
+
+## US-018: Implement satisfying checkbox animation [COMPLETED]
+- Enhanced ListItem.tsx with improved checkbox animations:
+  - Fixed scale bounce to use withSequence (1.0 → 1.1 → 1.0)
+  - Previously was setting scale.value twice which didn't work correctly
+- Added ConfettiParticle component for tiny confetti on check:
+  - 5 emoji particles (✨, 🎉, ⭐, 💫, ✨)
+  - Each particle floats upward with staggered delays
+  - Particles rotate and fade out over ~600ms
+  - Uses withDelay for sequential appearance
+- Implemented animated strikethrough for completed text:
+  - strikethroughProgress animates from 0% to 100% width
+  - Line draws across the text from left to right
+  - Uses absolute positioning with top: 50%
+  - Color matches warm-gray-400 (#A3A096)
+- Added text opacity animation:
+  - textOpacity animates from 1.0 to 0.7 when completing
+  - Animated.Text component for smooth opacity transition
+  - Removed static line-through class, replaced with animated line
+- Light haptic feedback maintained via expo-haptics
+- Partner sees changes in real-time via Convex subscription
+- Typecheck passes
+
+## US-019: Implement playful swipe-to-delete [COMPLETED]
+- Added swipe-to-delete using react-native-gesture-handler:
+  - GestureDetector with Pan gesture for swipe detection
+  - activeOffsetX and failOffsetY to distinguish from vertical scroll
+  - DELETE_THRESHOLD at -80px, SWIPE_REVEAL_THRESHOLD at -40px
+- Swipe left reveals red background with trash icon:
+  - Delete background positioned absolutely behind item
+  - Custom TrashIcon component with white trash can icon
+  - Background uses rounded corners to match item styling
+- Background color intensifies as swipe progresses:
+  - interpolateColor from light red (#FEE2E2) to red (#EF4444)
+  - Progress mapped from 0 to 1 based on swipe distance
+  - Opacity also increases as swipe starts
+- Trash icon scales up during swipe:
+  - Scale interpolates from 0.8 → 1.0 → 1.2 based on swipe
+  - Opacity fades in as swipe begins
+- Delete action with slide-out animation:
+  - translateX animates to -400 with timing (200ms)
+  - itemHeight and marginBottom animate to 0 for collapse
+  - opacity fades out for smooth removal
+  - Calls items.remove mutation via onDelete prop
+- Haptic feedback:
+  - Light haptic (ImpactFeedbackStyle.Light) on reveal threshold
+  - Medium haptic (ImpactFeedbackStyle.Medium) on delete
+  - hasTriggeredRevealHaptic prevents repeated haptics
+- Accessibility support:
+  - accessibilityLabel includes "Swipe left to delete"
+  - accessibilityActions with delete action for VoiceOver
+- Updated app/list/[id].tsx:
+  - Added removeItem mutation import
+  - Created handleDelete callback
+  - Passed onDelete prop to all ListItem components
+- Partner sees deletion in real-time via Convex subscription
+- Typecheck passes

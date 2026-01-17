@@ -28,6 +28,7 @@ export default function ListDetailScreen() {
   const items = useQuery(api.items.getByList, { listId });
   const toggleComplete = useMutation(api.items.toggleComplete);
   const addItem = useMutation(api.items.add);
+  const removeItem = useMutation(api.items.remove);
 
   // Animation for completed section
   const expandedRotation = useSharedValue(completedExpanded ? 0 : -90);
@@ -67,6 +68,17 @@ export default function ListDetailScreen() {
       await addItem({ listId, name });
     },
     [addItem, listId]
+  );
+
+  const handleDelete = useCallback(
+    async (itemId: Id<"items">) => {
+      try {
+        await removeItem({ itemId });
+      } catch (error) {
+        console.error("Failed to delete item:", error);
+      }
+    },
+    [removeItem]
   );
 
   const handleRefresh = useCallback(async () => {
@@ -198,6 +210,7 @@ export default function ListDetailScreen() {
             unit={item.unit}
             isCompleted={item.isCompleted}
             onToggle={handleToggle}
+            onDelete={handleDelete}
             index={index}
           />
         )}
@@ -254,6 +267,7 @@ export default function ListDetailScreen() {
                       unit={item.unit}
                       isCompleted={item.isCompleted}
                       onToggle={handleToggle}
+                      onDelete={handleDelete}
                       index={index}
                     />
                   ))}
