@@ -46,7 +46,28 @@ export const getByList = query({
       .withIndex("by_list", (q) => q.eq("listId", args.listId))
       .collect();
 
-    return items;
+    // Enrich items with addedBy user info
+    const itemsWithUser = await Promise.all(
+      items.map(async (item) => {
+        let addedByUser = null;
+        if (item.addedBy) {
+          const user = await ctx.db.get(item.addedBy);
+          if (user) {
+            addedByUser = {
+              _id: user._id,
+              name: user.name,
+              imageUrl: user.imageUrl,
+            };
+          }
+        }
+        return {
+          ...item,
+          addedByUser,
+        };
+      })
+    );
+
+    return itemsWithUser;
   },
 });
 

@@ -322,6 +322,7 @@ export default function ListDetailScreen() {
             notes={item.notes}
             category={item.category}
             isCompleted={item.isCompleted}
+            addedByUser={item.addedByUser}
             onToggle={handleToggle}
             onDelete={handleDelete}
             onEdit={handleEdit}
@@ -382,6 +383,7 @@ export default function ListDetailScreen() {
                       notes={item.notes}
                       category={item.category}
                       isCompleted={item.isCompleted}
+                      addedByUser={item.addedByUser}
                       onToggle={handleToggle}
                       onDelete={handleDelete}
                       onEdit={handleEdit}

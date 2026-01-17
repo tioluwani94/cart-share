@@ -1,5 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { Check, Trash2, Pencil } from "lucide-react-native";
+import { UserAvatar } from "@/components/ui";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -27,6 +28,10 @@ interface ListItemProps {
   notes?: string;
   category?: string;
   isCompleted: boolean;
+  addedByUser?: {
+    name?: string;
+    imageUrl?: string;
+  } | null;
   onToggle: (itemId: Id<"items">) => void;
   onDelete?: (itemId: Id<"items">) => void;
   onEdit?: (item: {
@@ -114,6 +119,7 @@ export function ListItem({
   notes,
   category,
   isCompleted,
+  addedByUser,
   onToggle,
   onDelete,
   onEdit,
@@ -453,6 +459,19 @@ export function ListItem({
                     >
                       {quantityDisplay}
                     </Text>
+                  </View>
+                )}
+
+                {/* Partner avatar */}
+                {addedByUser && (
+                  <View className="ml-2" style={{ marginRight: -4 }}>
+                    <UserAvatar
+                      name={addedByUser.name}
+                      imageUrl={addedByUser.imageUrl}
+                      size={24}
+                      showTooltip={true}
+                      tooltipPrefix="Added by"
+                    />
                   </View>
                 )}
               </View>
