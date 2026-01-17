@@ -475,3 +475,24 @@
   - 10 common units available: ct, lbs, oz, gal, kg, g, L, ml, pkg, box
   - Chips have satisfying selection animation with scale spring effect
 - Typecheck passes
+
+## US-022: Display list progress with celebration [COMPLETED]
+- ListCard already shows progress: 'X/Y done!' with teal progress bar (from US-012)
+- Progress bar fills with teal, has rounded ends (rounded-full)
+- Created components/lists/CompletionCelebration.tsx:
+  - 16 confetti particles (🎉 ✨ 🎊 💫 🌟 ⭐ 🥳 🎈) burst from center
+  - Particles animate outward in a circular pattern with rotation
+  - Animated check circle with teal background scales in
+  - "All done! 🎉" message with "Great job finishing your list!"
+  - Success haptic feedback on celebration trigger
+  - Auto-dismisses after 2 seconds if no scan receipt callback
+  - Tap anywhere to dismiss
+- Added "Scan Receipt" button with camera icon in coral color
+- Updated app/list/[id].tsx:
+  - useEffect detects transition from <100% to 100% completion
+  - previousProgressRef tracks progress to detect transitions
+  - showCelebration state controls overlay visibility
+  - handleDismissCelebration and handleScanReceipt callbacks
+- Created app/scan-receipt.tsx placeholder for US-034
+- Updated components/lists/index.ts to export CompletionCelebration
+- Typecheck passes

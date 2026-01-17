@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { View, Text, Pressable, RefreshControl, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,7 +14,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { ListItem, AddItemInput, EditItemSheet } from "@/components/lists";
+import { ListItem, AddItemInput, EditItemSheet, CompletionCelebration } from "@/components/lists";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { ChevronLeft, ChevronDown } from "lucide-react-native";
 
@@ -32,6 +32,8 @@ export default function ListDetailScreen() {
     notes?: string;
     category?: string;
   } | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const previousProgressRef = useRef<number | null>(null);
 
   // Ref for edit item bottom sheet
   const editSheetRef = useRef<BottomSheet>(null);
@@ -64,6 +66,35 @@ export default function ListDetailScreen() {
   const totalItems = items?.length ?? 0;
   const completedCount = completedItems.length;
   const progressPercent = totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
+
+  // Detect when list becomes 100% complete
+  useEffect(() => {
+    // Skip on initial load (when previousProgressRef is null)
+    if (previousProgressRef.current === null) {
+      previousProgressRef.current = progressPercent;
+      return;
+    }
+
+    // Trigger celebration when transitioning to 100% from less than 100%
+    if (
+      progressPercent === 100 &&
+      previousProgressRef.current < 100 &&
+      totalItems > 0
+    ) {
+      setShowCelebration(true);
+    }
+
+    previousProgressRef.current = progressPercent;
+  }, [progressPercent, totalItems]);
+
+  const handleDismissCelebration = useCallback(() => {
+    setShowCelebration(false);
+  }, []);
+
+  const handleScanReceipt = useCallback(() => {
+    setShowCelebration(false);
+    router.push("/scan-receipt");
+  }, []);
 
   const handleToggle = useCallback(
     async (itemId: Id<"items">) => {
@@ -324,6 +355,13 @@ export default function ListDetailScreen() {
         ref={editSheetRef}
         item={editingItem}
         onClose={handleEditClose}
+      />
+
+      {/* Completion celebration overlay */}
+      <CompletionCelebration
+        visible={showCelebration}
+        onDismiss={handleDismissCelebration}
+        onScanReceipt={handleScanReceipt}
       />
     </SafeAreaView>
   );
