@@ -209,8 +209,8 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed - convex/lists.ts with getByHousehold, getById, create, archive, update functions"
     },
     {
       "id": "US-012",

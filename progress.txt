@@ -199,3 +199,20 @@
   - Haptic feedback on success/error
 - Added CodeInput export to components/ui/index.ts
 - Typecheck passes
+
+## US-011: Create lists Convex queries and mutations [COMPLETED]
+- Created convex/lists.ts with list management functions:
+  - getByHousehold query: returns non-archived lists for a household
+    - Validates authentication and household membership
+    - Uses by_household_and_archived index for efficient filtering
+  - getById query: returns a single list by ID with access validation
+  - create mutation: adds new list with name, optional category
+    - Validates user is member of the household
+    - Records createdBy user and timestamps
+  - archive mutation: sets isArchived to true
+    - Validates user has access to the list via household membership
+  - update mutation: allows renaming list or changing category
+    - Validates access and updates timestamps
+- All functions validate authentication via ctx.auth.getUserIdentity()
+- All functions validate household membership before allowing access
+- Typecheck passes
