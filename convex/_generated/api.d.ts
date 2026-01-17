@@ -10,6 +10,7 @@
 
 import type * as households from "../households.js";
 import type * as http from "../http.js";
+import type * as items from "../items.js";
 import type * as lists from "../lists.js";
 import type * as users from "../users.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   households: typeof households;
   http: typeof http;
+  items: typeof items;
   lists: typeof lists;
   users: typeof users;
 }>;

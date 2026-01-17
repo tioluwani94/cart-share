@@ -286,8 +286,8 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed - convex/items.ts with getByList, add, toggleComplete, update, remove functions"
     },
     {
       "id": "US-016",

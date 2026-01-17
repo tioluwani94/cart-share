@@ -267,11 +267,14 @@
 - Typecheck passes
 
 ## US-014: Build fun create list sheet [COMPLETED]
-- Updated app/create-list.tsx with full playful implementation:
-  - Full-screen sheet design with smooth spring animations
-  - Friendly header: "New Shopping List" with 📝 icon
-  - Close button to return to previous screen
-  - KeyboardAvoidingView for proper input handling
+- Implemented as bottom sheet using @gorhom/bottom-sheet:
+  - Installed @gorhom/bottom-sheet and react-native-gesture-handler
+  - Added GestureHandlerRootView wrapper in app/_layout.tsx
+  - Created components/lists/CreateListSheet.tsx
+  - Sheet opens from FAB tap on home screen, slides up with 75% snap point
+  - Swipe down or tap backdrop to dismiss
+  - Smooth spring animations throughout
+- Friendly header: "New Shopping List" with 📝 icon
 - Floating label input for list name:
   - Uses existing Input component with floating label animation
   - "Give your list a name!" friendly error message
@@ -281,7 +284,6 @@
   - Satisfying selection animation with scale spring effect
   - Light haptic feedback on selection
   - Teal background when selected, outline when not
-  - Staggered entrance animations for each chip
 - Create button calls lists.create mutation:
   - Validates list name is not empty
   - Validates household exists
@@ -292,15 +294,32 @@
   - Confetti emojis (🎉 ✨ 🌟 💫 🎊 ⭐) float upward
   - Animated check circle with teal background
   - "List created!" message with list name
-  - Auto-navigates to new list after 2 seconds
+  - Auto-navigates to new list after ~2 seconds
   - Haptic feedback on success/error
 - Decorative grocery emojis at 20% opacity
-- FAB on home screen only shows when lists exist (cleanup)
+- FAB on home screen only shows when lists exist
 - Typecheck passes
-- **Updated to bottom sheet**: Refactored from full-page to @gorhom/bottom-sheet:
-  - Installed @gorhom/bottom-sheet and react-native-gesture-handler
-  - Added GestureHandlerRootView wrapper in app/_layout.tsx
-  - Created components/lists/CreateListSheet.tsx with bottom sheet UI
-  - Sheet opens from FAB tap, slides up with 75% snap point
-  - Includes backdrop overlay that dismisses on tap
-  - All animations and features preserved in sheet format
+
+## US-015: Create items Convex queries and mutations [COMPLETED]
+- Created convex/items.ts with item management functions:
+  - getByList query: returns all items for a list
+    - Validates authentication via ctx.auth.getUserIdentity()
+    - Validates user has access via household membership
+    - Uses by_list index for efficient item retrieval
+  - add mutation: creates item with name, optional quantity/unit/notes/category
+    - Records addedBy user ID
+    - Sets isCompleted to false, completedBy and completedAt to undefined
+    - Records createdAt and updatedAt timestamps
+  - toggleComplete mutation: toggles isCompleted status
+    - Updates completedBy to current user when completing
+    - Updates completedAt to current timestamp when completing
+    - Clears completedBy and completedAt when unchecking
+    - Returns new isCompleted state
+  - update mutation: allows editing name, quantity, unit, notes, category
+    - All fields are optional, only updates provided fields
+    - Trims name to remove whitespace
+    - Updates updatedAt timestamp
+  - remove mutation: deletes item from database
+    - Validates access before deletion
+- All functions validate authentication and household membership
+- Typecheck passes
