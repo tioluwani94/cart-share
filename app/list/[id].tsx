@@ -22,10 +22,19 @@ import {
   CompletionCelebration,
   HeaderMenu,
   ArchiveConfirmDialog,
+  PartnerActivityToast,
 } from "@/components/lists";
 import { Toast } from "@/components/ui";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { ChevronLeft, ChevronDown } from "lucide-react-native";
+
+// Type for partner activity toast state
+interface PartnerActivity {
+  itemId: Id<"items">;
+  itemName: string;
+  partnerName: string;
+  partnerImageUrl?: string;
+}
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,14 +54,19 @@ export default function ListDetailScreen() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showArchiveToast, setShowArchiveToast] = useState(false);
+  const [partnerActivity, setPartnerActivity] = useState<PartnerActivity | null>(null);
   const previousProgressRef = useRef<number | null>(null);
+  const previousItemIdsRef = useRef<Set<string>>(new Set());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const flashListRef = useRef<any>(null);
 
   // Ref for edit item bottom sheet
   const editSheetRef = useRef<BottomSheet>(null);
 
-  // Fetch list and items
+  // Fetch list, items, and current user
   const list = useQuery(api.lists.getById, { listId });
   const items = useQuery(api.items.getByList, { listId });
+  const currentUser = useQuery(api.users.getCurrentUser);
   const toggleComplete = useMutation(api.items.toggleComplete);
   const addItem = useMutation(api.items.add);
   const removeItem = useMutation(api.items.remove);
@@ -99,6 +113,62 @@ export default function ListDetailScreen() {
 
     previousProgressRef.current = progressPercent;
   }, [progressPercent, totalItems]);
+
+  // Detect when partner adds an item (for partner activity toast)
+  useEffect(() => {
+    if (!items || !currentUser) return;
+
+    const currentItemIds = new Set(items.map((item) => item._id));
+
+    // Find new items that weren't in the previous list
+    const newItems = items.filter(
+      (item) => !previousItemIdsRef.current.has(item._id)
+    );
+
+    // Check if any new item was added by someone other than the current user
+    for (const newItem of newItems) {
+      if (
+        newItem.addedByUser &&
+        newItem.addedByUser._id !== currentUser._id
+      ) {
+        // Partner added this item!
+        setPartnerActivity({
+          itemId: newItem._id,
+          itemName: newItem.name,
+          partnerName: newItem.addedByUser.name || "Partner",
+          partnerImageUrl: newItem.addedByUser.imageUrl,
+        });
+        break; // Only show one toast at a time
+      }
+    }
+
+    // Update the ref with current item IDs
+    previousItemIdsRef.current = currentItemIds;
+  }, [items, currentUser]);
+
+  const handleDismissPartnerToast = useCallback(() => {
+    setPartnerActivity(null);
+  }, []);
+
+  const handlePartnerToastPress = useCallback(() => {
+    if (!partnerActivity || !uncompletedItems) return;
+
+    // Find the index of the new item in the uncompleted items list
+    const itemIndex = uncompletedItems.findIndex(
+      (item) => item._id === partnerActivity.itemId
+    );
+
+    if (itemIndex !== -1 && flashListRef.current) {
+      // Scroll to the item
+      flashListRef.current.scrollToIndex({
+        index: itemIndex,
+        animated: true,
+        viewPosition: 0.5, // Center the item in view
+      });
+    }
+
+    setPartnerActivity(null);
+  }, [partnerActivity, uncompletedItems]);
 
   const handleDismissCelebration = useCallback(() => {
     setShowCelebration(false);
@@ -312,6 +382,7 @@ export default function ListDetailScreen() {
 
       {/* Items list */}
       <FlashList
+        ref={flashListRef}
         data={uncompletedItems}
         renderItem={({ item, index }) => (
           <ListItem
@@ -429,6 +500,17 @@ export default function ListDetailScreen() {
         message="List archived! ✓"
         onDismiss={handleToastDismiss}
         duration={1500}
+      />
+
+      {/* Partner activity toast */}
+      <PartnerActivityToast
+        visible={partnerActivity !== null}
+        partnerName={partnerActivity?.partnerName || ""}
+        partnerImageUrl={partnerActivity?.partnerImageUrl}
+        itemName={partnerActivity?.itemName || ""}
+        onDismiss={handleDismissPartnerToast}
+        onPress={handlePartnerToastPress}
+        duration={3000}
       />
     </SafeAreaView>
   );

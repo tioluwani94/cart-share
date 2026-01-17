@@ -566,3 +566,29 @@
   - Passes addedByUser prop to ListItem for both uncompleted and completed items
 - Updated components/ui/index.ts to export UserAvatar
 - Typecheck passes
+
+## US-026: Add playful partner activity toasts [COMPLETED]
+- Created components/lists/PartnerActivityToast.tsx:
+  - Rounded pill toast design with partner avatar + message
+  - Includes comprehensive emoji mapping for common grocery items (milk, cheese, apples, etc.)
+  - Message format: "[Name] added [Item] [emoji]" (e.g., "John added Milk 🥛")
+  - Toast slides down from top with spring animation using react-native-reanimated
+  - Auto-dismisses after 3 seconds with fade out animation
+  - Tap to dismiss early and scroll to new item
+  - Light haptic feedback on show
+  - Shadow styling for depth
+  - Full accessibility support
+- Updated app/list/[id].tsx:
+  - Added currentUser query to get current user's ID
+  - Added partnerActivity state to track toast visibility
+  - Added previousItemIdsRef to track items for comparison
+  - Added flashListRef for scroll-to functionality
+  - Added useEffect to detect when partner adds an item:
+    - Compares current items with previous items
+    - Shows toast only for items added by partner (not current user)
+  - handleDismissPartnerToast callback for toast dismissal
+  - handlePartnerToastPress callback scrolls FlashList to new item
+  - Integrated PartnerActivityToast component
+- Exported PartnerActivityToast from components/lists/index.ts
+- Partner sees change within 1 second via real-time Convex sync
+- Typecheck passes
