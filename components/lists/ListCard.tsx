@@ -107,7 +107,10 @@ export function ListCard({
       translateX.value = Math.min(0, Math.max(event.translationX, -120));
 
       // Trigger haptic on reveal
-      if (translateX.value < SWIPE_REVEAL_THRESHOLD && !hasTriggeredRevealHaptic.value) {
+      if (
+        translateX.value < SWIPE_REVEAL_THRESHOLD &&
+        !hasTriggeredRevealHaptic.value
+      ) {
         hasTriggeredRevealHaptic.value = true;
         runOnJS(triggerRevealHaptic)();
       } else if (translateX.value >= SWIPE_REVEAL_THRESHOLD) {
@@ -129,7 +132,7 @@ export function ListCard({
     const swipeProgress = interpolate(
       translateX.value,
       [0, ARCHIVE_THRESHOLD],
-      [0, 1]
+      [0, 1],
     );
 
     return {
@@ -137,20 +140,14 @@ export function ListCard({
       backgroundColor: interpolateColor(
         swipeProgress,
         [0, 1],
-        ["#FED7AA", "#F97316"]
+        ["#FED7AA", "#F97316"],
       ),
     };
   });
 
   const archiveIconStyle = useAnimatedStyle(() => {
-    const iconScale = interpolate(
-      translateX.value,
-      [0, SWIPE_REVEAL_THRESHOLD, ARCHIVE_THRESHOLD],
-      [0.8, 1, 1.2]
-    );
     return {
       opacity: interpolate(translateX.value, [0, -30], [0, 1]),
-      transform: [{ scale: iconScale }],
     };
   });
 
@@ -176,7 +173,7 @@ export function ListCard({
         className="absolute inset-0 items-end justify-center rounded-2xl pr-6"
       >
         <Animated.View style={archiveIconStyle}>
-          <Archive size={24} color="white" strokeWidth={2} />
+          <Archive className="w-3 h-3" color="white" strokeWidth={2} />
         </Animated.View>
       </Animated.View>
 
@@ -191,13 +188,15 @@ export function ListCard({
           className={cn(
             "rounded-2xl bg-white p-4",
             "border-l-4 border-coral",
-            "shadow-warm"
+            "shadow-warm",
           )}
         >
           {/* Header row */}
           <View className="flex-row items-center justify-between">
             <View className="flex-1 flex-row items-center">
-              <Text className="mr-2 text-2xl">{getCategoryEmoji(category)}</Text>
+              <Text className="mr-2 text-2xl">
+                {getCategoryEmoji(category)}
+              </Text>
               <Text
                 className="flex-1 text-lg font-semibold text-warm-gray-900"
                 numberOfLines={1}
@@ -223,7 +222,7 @@ export function ListCard({
               <Animated.View
                 className={cn(
                   "h-full rounded-full",
-                  isComplete ? "bg-teal" : "bg-teal"
+                  isComplete ? "bg-teal" : "bg-teal",
                 )}
                 style={{ width: `${progress}%` }}
               />
