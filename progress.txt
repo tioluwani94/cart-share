@@ -465,3 +465,13 @@
 - Changes sync to partner in real-time via Convex mutations
 - Updated components/lists/index.ts to export EditItemSheet
 - Typecheck passes
+
+## US-021: Add quantity badges and units [COMPLETED]
+- Already implemented in previous user stories:
+  - ListItem.tsx displays quantity as badge/pill next to item name (lines 442-457)
+  - Badge uses secondary teal color (bg-teal/20, text-teal)
+  - Format: '2 lbs', 'x3', etc. with proper unit display
+  - EditItemSheet has unit picker with playful chip selection UI
+  - 10 common units available: ct, lbs, oz, gal, kg, g, L, ml, pkg, box
+  - Chips have satisfying selection animation with scale spring effect
+- Typecheck passes

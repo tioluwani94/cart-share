@@ -399,8 +399,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented - ListItem displays quantity badge with teal color, EditItemSheet has unit picker with playful chip UI"
     },
     {
       "id": "US-022",
