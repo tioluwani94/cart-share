@@ -245,3 +245,23 @@
   - Navigates to /create-list
 - Created app/create-list.tsx placeholder for US-014
 - Typecheck passes
+
+## US-013: Build delightful empty state for home [COMPLETED]
+- Created components/lists/EmptyListState.tsx with engaging design:
+  - Animated waving avocado illustration with rotation animation
+  - Bouncing shopping cart emoji with floating effect
+  - Avocado tilts back and forth (-15° to +15°) with pauses
+  - Subtle scale breathing animation on avocado (1.0 to 1.05)
+  - Cart has gentle vertical bounce animation
+  - Uses react-native-reanimated for smooth 60fps animations
+- Playful copy: "Your lists are feeling lonely!"
+  - Encouraging subtext: "Time to start shopping! Create your first list..."
+- Prominent CTA button: "Create your first list"
+  - Gentle pulse animation (1.0 to 1.03 scale)
+  - Uses primary coral Button component
+  - Large size (lg) for easy tapping
+- Staggered entrance animations for all elements
+- Decorative footer with grocery emojis at 10% opacity
+- Updated components/lists/index.ts to export EmptyListState
+- Integrated EmptyListState into app/(tabs)/index.tsx
+- Typecheck passes

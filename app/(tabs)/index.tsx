@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ListCard } from "@/components/lists";
+import { ListCard, EmptyListState } from "@/components/lists";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -150,19 +150,8 @@ export default function HomeScreen() {
             ))}
           </View>
         ) : (
-          /* Empty state */
-          <Animated.View
-            entering={FadeIn.delay(200).duration(500)}
-            className="flex-1 items-center justify-center pt-20"
-          >
-            <Text className="text-6xl">🛒</Text>
-            <Text className="mt-4 text-center text-xl font-semibold text-warm-gray-900">
-              Your lists are feeling lonely!
-            </Text>
-            <Text className="mt-2 text-center text-warm-gray-500">
-              Tap the + button to create your first list
-            </Text>
-          </Animated.View>
+          /* Delightful empty state */
+          <EmptyListState onCreateList={handleCreateList} />
         )}
       </ScrollView>
 
