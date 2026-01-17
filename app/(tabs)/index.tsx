@@ -9,9 +9,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ListCard, EmptyListState, CreateListSheet } from "@/components/lists";
+import { Id } from "@/convex/_generated/dataModel";
+import { ListCard, EmptyListState, CreateListSheet, ArchiveConfirmDialog } from "@/components/lists";
+import { Toast } from "@/components/ui";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -45,6 +47,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const [archiveDialogList, setArchiveDialogList] = useState<{
+    id: Id<"lists">;
+    name: string;
+  } | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [showArchiveToast, setShowArchiveToast] = useState(false);
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   // Get current household
@@ -55,6 +63,8 @@ export default function HomeScreen() {
     api.lists.getByHousehold,
     household?._id ? { householdId: household._id } : "skip",
   );
+
+  const archiveList = useMutation(api.lists.archive);
 
   // FAB animation
   const fabScale = useSharedValue(1);
@@ -87,6 +97,38 @@ export default function HomeScreen() {
     setRefreshing(true);
     // Convex queries automatically refresh, so we just need to wait a bit
     setTimeout(() => setRefreshing(false), 500);
+  }, []);
+
+  const handleArchiveSwipe = useCallback(
+    (listId: Id<"lists">) => {
+      const list = lists?.find((l) => l._id === listId);
+      if (list) {
+        setArchiveDialogList({ id: listId, name: list.name });
+      }
+    },
+    [lists]
+  );
+
+  const handleArchiveConfirm = useCallback(async () => {
+    if (!archiveDialogList) return;
+    setIsArchiving(true);
+    try {
+      await archiveList({ listId: archiveDialogList.id });
+      setArchiveDialogList(null);
+      setShowArchiveToast(true);
+    } catch (error) {
+      console.error("Failed to archive list:", error);
+    } finally {
+      setIsArchiving(false);
+    }
+  }, [archiveList, archiveDialogList]);
+
+  const handleArchiveCancel = useCallback(() => {
+    setArchiveDialogList(null);
+  }, []);
+
+  const handleToastDismiss = useCallback(() => {
+    setShowArchiveToast(false);
   }, []);
 
   const greeting = getGreeting();
@@ -143,6 +185,7 @@ export default function HomeScreen() {
                 totalItems={list.totalItems}
                 completedItems={list.completedItems}
                 onPress={() => handleListPress(list._id)}
+                onArchive={handleArchiveSwipe}
                 index={index}
               />
             ))}
@@ -170,6 +213,23 @@ export default function HomeScreen() {
 
       {/* Create List Bottom Sheet */}
       <CreateListSheet ref={bottomSheetRef} onClose={handleSheetClose} />
+
+      {/* Archive confirmation dialog */}
+      <ArchiveConfirmDialog
+        visible={archiveDialogList !== null}
+        listName={archiveDialogList?.name || ""}
+        onConfirm={handleArchiveConfirm}
+        onCancel={handleArchiveCancel}
+        isLoading={isArchiving}
+      />
+
+      {/* Success toast */}
+      <Toast
+        visible={showArchiveToast}
+        message="List archived! ✓"
+        onDismiss={handleToastDismiss}
+        duration={2000}
+      />
     </SafeAreaView>
   );
 }

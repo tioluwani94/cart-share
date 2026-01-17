@@ -214,6 +214,122 @@ export const archive = mutation({
 });
 
 /**
+ * Get all archived lists for a household with item counts.
+ * Validates that the user is a member of the household.
+ */
+export const getArchivedByHousehold = query({
+  args: {
+    householdId: v.id("households"),
+  },
+  handler: async (ctx, args) => {
+    // Validate authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+
+    // Get the current user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found in database");
+
+    // Validate user is a member of the household
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_household_and_user", (q) =>
+        q.eq("householdId", args.householdId).eq("userId", user._id)
+      )
+      .unique();
+
+    if (!membership) {
+      throw new Error("You are not a member of this household");
+    }
+
+    // Get all archived lists for the household
+    const lists = await ctx.db
+      .query("lists")
+      .withIndex("by_household_and_archived", (q) =>
+        q.eq("householdId", args.householdId).eq("isArchived", true)
+      )
+      .collect();
+
+    // Get item counts for each list
+    const listsWithCounts = await Promise.all(
+      lists.map(async (list) => {
+        const items = await ctx.db
+          .query("items")
+          .withIndex("by_list", (q) => q.eq("listId", list._id))
+          .collect();
+
+        const totalItems = items.length;
+        const completedItems = items.filter((item) => item.isCompleted).length;
+
+        return {
+          ...list,
+          totalItems,
+          completedItems,
+        };
+      })
+    );
+
+    return listsWithCounts;
+  },
+});
+
+/**
+ * Unarchive a list.
+ * Validates that the user has access to the list via household membership.
+ */
+export const unarchive = mutation({
+  args: {
+    listId: v.id("lists"),
+  },
+  handler: async (ctx, args) => {
+    // Validate authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const now = Date.now();
+
+    // Get the current user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found in database");
+
+    // Get the list
+    const list = await ctx.db.get(args.listId);
+    if (!list) throw new Error("List not found");
+
+    // Validate user is a member of the list's household
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_household_and_user", (q) =>
+        q.eq("householdId", list.householdId).eq("userId", user._id)
+      )
+      .unique();
+
+    if (!membership) {
+      throw new Error("You do not have access to this list");
+    }
+
+    // Unarchive the list
+    await ctx.db.patch(args.listId, {
+      isArchived: false,
+      updatedAt: now,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Update a list (rename or change category).
  * Validates that the user has access to the list via household membership.
  */

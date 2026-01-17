@@ -13,8 +13,17 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
-import { ListItem, AddItemInput, EditItemSheet, CompletionCelebration } from "@/components/lists";
+import {
+  ListItem,
+  AddItemInput,
+  EditItemSheet,
+  CompletionCelebration,
+  HeaderMenu,
+  ArchiveConfirmDialog,
+} from "@/components/lists";
+import { Toast } from "@/components/ui";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { ChevronLeft, ChevronDown } from "lucide-react-native";
 
@@ -33,6 +42,9 @@ export default function ListDetailScreen() {
     category?: string;
   } | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [showArchiveToast, setShowArchiveToast] = useState(false);
   const previousProgressRef = useRef<number | null>(null);
 
   // Ref for edit item bottom sheet
@@ -44,6 +56,7 @@ export default function ListDetailScreen() {
   const toggleComplete = useMutation(api.items.toggleComplete);
   const addItem = useMutation(api.items.add);
   const removeItem = useMutation(api.items.remove);
+  const archiveList = useMutation(api.lists.archive);
 
   // Animation for completed section
   const expandedRotation = useSharedValue(completedExpanded ? 0 : -90);
@@ -91,10 +104,16 @@ export default function ListDetailScreen() {
     setShowCelebration(false);
   }, []);
 
-  const handleScanReceipt = useCallback(() => {
+  const handleScanReceipt = useCallback(async () => {
     setShowCelebration(false);
+    // Auto-archive the list when user goes to scan receipt
+    try {
+      await archiveList({ listId });
+    } catch (error) {
+      console.error("Failed to archive list:", error);
+    }
     router.push("/scan-receipt");
-  }, []);
+  }, [archiveList, listId]);
 
   const handleToggle = useCallback(
     async (itemId: Id<"items">) => {
@@ -142,6 +161,34 @@ export default function ListDetailScreen() {
 
   const handleEditClose = useCallback(() => {
     setEditingItem(null);
+  }, []);
+
+  const handleArchivePress = useCallback(() => {
+    setShowArchiveDialog(true);
+  }, []);
+
+  const handleArchiveConfirm = useCallback(async () => {
+    setIsArchiving(true);
+    try {
+      await archiveList({ listId });
+      setShowArchiveDialog(false);
+      setShowArchiveToast(true);
+      // Navigate back after showing toast briefly
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Failed to archive list:", error);
+      setIsArchiving(false);
+    }
+  }, [archiveList, listId]);
+
+  const handleArchiveCancel = useCallback(() => {
+    setShowArchiveDialog(false);
+  }, []);
+
+  const handleToastDismiss = useCallback(() => {
+    setShowArchiveToast(false);
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -232,6 +279,7 @@ export default function ListDetailScreen() {
               </Text>
             </View>
           </View>
+          <HeaderMenu onArchive={handleArchivePress} />
         </View>
 
         {/* Progress summary */}
@@ -362,6 +410,23 @@ export default function ListDetailScreen() {
         visible={showCelebration}
         onDismiss={handleDismissCelebration}
         onScanReceipt={handleScanReceipt}
+      />
+
+      {/* Archive confirmation dialog */}
+      <ArchiveConfirmDialog
+        visible={showArchiveDialog}
+        listName={list?.name || ""}
+        onConfirm={handleArchiveConfirm}
+        onCancel={handleArchiveCancel}
+        isLoading={isArchiving}
+      />
+
+      {/* Success toast */}
+      <Toast
+        visible={showArchiveToast}
+        message="List archived! ✓"
+        onDismiss={handleToastDismiss}
+        duration={1500}
       />
     </SafeAreaView>
   );

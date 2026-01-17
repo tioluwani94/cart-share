@@ -5,3 +5,5 @@ export { ListItem } from "./ListItem";
 export { AddItemInput } from "./AddItemInput";
 export { EditItemSheet } from "./EditItemSheet";
 export { CompletionCelebration } from "./CompletionCelebration";
+export { HeaderMenu } from "./HeaderMenu";
+export { ArchiveConfirmDialog } from "./ArchiveConfirmDialog";
