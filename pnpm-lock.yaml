@@ -68,6 +68,9 @@ importers:
       react-native-gesture-handler:
         specifier: ^2.30.0
         version: 2.30.0(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
+      react-native-mmkv:
+        specifier: ^4.1.1
+        version: 4.1.1(react-native-nitro-modules@0.33.2(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
       react-native-reanimated:
         specifier: ~3.16.1
         version: 3.16.7(@babel/core@7.28.6)(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
@@ -5289,6 +5292,19 @@ packages:
 
   react-native-is-edge-to-edge@1.2.1:
     resolution: {integrity: sha512-FLbPWl/MyYQWz+KwqOZsSyj2JmLKglHatd3xLZWskXOpRaio4LfEDEz8E/A6uD8QoTHW6Aobw1jbEwK7KMgR7Q==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
+  react-native-mmkv@4.1.1:
+    resolution: {integrity: sha512-nYFjM27l7zVhIiyAqWEFRagGASecb13JMIlzAuOeakRRz9GMJ49hCQntUBE2aeuZRE4u4ehSqTOomB0mTF56Ew==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-nitro-modules: '*'
+
+  react-native-nitro-modules@0.33.2:
+    resolution: {integrity: sha512-ZlfOe6abODeHv/eZf8PxeSkrxIUhEKha6jaAAA9oXy7I6VPr7Ff4dUsAq3cyF3kX0L6qt2Dh9nzD2NdSsDwGpA==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -13103,6 +13119,17 @@ snapshots:
       shallowequal: 1.1.0
 
   react-native-is-edge-to-edge@1.2.1(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-native: 0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10)
+
+  react-native-mmkv@4.1.1(react-native-nitro-modules@0.33.2(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-native: 0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10)
+      react-native-nitro-modules: 0.33.2(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
+
+  react-native-nitro-modules@0.33.2(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1):
     dependencies:
       react: 18.3.1
       react-native: 0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10)

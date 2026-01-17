@@ -592,3 +592,28 @@
 - Exported PartnerActivityToast from components/lists/index.ts
 - Partner sees change within 1 second via real-time Convex sync
 - Typecheck passes
+
+## US-027: Set up MMKV for local caching [COMPLETED]
+- Installed react-native-mmkv (v4.1.1) for fast key-value storage
+- Created lib/storage.ts with MMKV instance and helper functions:
+  - MMKV storage instance created with id "cartshare-storage"
+  - Storage keys defined for lists and items cache:
+    - LISTS_CACHE: "cache:lists" - for household lists
+    - LISTS_CACHE_TIMESTAMP: "cache:lists:timestamp" - for cache expiry
+    - ITEMS_CACHE_PREFIX: "cache:items:" - prefix for list items
+    - ITEMS_CACHE_TIMESTAMP_PREFIX: "cache:items:timestamp:" - for items cache expiry
+    - OFFLINE_QUEUE: "offline:queue" - for mutation queue
+    - USER_PREFERENCES: "user:preferences" - for user settings
+  - Helper functions for get/set/remove with JSON serialization:
+    - setItem<T>(key, value) - stores JSON serialized data
+    - getItem<T>(key) - retrieves and parses JSON data
+    - removeItem(key) - removes a key
+    - hasItem(key) - checks if key exists
+    - clearAll() - clears all storage
+    - getAllKeys() - returns all stored keys
+  - Cache-specific helper functions:
+    - cacheLists/getCachedLists - cache lists with 5-min expiry
+    - cacheItems/getCachedItems - cache items per list with 5-min expiry
+    - getItemsCacheKey/getItemsCacheTimestampKey - key generators
+    - invalidateListsCache/invalidateItemsCache - cache invalidation
+- Typecheck passes
