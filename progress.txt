@@ -297,3 +297,10 @@
 - Decorative grocery emojis at 20% opacity
 - FAB on home screen only shows when lists exist (cleanup)
 - Typecheck passes
+- **Updated to bottom sheet**: Refactored from full-page to @gorhom/bottom-sheet:
+  - Installed @gorhom/bottom-sheet and react-native-gesture-handler
+  - Added GestureHandlerRootView wrapper in app/_layout.tsx
+  - Created components/lists/CreateListSheet.tsx with bottom sheet UI
+  - Sheet opens from FAB tap, slides up with 75% snap point
+  - Includes backdrop overlay that dismisses on tap
+  - All animations and features preserved in sheet format

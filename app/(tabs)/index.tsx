@@ -1,3 +1,4 @@
+import { useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,14 +11,14 @@ import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ListCard, EmptyListState } from "@/components/lists";
+import { ListCard, EmptyListState, CreateListSheet } from "@/components/lists";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   FadeIn,
 } from "react-native-reanimated";
-import { useState, useCallback } from "react";
+import BottomSheet from "@gorhom/bottom-sheet";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
   // Get current household
   const household = useQuery(api.households.getCurrentHousehold);
@@ -68,10 +70,13 @@ export default function HomeScreen() {
     fabScale.value = withSpring(1, { damping: 10, stiffness: 400 });
   };
 
-  const handleCreateList = () => {
-    // Navigate to create list sheet (will be implemented in US-014)
-    router.push("/create-list");
-  };
+  const handleCreateList = useCallback(() => {
+    bottomSheetRef.current?.expand();
+  }, []);
+
+  const handleSheetClose = useCallback(() => {
+    bottomSheetRef.current?.close();
+  }, []);
 
   const handleListPress = (listId: string) => {
     router.push(`/list/${listId}`);
@@ -161,6 +166,9 @@ export default function HomeScreen() {
           <Text className="text-2xl font-light text-white">+</Text>
         </AnimatedPressable>
       )}
+
+      {/* Create List Bottom Sheet */}
+      <CreateListSheet ref={bottomSheetRef} onClose={handleSheetClose} />
     </SafeAreaView>
   );
 }
