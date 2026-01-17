@@ -164,7 +164,7 @@ export default function HomeScreen() {
           accessibilityRole="button"
           className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-coral shadow-warm-lg"
         >
-          <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
+          <Plus className="w-4 h-4" color="#FFFFFF" strokeWidth={2.5} />
         </AnimatedPressable>
       )}
 

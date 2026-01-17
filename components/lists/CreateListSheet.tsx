@@ -164,7 +164,7 @@ function SuccessCelebration({ listName }: { listName: string }) {
   const confettiEmojis = ["🎉", "✨", "🌟", "💫", "🎊", "⭐"];
 
   return (
-    <View className="absolute inset-0 items-center justify-center rounded-t-3xl bg-white">
+    <View className="items-center justify-center flex-1">
       {/* Confetti particles */}
       <View className="absolute items-center justify-center">
         {confettiEmojis.map((emoji, i) => (
@@ -358,14 +358,8 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
                   ))}
                 </View>
               </View>
-
-              {/* Decorative illustration */}
-              <View className="mt-6 items-center opacity-20">
-                <Text className="text-5xl">🛒 🥬 🍎 🥛</Text>
-              </View>
-
               {/* Create button */}
-              <View className="mt-auto pb-8">
+              <View className="mt-2 pb-8">
                 <Button
                   onPress={handleCreate}
                   variant="primary"

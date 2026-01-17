@@ -118,7 +118,7 @@ function QuantityStepper({
   const animateNumber = () => {
     numberScale.value = withSequence(
       withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),
-      withSpring(1, { damping: 12, stiffness: 300 })
+      withSpring(1, { damping: 12, stiffness: 300 }),
     );
   };
 
@@ -238,7 +238,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
           onClose();
         }
       },
-      [onClose, resetForm]
+      [onClose, resetForm],
     );
 
     const renderBackdrop = useCallback(
@@ -250,7 +250,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
           opacity={0.5}
         />
       ),
-      []
+      [],
     );
 
     const handleSave = async () => {
@@ -398,13 +398,8 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
             />
           </View>
 
-          {/* Decorative grocery emojis */}
-          <View className="mb-6 flex-row justify-center opacity-20">
-            <Text className="text-2xl">🥬 🥕 🍎 🧀 🥖</Text>
-          </View>
-
           {/* Action buttons */}
-          <View className="gap-3">
+          <View className="gap-3 flex-row">
             {/* Save button */}
             <Button
               onPress={handleSave}
@@ -413,6 +408,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
               loading={isSaving}
               disabled={!name.trim() || isDeleting}
               accessibilityLabel="Save changes"
+              className="flex-1"
             >
               Save Changes
             </Button>
@@ -421,7 +417,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
             <Pressable
               onPress={handleDelete}
               disabled={isSaving || isDeleting}
-              className={`min-h-[56px] flex-row items-center justify-center rounded-2xl border-2 ${
+              className={`min-h-[56px] flex-row items-center justify-center rounded-2xl border-2 w-16 ${
                 isSaving || isDeleting
                   ? "border-warm-gray-200"
                   : "border-red-500"
@@ -434,17 +430,10 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
                 color={isSaving || isDeleting ? "#A3A096" : "#EF4444"}
                 strokeWidth={2}
               />
-              <Text
-                className={`ml-2 text-base font-semibold ${
-                  isSaving || isDeleting ? "text-warm-gray-400" : "text-red-500"
-                }`}
-              >
-                {isDeleting ? "Deleting..." : "Delete Item"}
-              </Text>
             </Pressable>
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
     );
-  }
+  },
 );
