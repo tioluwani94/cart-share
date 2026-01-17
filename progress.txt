@@ -140,3 +140,27 @@
 - Installed svix package (v1.84.1) for webhook signature verification
 - User lookup by clerkId works via by_clerk_id index
 - Typecheck passes
+
+## US-009: Build warm household creation flow [COMPLETED]
+- Created convex/households.ts with household management functions:
+  - create mutation that generates unique 6-character alphanumeric invite code
+  - Uses character set excluding confusing chars (I, O, 0, 1)
+  - Validates authentication and checks for existing membership
+  - Creates household and adds creator as owner member
+  - getCurrentHousehold query returns user's household with members
+  - getByInviteCode query for join flow (US-010)
+- Updated app/household-setup.tsx with friendly onboarding design:
+  - Playful illustration with house (🏠) and couple (💑) emojis
+  - Welcoming headline: "Start your shopping adventure!"
+  - Floating label input for household name
+  - Create button with coral color and loading state
+  - Success screen transitions after creation
+  - Large invite code display with letter-spacing for readability
+  - Copy button with scale animation using react-native-reanimated
+  - Haptic feedback on copy (medium impact) and success/error (notification)
+  - "Copied! ✓" feedback with 2-second auto-reset
+  - "Have a code?" link to join household flow
+  - Decorative footer with grocery emojis at 10% opacity
+- Created app/join-household.tsx placeholder for US-010
+- Installed expo-clipboard (v8.0.8) for copy functionality
+- Typecheck passes
