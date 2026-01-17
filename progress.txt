@@ -323,3 +323,31 @@
     - Validates access before deletion
 - All functions validate authentication and household membership
 - Typecheck passes
+
+## US-016: Build engaging list detail screen [COMPLETED]
+- Installed @shopify/flash-list (v2.2.0) for performant list rendering
+- Created components/lists/ListItem.tsx with clean, spacious design:
+  - Rounded checkbox with coral fill animation
+  - Item name with quantity badge (teal background)
+  - Completed items have strikethrough with 0.7 opacity fade
+  - Scale bounce animation on check (1.0 → 1.05 → 1.0)
+  - Light haptic feedback via expo-haptics
+  - Staggered fade-in entrance animation
+  - Full accessibility support (role, state, label)
+- Updated app/list/[id].tsx with full implementation:
+  - Large friendly header with list name and category emoji
+  - Back button to navigate home
+  - Progress summary: "X of Y items" with teal progress bar
+  - "All done!" badge appears when 100% complete
+  - Items fetched via useQuery with real-time updates from Convex
+  - FlashList for performant rendering of uncompleted items
+  - Pull-to-refresh with branded coral spinner
+  - Collapsible "Done!" section for completed items:
+    - Animated chevron rotation on expand/collapse
+    - Spring animation for smooth transitions
+    - Shows completed count in header
+  - Empty state with friendly message when no items
+  - Loading state with coral ActivityIndicator
+  - List not found error state with "Go Back" button
+- Updated components/lists/index.ts to export ListItem
+- Typecheck passes

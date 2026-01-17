@@ -17,6 +17,9 @@ importers:
       '@gorhom/bottom-sheet':
         specifier: ^5.2.8
         version: 5.2.8(@types/react@18.3.27)(react-native-gesture-handler@2.30.0(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native-reanimated@3.16.7(@babel/core@7.28.6)(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
+      '@shopify/flash-list':
+        specifier: ^2.2.0
+        version: 2.2.0(@babel/runtime@7.28.6)(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1649,6 +1652,13 @@ packages:
 
   '@segment/loosely-validate-event@2.0.0':
     resolution: {integrity: sha512-ZMCSfztDBqwotkl848ODgVcAmN4OItEWDCkshcKz0/W6gGSQayuuCtWV/MlodFivAZD793d6UgANd6wCXUfrIw==}
+
+  '@shopify/flash-list@2.2.0':
+    resolution: {integrity: sha512-mL61IofcfBNRZ/qazIf+pghGULkcZUQ7EZNldH1JBbIjtDb25ADSiQrt62ZTnRz0H5+bPFEZUmN9+WChHzX8pw==}
+    peerDependencies:
+      '@babel/runtime': '*'
+      react: '*'
+      react-native: '*'
 
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
@@ -8646,6 +8656,12 @@ snapshots:
     dependencies:
       component-type: 1.2.2
       join-component: 1.1.0
+
+  '@shopify/flash-list@2.2.0(@babel/runtime@7.28.6)(react-native@0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)':
+    dependencies:
+      '@babel/runtime': 7.28.6
+      react: 18.3.1
+      react-native: 0.76.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.3.27)(bufferutil@4.1.0)(react@18.3.1)(utf-8-validate@5.0.10)
 
   '@sinclair/typebox@0.27.8': {}
 

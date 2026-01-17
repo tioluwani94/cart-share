@@ -307,8 +307,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed - List detail screen with FlashList, ListItem component, collapsible done section, progress bar, pull-to-refresh"
     },
     {
       "id": "US-017",
