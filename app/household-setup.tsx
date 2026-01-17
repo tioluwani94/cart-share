@@ -52,7 +52,8 @@ export default function HouseholdSetupScreen() {
       setInviteCode(result.inviteCode);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something went wrong";
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
       setError(message);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -69,7 +70,7 @@ export default function HouseholdSetupScreen() {
     // Animate the copy button
     copyScale.value = withSequence(
       withSpring(1.1, { damping: 10 }),
-      withSpring(1, { damping: 10 })
+      withSpring(1, { damping: 10 }),
     );
 
     setCopied(true);
@@ -123,7 +124,9 @@ export default function HouseholdSetupScreen() {
               <Pressable
                 onPress={handleCopyCode}
                 className="flex-row items-center justify-center rounded-xl bg-teal/10 py-3"
-                accessibilityLabel={copied ? "Copied to clipboard" : "Copy invite code"}
+                accessibilityLabel={
+                  copied ? "Copied to clipboard" : "Copy invite code"
+                }
                 accessibilityRole="button"
               >
                 <Text className="text-lg font-semibold text-teal">
@@ -168,7 +171,6 @@ export default function HouseholdSetupScreen() {
         >
           <View className="flex-row">
             <Text className="text-5xl">🏠</Text>
-            <Text className="ml-2 text-5xl">💑</Text>
           </View>
         </Animated.View>
 

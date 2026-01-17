@@ -1,17 +1,28 @@
 import "../global.css";
+import { useEffect } from "react";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { Stack } from "expo-router";
+import {
+  Slot,
+  useRouter,
+  useSegments,
+  useRootNavigationState,
+} from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
 
 // Initialize Convex client with the deployment URL
 const convex = new ConvexReactClient(
   process.env.EXPO_PUBLIC_CONVEX_URL as string,
   {
     unsavedChangesWarning: false,
-  }
+  },
 );
 
 /**
@@ -43,8 +54,83 @@ const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 if (!publishableKey) {
   throw new Error(
-    "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Please set it in your .env file."
+    "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Please set it in your .env file.",
   );
+}
+
+// Routes that don't require a household to access
+const HOUSEHOLD_EXEMPT_ROUTES = ["household-setup", "join-household"];
+
+/**
+ * Initial layout component that handles auth-based route protection.
+ * Redirects users based on authentication and household state:
+ * - Unauthenticated users to /(auth)/welcome
+ * - Authenticated users without a household to /household-setup
+ * - Authenticated users with a household to /(tabs)
+ */
+function InitialLayout() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } =
+    useConvexAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
+
+  // Only query household when Convex auth is ready (not just Clerk)
+  // This prevents querying before JWT is propagated to Convex
+  const household = useQuery(
+    api.households.getCurrentHousehold,
+    isConvexAuthenticated ? {} : "skip",
+  );
+
+  useEffect(() => {
+    // Wait for navigation and auth to be ready
+    if (!navigationState?.key || !isLoaded) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+    const inHouseholdExemptRoute = HOUSEHOLD_EXEMPT_ROUTES.includes(
+      segments[0] as string,
+    );
+
+    if (!isSignedIn) {
+      if (!inAuthGroup) {
+        router.replace("/(auth)/welcome");
+      }
+      SplashScreen.hideAsync();
+      return;
+    }
+
+    if (inAuthGroup) {
+      router.replace(household ? "/(tabs)" : "/household-setup");
+      SplashScreen.hideAsync();
+      return;
+    }
+
+    if (!household && !inHouseholdExemptRoute) {
+      router.replace("/household-setup");
+      SplashScreen.hideAsync();
+      return;
+    }
+
+    if (household && inHouseholdExemptRoute) {
+      router.replace("/(tabs)");
+      SplashScreen.hideAsync();
+      return;
+    }
+
+    SplashScreen.hideAsync();
+  }, [isLoaded, isSignedIn, segments, navigationState?.key, household, router]);
+
+  // Keep splash visible while loading auth OR Convex auth OR household query
+  if (
+    !isLoaded ||
+    isConvexLoading ||
+    (isConvexAuthenticated && household === undefined)
+  ) {
+    return null;
+  }
+
+  return <Slot />;
 }
 
 /**
@@ -54,11 +140,7 @@ if (!publishableKey) {
 function ConvexClerkLayout() {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      />
+      <InitialLayout />
     </ConvexProviderWithClerk>
   );
 }
@@ -69,7 +151,7 @@ function ConvexClerkLayout() {
  * Provider hierarchy:
  * 1. ClerkProvider - Handles authentication with Clerk
  * 2. ConvexProviderWithClerk - Connects Convex to Clerk auth
- * 3. Stack - Expo Router navigation
+ * 3. InitialLayout - Handles auth-based routing and splash screen
  */
 export default function RootLayout() {
   return (
