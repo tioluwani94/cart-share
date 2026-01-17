@@ -164,3 +164,38 @@
 - Created app/join-household.tsx placeholder for US-010
 - Installed expo-clipboard (v8.0.8) for copy functionality
 - Typecheck passes
+
+## US-010: Build household join flow [COMPLETED]
+- Added join mutation to convex/households.ts:
+  - Validates authentication and checks user not already in household
+  - Normalizes invite code (uppercase, trim)
+  - Validates invite code exists (friendly error: "Hmm, that code doesn't look right")
+  - Enforces max 2 members per household (friendly error: "This household is already full!")
+  - Adds user as member role to household
+  - Returns householdId and householdName for success UI
+- Created components/ui/CodeInput.tsx (OTP-style input):
+  - Large, spaced 6-character input boxes
+  - Individual TextInput per character for easy typing
+  - Auto-advance to next box on character entry
+  - Backspace handling to move to previous box
+  - Paste support for full code
+  - Shake animation on error with haptic feedback
+  - Teal border on filled boxes, coral border on error
+- Updated app/join-household.tsx with full implementation:
+  - Back button to return to household-setup
+  - Key emoji (🔑) illustration header
+  - "Join your partner's household" headline
+  - CodeInput component for 6-character invite code
+  - Friendly error messages displayed below input
+  - Helper text: "The code is 6 letters and numbers, like ABC123"
+  - Join button disabled until all 6 characters entered
+  - "Don't have a code? Create a household" link
+  - Celebration screen on successful join:
+    - Confetti particle animations (🎉 ✨ 🎊 💫 🌟)
+    - "Welcome to the family!" message
+    - Shows household name user joined
+    - Shopping cart and heart emoji decoration
+    - Auto-redirect to tabs after 2.5 seconds
+  - Haptic feedback on success/error
+- Added CodeInput export to components/ui/index.ts
+- Typecheck passes

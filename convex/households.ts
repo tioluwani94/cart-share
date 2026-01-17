@@ -157,3 +157,75 @@ export const getByInviteCode = query({
       .unique();
   },
 });
+
+/**
+ * Join an existing household using an invite code.
+ * Enforces max 2 members per household.
+ */
+export const join = mutation({
+  args: {
+    inviteCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const now = Date.now();
+
+    // Get the current user from database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found in database");
+
+    // Check if user already belongs to a household
+    const existingMembership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (existingMembership) {
+      throw new Error("You already belong to a household");
+    }
+
+    // Normalize invite code (uppercase, trim)
+    const normalizedCode = args.inviteCode.toUpperCase().trim();
+
+    // Find household by invite code
+    const household = await ctx.db
+      .query("households")
+      .withIndex("by_invite_code", (q) => q.eq("inviteCode", normalizedCode))
+      .unique();
+
+    if (!household) {
+      throw new Error("Hmm, that code doesn't look right");
+    }
+
+    // Check current member count (max 2 members per household)
+    const members = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_household", (q) => q.eq("householdId", household._id))
+      .collect();
+
+    if (members.length >= 2) {
+      throw new Error("This household is already full!");
+    }
+
+    // Add user as a member
+    await ctx.db.insert("householdMembers", {
+      householdId: household._id,
+      userId: user._id,
+      role: "member",
+      joinedAt: now,
+    });
+
+    return {
+      householdId: household._id,
+      householdName: household.name,
+    };
+  },
+});
