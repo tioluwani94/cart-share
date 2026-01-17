@@ -382,8 +382,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed - EditItemSheet with bottom sheet, long press on ListItem, QuantityStepper with animation, unit picker chips, notes textarea, save/delete buttons"
     },
     {
       "id": "US-021",

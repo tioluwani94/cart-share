@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { View, Text, Pressable, RefreshControl, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,7 +14,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { ListItem, AddItemInput } from "@/components/lists";
+import { ListItem, AddItemInput, EditItemSheet } from "@/components/lists";
+import BottomSheet from "@gorhom/bottom-sheet";
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,6 +23,17 @@ export default function ListDetailScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
+  const [editingItem, setEditingItem] = useState<{
+    id: Id<"items">;
+    name: string;
+    quantity?: number;
+    unit?: string;
+    notes?: string;
+    category?: string;
+  } | null>(null);
+
+  // Ref for edit item bottom sheet
+  const editSheetRef = useRef<BottomSheet>(null);
 
   // Fetch list and items
   const list = useQuery(api.lists.getById, { listId });
@@ -80,6 +92,25 @@ export default function ListDetailScreen() {
     },
     [removeItem]
   );
+
+  const handleEdit = useCallback(
+    (item: {
+      id: Id<"items">;
+      name: string;
+      quantity?: number;
+      unit?: string;
+      notes?: string;
+      category?: string;
+    }) => {
+      setEditingItem(item);
+      editSheetRef.current?.snapToIndex(0);
+    },
+    []
+  );
+
+  const handleEditClose = useCallback(() => {
+    setEditingItem(null);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -208,9 +239,12 @@ export default function ListDetailScreen() {
             name={item.name}
             quantity={item.quantity}
             unit={item.unit}
+            notes={item.notes}
+            category={item.category}
             isCompleted={item.isCompleted}
             onToggle={handleToggle}
             onDelete={handleDelete}
+            onEdit={handleEdit}
             index={index}
           />
         )}
@@ -265,9 +299,12 @@ export default function ListDetailScreen() {
                       name={item.name}
                       quantity={item.quantity}
                       unit={item.unit}
+                      notes={item.notes}
+                      category={item.category}
                       isCompleted={item.isCompleted}
                       onToggle={handleToggle}
                       onDelete={handleDelete}
+                      onEdit={handleEdit}
                       index={index}
                     />
                   ))}
@@ -280,6 +317,13 @@ export default function ListDetailScreen() {
 
       {/* Sticky add item input */}
       <AddItemInput onAdd={handleAddItem} />
+
+      {/* Edit item bottom sheet */}
+      <EditItemSheet
+        ref={editSheetRef}
+        item={editingItem}
+        onClose={handleEditClose}
+      />
     </SafeAreaView>
   );
 }

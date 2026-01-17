@@ -436,3 +436,32 @@
   - Passed onDelete prop to all ListItem components
 - Partner sees deletion in real-time via Convex subscription
 - Typecheck passes
+
+## US-020: Build item edit sheet [COMPLETED]
+- Created components/lists/EditItemSheet.tsx with bottom sheet:
+  - Uses @gorhom/bottom-sheet with 85% snap point
+  - Sheet slides up with spring animation via enablePanDownToClose
+  - Swipe down or tap backdrop to dismiss
+- Edit form includes:
+  - Name input using existing floating label Input component
+  - QuantityStepper component with +/- buttons
+    - Playful number animation using withSequence scale (1.0 → 1.3 → 1.0)
+    - Light haptic feedback on increment/decrement
+  - Unit picker with selectable chips (ct, lbs, oz, gal, kg, g, L, ml, pkg, box)
+    - Chips have satisfying selection animation with scale spring
+    - Light haptic feedback on selection
+  - Notes textarea for special instructions
+- Save button in coral (primary) using Button component
+- Delete button in red outline style
+- Added onEdit prop and long press handler to ListItem component:
+  - delayLongPress of 400ms for comfortable long press detection
+  - Light haptic feedback on long press
+  - Updated accessibility labels and actions for VoiceOver
+- Integrated EditItemSheet into app/list/[id].tsx:
+  - editSheetRef for controlling bottom sheet
+  - editingItem state to track which item is being edited
+  - handleEdit and handleEditClose callbacks
+  - Passed onEdit prop to all ListItem components (uncompleted and completed)
+- Changes sync to partner in real-time via Convex mutations
+- Updated components/lists/index.ts to export EditItemSheet
+- Typecheck passes

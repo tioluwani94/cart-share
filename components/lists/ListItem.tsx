@@ -24,9 +24,19 @@ interface ListItemProps {
   name: string;
   quantity?: number;
   unit?: string;
+  notes?: string;
+  category?: string;
   isCompleted: boolean;
   onToggle: (itemId: Id<"items">) => void;
   onDelete?: (itemId: Id<"items">) => void;
+  onEdit?: (item: {
+    id: Id<"items">;
+    name: string;
+    quantity?: number;
+    unit?: string;
+    notes?: string;
+    category?: string;
+  }) => void;
   index: number;
 }
 
@@ -100,9 +110,12 @@ export function ListItem({
   name,
   quantity,
   unit,
+  notes,
+  category,
   isCompleted,
   onToggle,
   onDelete,
+  onEdit,
   index,
 }: ListItemProps) {
   const scale = useSharedValue(1);
@@ -145,6 +158,11 @@ export function ListItem({
     setIsDeleting(true);
     onDelete?.(id);
   }, [id, onDelete]);
+
+  const handleEdit = useCallback(() => {
+    triggerHaptic();
+    onEdit?.({ id, name, quantity, unit, notes, category });
+  }, [id, name, quantity, unit, notes, category, onEdit]);
 
   const handleToggle = () => {
     const newCompleted = !isCompleted;
@@ -339,6 +357,8 @@ export function ListItem({
           <Animated.View style={swipeAnimatedStyle}>
             <Pressable
               onPress={handleToggle}
+              onLongPress={handleEdit}
+              delayLongPress={400}
               className="flex-row items-center rounded-2xl bg-white px-4 py-4"
               style={{
                 shadowColor: "#000",
@@ -349,11 +369,16 @@ export function ListItem({
               }}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: isCompleted }}
-              accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}. Swipe left to delete.`}
-              accessibilityActions={[{ name: "delete", label: "Delete item" }]}
+              accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}. Long press to edit. Swipe left to delete.`}
+              accessibilityActions={[
+                { name: "activate", label: "Edit item" },
+                { name: "delete", label: "Delete item" },
+              ]}
               onAccessibilityAction={(event) => {
                 if (event.nativeEvent.actionName === "delete") {
                   handleDelete();
+                } else if (event.nativeEvent.actionName === "activate") {
+                  handleEdit();
                 }
               }}
             >
