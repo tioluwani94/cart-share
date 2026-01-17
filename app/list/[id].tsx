@@ -14,7 +14,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { ListItem } from "@/components/lists/ListItem";
+import { ListItem, AddItemInput } from "@/components/lists";
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +27,7 @@ export default function ListDetailScreen() {
   const list = useQuery(api.lists.getById, { listId });
   const items = useQuery(api.items.getByList, { listId });
   const toggleComplete = useMutation(api.items.toggleComplete);
+  const addItem = useMutation(api.items.add);
 
   // Animation for completed section
   const expandedRotation = useSharedValue(completedExpanded ? 0 : -90);
@@ -59,6 +60,13 @@ export default function ListDetailScreen() {
       }
     },
     [toggleComplete]
+  );
+
+  const handleAddItem = useCallback(
+    async (name: string) => {
+      await addItem({ listId, name });
+    },
+    [addItem, listId]
   );
 
   const handleRefresh = useCallback(async () => {
@@ -194,7 +202,7 @@ export default function ListDetailScreen() {
           />
         )}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -218,7 +226,7 @@ export default function ListDetailScreen() {
         }
         ListFooterComponent={
           completedItems.length > 0 ? (
-            <View className="mb-24 mt-4">
+            <View className="mt-4">
               {/* Completed section header */}
               <Pressable
                 onPress={toggleCompletedSection}
@@ -252,11 +260,12 @@ export default function ListDetailScreen() {
                 </Animated.View>
               )}
             </View>
-          ) : (
-            <View className="h-24" />
-          )
+          ) : null
         }
       />
+
+      {/* Sticky add item input */}
+      <AddItemInput onAdd={handleAddItem} />
     </SafeAreaView>
   );
 }
