@@ -1,4 +1,10 @@
-import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
@@ -44,7 +50,7 @@ export default function HomeScreen() {
   // Get lists for the household (with real-time updates)
   const lists = useQuery(
     api.lists.getByHousehold,
-    household?._id ? { householdId: household._id } : "skip"
+    household?._id ? { householdId: household._id } : "skip",
   );
 
   // FAB animation
@@ -88,20 +94,6 @@ export default function HomeScreen() {
         <View className="flex-1 items-center justify-center">
           <View className="h-8 w-8 animate-spin rounded-full border-4 border-coral border-t-transparent" />
           <Text className="mt-4 text-warm-gray-500">Loading your lists...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // No household state - shouldn't happen if routing is correct
-  if (household === null) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-light">
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-6xl">🏠</Text>
-          <Text className="mt-4 text-center text-lg text-warm-gray-600">
-            You haven't set up a household yet
-          </Text>
         </View>
       </SafeAreaView>
     );
@@ -156,17 +148,19 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* FAB - Floating Action Button */}
-      <AnimatedPressable
-        onPress={handleCreateList}
-        onPressIn={handleFabPressIn}
-        onPressOut={handleFabPressOut}
-        style={fabAnimatedStyle}
-        accessibilityLabel="Create new list"
-        accessibilityRole="button"
-        className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-coral shadow-warm-lg"
-      >
-        <Text className="text-2xl font-light text-white">+</Text>
-      </AnimatedPressable>
+      {hasLists && (
+        <AnimatedPressable
+          onPress={handleCreateList}
+          onPressIn={handleFabPressIn}
+          onPressOut={handleFabPressOut}
+          style={fabAnimatedStyle}
+          accessibilityLabel="Create new list"
+          accessibilityRole="button"
+          className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-coral shadow-warm-lg"
+        >
+          <Text className="text-2xl font-light text-white">+</Text>
+        </AnimatedPressable>
+      )}
     </SafeAreaView>
   );
 }

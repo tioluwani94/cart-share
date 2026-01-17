@@ -41,40 +41,40 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
         withTiming(15, { duration: 400, easing: Easing.inOut(Easing.ease) }),
         withTiming(-15, { duration: 400, easing: Easing.inOut(Easing.ease) }),
         withTiming(0, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-        withDelay(1000, withTiming(0, { duration: 0 })) // Pause between waves
+        withDelay(1000, withTiming(0, { duration: 0 })), // Pause between waves
       ),
       -1, // Repeat infinitely
-      false
+      false,
     );
 
     // Subtle scale breathing for avocado
     avocadoScale.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
 
     // Cart gentle bounce
     cartTranslateY.value = withRepeat(
       withSequence(
         withTiming(-5, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) })
+        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
 
     // CTA button gentle pulse
     buttonScale.value = withRepeat(
       withSequence(
         withTiming(1.03, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -87,10 +87,6 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
 
   const cartStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: cartTranslateY.value }],
-  }));
-
-  const buttonContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
   }));
 
   return (
@@ -129,7 +125,6 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
       {/* CTA Button with pulse animation */}
       <Animated.View
         entering={FadeInUp.delay(500).duration(500).springify()}
-        style={buttonContainerStyle}
         className="mt-8 w-full"
       >
         <Button
@@ -140,18 +135,6 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
         >
           Create your first list
         </Button>
-      </Animated.View>
-
-      {/* Decorative floating emojis */}
-      <Animated.View
-        entering={FadeIn.delay(700).duration(800)}
-        className="absolute bottom-0 w-full flex-row justify-around opacity-10"
-      >
-        <Text className="text-4xl">🍎</Text>
-        <Text className="text-4xl">🥕</Text>
-        <Text className="text-4xl">🧀</Text>
-        <Text className="text-4xl">🥦</Text>
-        <Text className="text-4xl">🍞</Text>
       </Animated.View>
     </View>
   );
