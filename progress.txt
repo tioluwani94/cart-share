@@ -216,3 +216,32 @@
 - All functions validate authentication via ctx.auth.getUserIdentity()
 - All functions validate household membership before allowing access
 - Typecheck passes
+
+## US-012: Build vibrant home screen with list cards [COMPLETED]
+- Updated app/(tabs)/index.tsx with:
+  - Time-based warm greeting: "Good morning/afternoon/evening, [Name]!"
+  - User's first name displayed via Clerk's useUser hook
+  - Lists fetched via useQuery with real-time updates from Convex
+  - Loading state with branded coral spinner
+  - Empty state with "Your lists are feeling lonely!" message
+  - Pull-to-refresh with coral accent color
+- Created components/lists/ListCard.tsx with playful design:
+  - Rounded-2xl corners with coral left border accent
+  - Warm shadow styling (shadow-warm)
+  - Category emoji based on list type (groceries, costco, target, etc.)
+  - Fun item count format: "X items to grab" or "X/Y done!" or "All done!"
+  - Teal progress bar with rounded ends showing completion percentage
+  - "Complete" badge when all items checked
+  - Staggered entrance animation using FadeInDown with spring physics
+  - Scale-down press animation (0.97) for satisfying feedback
+- Created components/lists/index.ts barrel export
+- Updated convex/lists.ts getByHousehold query to include item counts:
+  - Queries items by list and calculates totalItems and completedItems
+  - Returns lists with counts for progress display
+- Added FAB (Floating Action Button):
+  - Coral background with white + icon
+  - Bouncy press animation (scale 0.9 on press)
+  - Positioned at bottom-right with shadow
+  - Navigates to /create-list
+- Created app/create-list.tsx placeholder for US-014
+- Typecheck passes

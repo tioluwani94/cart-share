@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 /**
- * Get all non-archived lists for a household.
+ * Get all non-archived lists for a household with item counts.
  * Validates that the user is a member of the household.
  */
 export const getByHousehold = query({
@@ -44,7 +44,26 @@ export const getByHousehold = query({
       )
       .collect();
 
-    return lists;
+    // Get item counts for each list
+    const listsWithCounts = await Promise.all(
+      lists.map(async (list) => {
+        const items = await ctx.db
+          .query("items")
+          .withIndex("by_list", (q) => q.eq("listId", list._id))
+          .collect();
+
+        const totalItems = items.length;
+        const completedItems = items.filter((item) => item.isCompleted).length;
+
+        return {
+          ...list,
+          totalItems,
+          completedItems,
+        };
+      })
+    );
+
+    return listsWithCounts;
   },
 });
 
