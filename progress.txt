@@ -541,3 +541,28 @@
 - Updated components/lists/index.ts to export HeaderMenu and ArchiveConfirmDialog
 - Updated components/ui/index.ts to export Toast
 - Typecheck passes
+
+## US-025: Show partner avatars on items [COMPLETED]
+- Created components/ui/UserAvatar.tsx:
+  - Small circular avatar (24px) component
+  - Shows profile photo with automatic fallback on image error
+  - Colored initials fallback using fun gradient background colors
+  - 8 gradient color pairs (coral, teal, yellow, purple, blue, red, mint, orange)
+  - Consistent color for each name based on first character
+  - Initials extracted from first and last name parts
+- Added tooltip on long press:
+  - Modal overlay with "Added by [Name]" message
+  - Dark background (#1A1A2E) with white text
+  - Light haptic feedback on long press
+  - Tap anywhere to dismiss
+- Updated convex/items.ts getByList query:
+  - Enriches items with addedByUser object containing name and imageUrl
+  - Fetches user data for each item's addedBy field
+- Updated components/lists/ListItem.tsx:
+  - Added addedByUser prop to ListItemProps interface
+  - Avatar positioned at right edge of item row (ml-2, marginRight: -4)
+  - Shows avatar only when addedByUser is present
+- Updated app/list/[id].tsx:
+  - Passes addedByUser prop to ListItem for both uncompleted and completed items
+- Updated components/ui/index.ts to export UserAvatar
+- Typecheck passes
