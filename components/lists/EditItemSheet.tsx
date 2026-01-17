@@ -12,9 +12,7 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-  FadeIn,
   Easing,
-  runOnJS,
 } from "react-native-reanimated";
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -44,12 +42,10 @@ const UNITS = [
  * Unit chip component with selection animation.
  */
 function UnitChip({
-  id,
   label,
   selected,
   onPress,
 }: {
-  id: string;
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -370,7 +366,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
               {UNITS.map((unitOption) => (
                 <UnitChip
                   key={unitOption.id}
-                  {...unitOption}
+                  label={unitOption.label}
                   selected={unit === unitOption.id}
                   onPress={() =>
                     setUnit(unit === unitOption.id ? null : unitOption.id)

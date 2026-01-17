@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from "react-native";
-import { Check, Trash2 } from "lucide-react-native";
+import { Check, Trash2, Pencil } from "lucide-react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -13,7 +13,6 @@ import Animated, {
   runOnJS,
   interpolate,
   Extrapolation,
-  Easing,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
@@ -41,8 +40,9 @@ interface ListItemProps {
   index: number;
 }
 
-const DELETE_THRESHOLD = -80;
-const SWIPE_REVEAL_THRESHOLD = -40;
+const ACTION_BUTTON_WIDTH = 70;
+const SWIPE_THRESHOLD = -50;
+const SNAP_OPEN = -(ACTION_BUTTON_WIDTH * 2); // Two buttons
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -125,7 +125,6 @@ export function ListItem({
   const strikethroughProgress = useSharedValue(isCompleted ? 1 : 0);
   const textOpacity = useSharedValue(isCompleted ? 0.7 : 1);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Swipe gesture values
   const translateX = useSharedValue(0);
@@ -155,15 +154,6 @@ export function ListItem({
     setTimeout(() => setShowConfetti(false), 800);
   };
 
-  const handleDelete = useCallback(() => {
-    setIsDeleting(true);
-    onDelete?.(id);
-  }, [id, onDelete]);
-
-  const handleEdit = useCallback(() => {
-    triggerHaptic();
-    onEdit?.({ id, name, quantity, unit, notes, category });
-  }, [id, name, quantity, unit, notes, category, onEdit]);
 
   const handleToggle = () => {
     const newCompleted = !isCompleted;
@@ -226,35 +216,61 @@ export function ListItem({
     opacity: strikethroughProgress.value,
   }));
 
-  // Swipe gesture for delete
+  // Close swipe actions
+  const closeSwipe = useCallback(() => {
+    translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    hasTriggeredRevealHaptic.value = false;
+  }, [translateX, hasTriggeredRevealHaptic]);
+
+  // Handle edit action from swipe button
+  const handleEditAction = useCallback(() => {
+    closeSwipe();
+    triggerHaptic();
+    onEdit?.({ id, name, quantity, unit, notes, category });
+  }, [closeSwipe, id, name, quantity, unit, notes, category, onEdit]);
+
+  // Handle delete action from swipe button
+  const handleDeleteAction = useCallback(() => {
+    triggerMediumHaptic();
+    translateX.value = withTiming(-400, { duration: 200 });
+    itemHeight.value = withDelay(100, withTiming(0, { duration: 200 }));
+    marginBottom.value = withDelay(100, withTiming(0, { duration: 200 }));
+    opacity.value = withDelay(100, withTiming(0, { duration: 150 }));
+    onDelete?.(id);
+  }, [translateX, itemHeight, marginBottom, opacity, id, onDelete]);
+
+  // Swipe gesture to reveal action buttons
   const swipeGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .failOffsetY([-10, 10])
     .onUpdate((event) => {
-      // Only allow left swipe
-      if (event.translationX < 0) {
-        translateX.value = event.translationX;
+      // Calculate new position based on current state and gesture
+      const newTranslateX = event.translationX + (translateX.value < SNAP_OPEN / 2 ? SNAP_OPEN : 0);
 
-        // Trigger haptic on reveal threshold
-        if (event.translationX < SWIPE_REVEAL_THRESHOLD && !hasTriggeredRevealHaptic.value) {
-          hasTriggeredRevealHaptic.value = true;
-          runOnJS(triggerHaptic)();
-        } else if (event.translationX > SWIPE_REVEAL_THRESHOLD) {
-          hasTriggeredRevealHaptic.value = false;
-        }
+      // Clamp between SNAP_OPEN and 0
+      if (newTranslateX < SNAP_OPEN) {
+        translateX.value = SNAP_OPEN;
+      } else if (newTranslateX > 0) {
+        translateX.value = 0;
+      } else {
+        translateX.value = newTranslateX;
+      }
+
+      // Trigger haptic on threshold
+      if (translateX.value < SWIPE_THRESHOLD && !hasTriggeredRevealHaptic.value) {
+        hasTriggeredRevealHaptic.value = true;
+        runOnJS(triggerHaptic)();
+      } else if (translateX.value > SWIPE_THRESHOLD) {
+        hasTriggeredRevealHaptic.value = false;
       }
     })
     .onEnd((event) => {
-      if (event.translationX < DELETE_THRESHOLD) {
-        // Delete the item
-        runOnJS(triggerMediumHaptic)();
-        translateX.value = withTiming(-400, { duration: 200 });
-        itemHeight.value = withDelay(100, withTiming(0, { duration: 200 }));
-        marginBottom.value = withDelay(100, withTiming(0, { duration: 200 }));
-        opacity.value = withDelay(100, withTiming(0, { duration: 150 }));
-        runOnJS(handleDelete)();
+      // Determine if we should snap open or closed based on velocity and position
+      const shouldOpen = event.velocityX < -500 || (translateX.value < SWIPE_THRESHOLD && event.velocityX < 200);
+
+      if (shouldOpen) {
+        translateX.value = withSpring(SNAP_OPEN, { damping: 20, stiffness: 200 });
       } else {
-        // Snap back
         translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
         hasTriggeredRevealHaptic.value = false;
       }
@@ -272,49 +288,15 @@ export function ListItem({
     overflow: "hidden" as const,
   }));
 
-  // Background color intensifies as swipe progresses
-  const deleteBackgroundStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
+  // Action buttons container style
+  const actionsContainerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
       translateX.value,
-      [0, -40, -80, -120],
-      [0, 0.3, 0.7, 1],
+      [0, -30],
+      [0, 1],
       Extrapolation.CLAMP
-    );
-
-    return {
-      backgroundColor: interpolateColor(
-        progress,
-        [0, 1],
-        ["#FEE2E2", "#EF4444"] // light red to red
-      ),
-      opacity: interpolate(
-        translateX.value,
-        [0, -20],
-        [0, 1],
-        Extrapolation.CLAMP
-      ),
-    };
-  });
-
-  // Trash icon scales up during swipe
-  const trashIconStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      translateX.value,
-      [0, -40, -80],
-      [0.8, 1, 1.2],
-      Extrapolation.CLAMP
-    );
-
-    return {
-      transform: [{ scale }],
-      opacity: interpolate(
-        translateX.value,
-        [0, -30],
-        [0, 1],
-        Extrapolation.CLAMP
-      ),
-    };
-  });
+    ),
+  }));
 
   // Format quantity display
   const quantityDisplay =
@@ -331,26 +313,44 @@ export function ListItem({
       style={containerAnimatedStyle}
     >
       <View className="relative overflow-hidden rounded-2xl">
-        {/* Delete background with trash icon */}
+        {/* Action buttons revealed on swipe */}
         <Animated.View
           style={[
-            deleteBackgroundStyle,
+            actionsContainerStyle,
             {
               position: "absolute",
               top: 0,
               bottom: 0,
-              left: 0,
               right: 0,
+              flexDirection: "row",
               borderRadius: 16,
-              justifyContent: "center",
-              alignItems: "flex-end",
-              paddingRight: 24,
+              overflow: "hidden",
             },
           ]}
         >
-          <Animated.View style={trashIconStyle}>
-            <Trash2 size={22} color="#FFFFFF" strokeWidth={2} />
-          </Animated.View>
+          {/* Edit button */}
+          <Pressable
+            onPress={handleEditAction}
+            className="h-full items-center justify-center bg-teal"
+            style={{ width: ACTION_BUTTON_WIDTH }}
+            accessibilityLabel="Edit item"
+            accessibilityRole="button"
+          >
+            <Pencil size={20} color="#FFFFFF" strokeWidth={2} />
+            <Text className="mt-1 text-xs font-medium text-white">Edit</Text>
+          </Pressable>
+
+          {/* Delete button */}
+          <Pressable
+            onPress={handleDeleteAction}
+            className="h-full items-center justify-center bg-red-500"
+            style={{ width: ACTION_BUTTON_WIDTH }}
+            accessibilityLabel="Delete item"
+            accessibilityRole="button"
+          >
+            <Trash2 size={20} color="#FFFFFF" strokeWidth={2} />
+            <Text className="mt-1 text-xs font-medium text-white">Delete</Text>
+          </Pressable>
         </Animated.View>
 
         {/* Swipeable item content */}
@@ -358,7 +358,7 @@ export function ListItem({
           <Animated.View style={swipeAnimatedStyle}>
             <Pressable
               onPress={handleToggle}
-              onLongPress={handleEdit}
+              onLongPress={handleEditAction}
               delayLongPress={400}
               className="flex-row items-center rounded-2xl bg-white px-4 py-4"
               style={{
@@ -370,16 +370,16 @@ export function ListItem({
               }}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: isCompleted }}
-              accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}. Long press to edit. Swipe left to delete.`}
+              accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}. Swipe left for edit and delete options.`}
               accessibilityActions={[
                 { name: "activate", label: "Edit item" },
                 { name: "delete", label: "Delete item" },
               ]}
               onAccessibilityAction={(event) => {
                 if (event.nativeEvent.actionName === "delete") {
-                  handleDelete();
+                  handleDeleteAction();
                 } else if (event.nativeEvent.actionName === "activate") {
-                  handleEdit();
+                  handleEditAction();
                 }
               }}
             >
