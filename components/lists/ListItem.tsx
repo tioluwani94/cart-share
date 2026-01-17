@@ -6,11 +6,14 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  withSequence,
+  withDelay,
   interpolateColor,
   runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Id } from "@/convex/_generated/dataModel";
+import { useState, useEffect } from "react";
 
 interface ListItemProps {
   id: Id<"items">;
@@ -24,6 +27,66 @@ interface ListItemProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Confetti particle component
+function ConfettiParticle({
+  emoji,
+  delay,
+  startX,
+}: {
+  emoji: string;
+  delay: number;
+  startX: number;
+}) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const translateX = useSharedValue(startX);
+  const rotate = useSharedValue(0);
+  const scale = useSharedValue(0.5);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 100 }));
+    translateY.value = withDelay(
+      delay,
+      withTiming(-40, { duration: 600 })
+    );
+    translateX.value = withDelay(
+      delay,
+      withSpring(startX + (Math.random() - 0.5) * 30, { damping: 8 })
+    );
+    rotate.value = withDelay(
+      delay,
+      withTiming(Math.random() * 360, { duration: 600 })
+    );
+    scale.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(1, { duration: 150 }),
+        withDelay(300, withTiming(0, { duration: 150 }))
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${rotate.value}deg` },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <Animated.Text
+      style={[{ position: "absolute", fontSize: 12, left: 8 }, animatedStyle]}
+    >
+      {emoji}
+    </Animated.Text>
+  );
+}
+
+const CONFETTI_EMOJIS = ["✨", "🎉", "⭐", "💫", "✨"];
+
 export function ListItem({
   id,
   name,
@@ -36,6 +99,9 @@ export function ListItem({
   const scale = useSharedValue(1);
   const fillProgress = useSharedValue(isCompleted ? 1 : 0);
   const checkmarkProgress = useSharedValue(isCompleted ? 1 : 0);
+  const strikethroughProgress = useSharedValue(isCompleted ? 1 : 0);
+  const textOpacity = useSharedValue(isCompleted ? 0.7 : 1);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const triggerHaptic = () => {
     try {
@@ -45,20 +111,33 @@ export function ListItem({
     }
   };
 
+  const triggerConfetti = () => {
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 800);
+  };
+
   const handleToggle = () => {
     const newCompleted = !isCompleted;
 
     if (newCompleted) {
-      // Checking animation
-      scale.value = withSpring(1.05, { damping: 10, stiffness: 400 });
-      scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+      // Checking animation: scale bounce 1.0 → 1.1 → 1.0
+      scale.value = withSequence(
+        withSpring(1.1, { damping: 10, stiffness: 400 }),
+        withSpring(1, { damping: 15, stiffness: 300 })
+      );
       fillProgress.value = withTiming(1, { duration: 200 });
       checkmarkProgress.value = withTiming(1, { duration: 250 });
+      // Animate strikethrough and text fade
+      strikethroughProgress.value = withDelay(100, withTiming(1, { duration: 200 }));
+      textOpacity.value = withDelay(100, withTiming(0.7, { duration: 200 }));
       runOnJS(triggerHaptic)();
+      runOnJS(triggerConfetti)();
     } else {
       // Unchecking animation
       fillProgress.value = withTiming(0, { duration: 150 });
       checkmarkProgress.value = withTiming(0, { duration: 100 });
+      strikethroughProgress.value = withTiming(0, { duration: 150 });
+      textOpacity.value = withTiming(1, { duration: 150 });
     }
 
     onToggle(id);
@@ -89,6 +168,15 @@ export function ListItem({
     ],
   }));
 
+  const textAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+  }));
+
+  const strikethroughStyle = useAnimatedStyle(() => ({
+    width: `${strikethroughProgress.value * 100}%`,
+    opacity: strikethroughProgress.value,
+  }));
+
   // Format quantity display
   const quantityDisplay =
     quantity && quantity > 0
@@ -117,35 +205,61 @@ export function ListItem({
         accessibilityState={{ checked: isCompleted }}
         accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}`}
       >
-        {/* Checkbox */}
-        <AnimatedPressable
-          onPress={handleToggle}
-          style={checkboxContainerStyle}
-          className="mr-4"
-        >
-          <Animated.View
-            style={checkboxFillStyle}
-            className="h-7 w-7 items-center justify-center rounded-full border-2"
+        {/* Checkbox with confetti */}
+        <View className="relative">
+          <AnimatedPressable
+            onPress={handleToggle}
+            style={checkboxContainerStyle}
+            className="mr-4"
           >
-            <Animated.View style={checkmarkStyle}>
-              <CheckIcon />
+            <Animated.View
+              style={checkboxFillStyle}
+              className="h-7 w-7 items-center justify-center rounded-full border-2"
+            >
+              <Animated.View style={checkmarkStyle}>
+                <CheckIcon />
+              </Animated.View>
             </Animated.View>
-          </Animated.View>
-        </AnimatedPressable>
+          </AnimatedPressable>
+
+          {/* Confetti particles - 5 tiny particles */}
+          {showConfetti &&
+            CONFETTI_EMOJIS.map((emoji, i) => (
+              <ConfettiParticle
+                key={i}
+                emoji={emoji}
+                delay={i * 50}
+                startX={(i - 2) * 8}
+              />
+            ))}
+        </View>
 
         {/* Item name and quantity */}
         <View className="flex-1 flex-row items-center">
-          <Text
-            className={`flex-1 text-base font-medium ${
-              isCompleted
-                ? "text-warm-gray-400 line-through"
-                : "text-warm-gray-800"
-            }`}
-            style={isCompleted ? { opacity: 0.7 } : undefined}
-            numberOfLines={2}
-          >
-            {name}
-          </Text>
+          <View className="relative flex-1">
+            <Animated.Text
+              style={textAnimatedStyle}
+              className={`text-base font-medium ${
+                isCompleted ? "text-warm-gray-400" : "text-warm-gray-800"
+              }`}
+              numberOfLines={2}
+            >
+              {name}
+            </Animated.Text>
+            {/* Animated strikethrough line */}
+            <Animated.View
+              style={[
+                strikethroughStyle,
+                {
+                  position: "absolute",
+                  height: 1.5,
+                  backgroundColor: "#A3A096",
+                  top: "50%",
+                  left: 0,
+                },
+              ]}
+            />
+          </View>
 
           {/* Quantity badge */}
           {quantityDisplay && (
