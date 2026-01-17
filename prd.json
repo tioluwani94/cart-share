@@ -434,8 +434,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed - HeaderMenu with three dots, ArchiveConfirmDialog with friendly copy, Toast for success feedback, archived lists in settings with restore, swipe-to-archive on home screen, auto-archive on receipt scan"
     },
     {
       "id": "US-024",

@@ -496,3 +496,48 @@
 - Created app/scan-receipt.tsx placeholder for US-034
 - Updated components/lists/index.ts to export CompletionCelebration
 - Typecheck passes
+
+## US-023: Implement list archiving with animation [COMPLETED]
+- Added HeaderMenu component (components/lists/HeaderMenu.tsx):
+  - Three dots menu button in header with scale animation on press
+  - Modal dropdown with slide-in animation from right
+  - Archive list option with Archive icon from lucide-react-native
+  - Light haptic feedback on menu interactions
+- Created ArchiveConfirmDialog component (components/lists/ArchiveConfirmDialog.tsx):
+  - Modal with friendly copy: "Archive this list?"
+  - Description explains list will be moved to archived lists
+  - "Yes, archive it" primary button and "Keep it" ghost button
+  - Spring slide-in animation, fade backdrop
+  - Loading state during archive operation
+  - Medium haptic feedback on confirm
+- Created Toast component (components/ui/Toast.tsx):
+  - Slides down from top with spring animation
+  - Auto-dismisses after configurable duration (default 2s)
+  - Success haptic feedback on show
+  - Used for "List archived! ✓" and "List restored! ✓" messages
+- Updated app/list/[id].tsx:
+  - Added HeaderMenu to header row next to title
+  - Archive confirmation dialog with friendly copy
+  - Success toast after archiving
+  - Auto-navigate back to home after showing toast
+  - Auto-archive list when user taps "Scan Receipt" after completion
+- Added convex/lists.ts functions:
+  - getArchivedByHousehold query returns archived lists with item counts
+  - unarchive mutation to restore archived lists
+- Updated app/(tabs)/settings.tsx with archived lists section:
+  - Collapsible "Archived Lists" section with chevron rotation animation
+  - Shows count of archived lists
+  - Each archived list displays name and item count
+  - "Restore" button with teal accent color
+  - Loading state during restore operation
+  - Success toast on restore
+  - Empty state: "No archived lists yet"
+- Added swipe-to-archive on home screen ListCards:
+  - Pan gesture with orange background reveal
+  - Archive icon scales up during swipe
+  - Background color intensifies from light orange to orange
+  - Confirmation dialog appears on swipe threshold
+  - Light haptic on reveal, medium haptic on archive
+- Updated components/lists/index.ts to export HeaderMenu and ArchiveConfirmDialog
+- Updated components/ui/index.ts to export Toast
+- Typecheck passes
