@@ -663,3 +663,34 @@
   - Updated loading state to account for cached data
 - Type definitions match Convex query return types
 - Typecheck passes
+
+## US-030: Build offline mutation queue [COMPLETED]
+- Created lib/useOfflineQueue.ts hook for offline mutation queueing:
+  - Defines MutationType union for supported mutations (items.add, items.toggleComplete, items.update, items.remove, lists.create, lists.archive, lists.update)
+  - Defines MutationArgs type map for type-safe arguments per mutation
+  - QueuedMutation interface: { id, fn, args, timestamp, retryCount }
+- Queue stored in MMKV storage:
+  - Uses StorageKeys.OFFLINE_QUEUE key
+  - getStoredQueue() retrieves queue from MMKV
+  - saveQueue() persists queue to MMKV
+  - Queue removed from storage when empty
+- addToQueue function for queueing mutations:
+  - Generates unique ID with timestamp + random string
+  - Adds mutation to queue with current timestamp
+  - Sorts queue by timestamp before saving
+  - Returns mutation ID for tracking
+- processQueue function for syncing when online:
+  - Prevents concurrent processing with processingRef
+  - Processes mutations in timestamp order (last-write-wins)
+  - executeMutation() dispatches to correct Convex mutation
+  - Retries failed mutations up to 3 times
+  - Drops mutations that exceed max retries
+  - Returns { success, failed } counts
+- Auto-process on network restore:
+  - useEffect watches justCameOnline from useNetworkStatus
+  - Automatically calls processQueue when coming back online
+- Helper exports:
+  - useHasPendingMutations() hook for checking queue status
+  - clearQueue() to clear all pending mutations
+  - removeFromQueue() to remove specific mutation by ID
+- Typecheck passes
