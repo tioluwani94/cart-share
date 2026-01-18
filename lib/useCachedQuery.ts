@@ -13,7 +13,7 @@ import {
 /**
  * Type for list with item counts (matches what getByHousehold returns)
  */
-interface ListWithCounts {
+export interface ListWithCounts {
   _id: Id<"lists">;
   _creationTime: number;
   name: string;
@@ -30,7 +30,7 @@ interface ListWithCounts {
 /**
  * Type for item with addedByUser (matches what getByList returns)
  */
-interface ItemWithUser {
+export interface ItemWithUser {
   _id: Id<"items">;
   _creationTime: number;
   listId: Id<"lists">;
@@ -50,6 +50,10 @@ interface ItemWithUser {
     name?: string;
     imageUrl?: string;
   } | null;
+  /** Whether this item is pending sync (created/modified offline) */
+  isPendingSync?: boolean;
+  /** The offline queue mutation ID for tracking */
+  pendingMutationId?: string;
 }
 
 /**

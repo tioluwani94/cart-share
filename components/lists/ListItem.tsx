@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from "react-native";
-import { Check, Trash2, Pencil } from "lucide-react-native";
+import { Check, Trash2, Pencil, RefreshCw } from "lucide-react-native";
 import { UserAvatar } from "@/components/ui";
 import Animated, {
   FadeIn,
@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
   withSequence,
   withDelay,
+  withRepeat,
   interpolateColor,
   runOnJS,
   interpolate,
@@ -32,6 +33,8 @@ interface ListItemProps {
     name?: string;
     imageUrl?: string;
   } | null;
+  /** Whether this item is pending sync (created/modified offline) */
+  isPendingSync?: boolean;
   onToggle: (itemId: Id<"items">) => void;
   onDelete?: (itemId: Id<"items">) => void;
   onEdit?: (item: {
@@ -120,6 +123,7 @@ export function ListItem({
   category,
   isCompleted,
   addedByUser,
+  isPendingSync = false,
   onToggle,
   onDelete,
   onEdit,
@@ -131,6 +135,26 @@ export function ListItem({
   const strikethroughProgress = useSharedValue(isCompleted ? 1 : 0);
   const textOpacity = useSharedValue(isCompleted ? 0.7 : 1);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  // Sync indicator animation
+  const syncRotation = useSharedValue(0);
+
+  // Animate sync icon rotation when pending
+  useEffect(() => {
+    if (isPendingSync) {
+      syncRotation.value = withRepeat(
+        withTiming(360, { duration: 1500 }),
+        -1, // Infinite repeat
+        false // Don't reverse
+      );
+    } else {
+      syncRotation.value = 0;
+    }
+  }, [isPendingSync, syncRotation]);
+
+  const syncIconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${syncRotation.value}deg` }],
+  }));
 
   // Swipe gesture values
   const translateX = useSharedValue(0);
@@ -473,6 +497,18 @@ export function ListItem({
                       tooltipPrefix="Added by"
                     />
                   </View>
+                )}
+
+                {/* Sync indicator for offline items */}
+                {isPendingSync && (
+                  <Animated.View
+                    style={syncIconStyle}
+                    className="ml-2"
+                    accessibilityLabel="Pending sync"
+                    accessibilityHint="This item will sync when you're back online"
+                  >
+                    <RefreshCw size={16} color="#CA8A04" strokeWidth={2} />
+                  </Animated.View>
                 )}
               </View>
             </Pressable>

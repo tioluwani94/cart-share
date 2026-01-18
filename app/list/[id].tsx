@@ -1,33 +1,38 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { View, Text, Pressable, RefreshControl, ActivityIndicator } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
-import { useQuery, useMutation } from "convex/react";
+import {
+  AddItemInput,
+  ArchiveConfirmDialog,
+  CompletionCelebration,
+  EditItemSheet,
+  HeaderMenu,
+  ListItem,
+  PartnerActivityToast,
+} from "@/components/lists";
+import { Toast } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCachedItems } from "@/lib/useCachedQuery";
+import { useOfflineItems } from "@/lib/useOfflineItems";
+import BottomSheet from "@gorhom/bottom-sheet";
+import { FlashList } from "@shopify/flash-list";
+import { useMutation, useQuery } from "convex/react";
+import { router, useLocalSearchParams } from "expo-router";
+import { ChevronDown, ChevronLeft, CloudOff } from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
   FadeIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  runOnJS,
 } from "react-native-reanimated";
-import {
-  ListItem,
-  AddItemInput,
-  EditItemSheet,
-  CompletionCelebration,
-  HeaderMenu,
-  ArchiveConfirmDialog,
-  PartnerActivityToast,
-} from "@/components/lists";
-import { Toast } from "@/components/ui";
-import BottomSheet from "@gorhom/bottom-sheet";
-import { ChevronLeft, ChevronDown, CloudOff } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Type for partner activity toast state
 interface PartnerActivity {
@@ -55,7 +60,8 @@ export default function ListDetailScreen() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showArchiveToast, setShowArchiveToast] = useState(false);
-  const [partnerActivity, setPartnerActivity] = useState<PartnerActivity | null>(null);
+  const [partnerActivity, setPartnerActivity] =
+    useState<PartnerActivity | null>(null);
   const previousProgressRef = useRef<number | null>(null);
   const previousItemIdsRef = useRef<Set<string>>(new Set());
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,11 +72,24 @@ export default function ListDetailScreen() {
 
   // Fetch list, items (with caching), and current user
   const list = useQuery(api.lists.getById, { listId });
-  const { data: items, isFromCache, isLoading: itemsLoading } = useCachedItems(listId);
+  const {
+    data: items,
+    isFromCache,
+    isLoading: itemsLoading,
+  } = useCachedItems(listId);
   const currentUser = useQuery(api.users.getCurrentUser);
-  const toggleComplete = useMutation(api.items.toggleComplete);
-  const addItem = useMutation(api.items.add);
-  const removeItem = useMutation(api.items.remove);
+
+  // Offline-aware item operations
+  const {
+    addItem: offlineAddItem,
+    toggleComplete: offlineToggleComplete,
+    removeItem: offlineRemoveItem,
+    updateItem: offlineUpdateItem,
+    isOnline,
+    isPendingSync,
+    pendingCount,
+  } = useOfflineItems(listId);
+
   const archiveList = useMutation(api.lists.archive);
 
   // Animation for completed section
@@ -93,7 +112,8 @@ export default function ListDetailScreen() {
   // Calculate progress
   const totalItems = items?.length ?? 0;
   const completedCount = completedItems.length;
-  const progressPercent = totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
+  const progressPercent =
+    totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
 
   // Detect when list becomes 100% complete
   useEffect(() => {
@@ -123,15 +143,12 @@ export default function ListDetailScreen() {
 
     // Find new items that weren't in the previous list
     const newItems = items.filter(
-      (item) => !previousItemIdsRef.current.has(item._id)
+      (item) => !previousItemIdsRef.current.has(item._id),
     );
 
     // Check if any new item was added by someone other than the current user
     for (const newItem of newItems) {
-      if (
-        newItem.addedByUser &&
-        newItem.addedByUser._id !== currentUser._id
-      ) {
+      if (newItem.addedByUser && newItem.addedByUser._id !== currentUser._id) {
         // Partner added this item!
         setPartnerActivity({
           itemId: newItem._id,
@@ -156,7 +173,7 @@ export default function ListDetailScreen() {
 
     // Find the index of the new item in the uncompleted items list
     const itemIndex = uncompletedItems.findIndex(
-      (item) => item._id === partnerActivity.itemId
+      (item) => item._id === partnerActivity.itemId,
     );
 
     if (itemIndex !== -1 && flashListRef.current) {
@@ -189,30 +206,30 @@ export default function ListDetailScreen() {
   const handleToggle = useCallback(
     async (itemId: Id<"items">) => {
       try {
-        await toggleComplete({ itemId });
+        await offlineToggleComplete(itemId);
       } catch (error) {
         console.error("Failed to toggle item:", error);
       }
     },
-    [toggleComplete]
+    [offlineToggleComplete],
   );
 
   const handleAddItem = useCallback(
     async (name: string) => {
-      await addItem({ listId, name });
+      await offlineAddItem(name);
     },
-    [addItem, listId]
+    [offlineAddItem],
   );
 
   const handleDelete = useCallback(
     async (itemId: Id<"items">) => {
       try {
-        await removeItem({ itemId });
+        await offlineRemoveItem(itemId);
       } catch (error) {
         console.error("Failed to delete item:", error);
       }
     },
-    [removeItem]
+    [offlineRemoveItem],
   );
 
   const handleEdit = useCallback(
@@ -227,7 +244,7 @@ export default function ListDetailScreen() {
       setEditingItem(item);
       editSheetRef.current?.snapToIndex(0);
     },
-    []
+    [],
   );
 
   const handleEditClose = useCallback(() => {
@@ -321,7 +338,8 @@ export default function ListDetailScreen() {
     pharmacy: "💊",
     other: "📝",
   };
-  const categoryEmoji = categoryEmojis[list.category?.toLowerCase() || "other"] || "🛒";
+  const categoryEmoji =
+    categoryEmojis[list.category?.toLowerCase() || "other"] || "🛒";
 
   return (
     <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
@@ -408,6 +426,7 @@ export default function ListDetailScreen() {
             category={item.category}
             isCompleted={item.isCompleted}
             addedByUser={item.addedByUser}
+            isPendingSync={item.isPendingSync || isPendingSync(item._id)}
             onToggle={handleToggle}
             onDelete={handleDelete}
             onEdit={handleEdit}
@@ -415,7 +434,11 @@ export default function ListDetailScreen() {
           />
         )}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 100,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -469,6 +492,7 @@ export default function ListDetailScreen() {
                       category={item.category}
                       isCompleted={item.isCompleted}
                       addedByUser={item.addedByUser}
+                      isPendingSync={item.isPendingSync || isPendingSync(item._id)}
                       onToggle={handleToggle}
                       onDelete={handleDelete}
                       onEdit={handleEdit}

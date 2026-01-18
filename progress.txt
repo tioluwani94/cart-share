@@ -694,3 +694,38 @@
   - clearQueue() to clear all pending mutations
   - removeFromQueue() to remove specific mutation by ID
 - Typecheck passes
+
+## US-031: Enable offline item interactions [COMPLETED]
+- Created lib/useOfflineItems.ts hook for offline-capable operations:
+  - useOfflineItems(listId) hook provides offline-aware item operations
+  - addItem: queues mutation when offline, updates cache optimistically with temp ID
+  - toggleComplete: queues mutation when offline, updates cache with new completion state
+  - removeItem: queues mutation when offline, removes item from cache
+  - updateItem: queues mutation when offline, updates item in cache
+  - isPendingSync(itemId): checks if item has pending sync
+  - pendingCount: tracks number of pending items
+- Optimistic updates update cache immediately:
+  - Uses MMKV cache from storage.ts
+  - Updates cache with optimistic data before queueing mutation
+  - Generates temporary IDs for new items created offline
+  - Clears pending status when queue is processed
+- Updated app/list/[id].tsx for offline support:
+  - Imported and initialized useOfflineItems hook
+  - Replaced direct mutation calls with offline-aware handlers
+  - handleToggle uses offlineToggleComplete
+  - handleAddItem uses offlineAddItem
+  - handleDelete uses offlineRemoveItem
+  - Passes isPendingSync to ListItem components
+- Added sync indicator to ListItem component:
+  - Added isPendingSync prop to ListItemProps interface
+  - Imported RefreshCw icon from lucide-react-native
+  - Added rotating sync icon animation using withRepeat
+  - Yellow/amber color (#CA8A04) for pending sync indicator
+  - Rotation animation (360deg every 1.5s) when isPendingSync is true
+  - Icon positioned next to partner avatar with proper spacing
+  - Full accessibility support with appropriate labels
+- Updated useCachedQuery.ts:
+  - Exported ListWithCounts and ItemWithUser types
+  - Added isPendingSync and pendingMutationId fields to ItemWithUser
+- Same satisfying animations work offline (checkbox, confetti, strikethrough)
+- Typecheck passes
