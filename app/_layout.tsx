@@ -1,5 +1,6 @@
 import "../global.css";
 import { useEffect } from "react";
+import { View } from "react-native";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -14,6 +15,7 @@ import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { OfflineIndicator } from "@/components/layout";
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -131,7 +133,12 @@ function InitialLayout() {
     return null;
   }
 
-  return <Slot />;
+  return (
+    <View style={{ flex: 1 }}>
+      <OfflineIndicator />
+      <Slot />
+    </View>
+  );
 }
 
 /**

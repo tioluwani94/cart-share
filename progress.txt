@@ -617,3 +617,27 @@
     - getItemsCacheKey/getItemsCacheTimestampKey - key generators
     - invalidateListsCache/invalidateItemsCache - cache invalidation
 - Typecheck passes
+
+## US-028: Implement friendly offline indicator [COMPLETED]
+- Installed @react-native-community/netinfo (v11.4.1) for network status detection
+- Created lib/useNetworkStatus.ts hook:
+  - useNetworkStatus() returns { isConnected, isInternetReachable, type, justCameOnline }
+  - Tracks network state changes via NetInfo.addEventListener
+  - Detects transition from offline to online with justCameOnline flag
+  - Auto-resets justCameOnline after 3 seconds
+  - useIsOnline() simple hook for boolean online status
+- Created components/layout/OfflineIndicator.tsx with warm design:
+  - Yellow banner (bg-yellow) with cloud icon (☁️) when offline
+  - Friendly message: "You're offline — no worries, we've got your list!"
+  - Banner slides down smoothly with spring animation when offline
+  - Teal banner with checkmark (✓) when back online: "You're back online!"
+  - Slides up with animation and auto-dismisses after 2 seconds
+  - Haptic feedback: warning notification when offline, success when back online
+  - Absolute positioning at top with z-index 1000 for overlay behavior
+  - Shadow styling for depth
+  - Full accessibility support with accessibilityRole="alert" and accessibilityLiveRegion="polite"
+- Created components/layout/index.ts barrel export
+- Integrated OfflineIndicator into app/_layout.tsx:
+  - Added to InitialLayout component wrapping the Slot
+  - Shows on all screens throughout the app
+- Typecheck passes
