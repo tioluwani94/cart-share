@@ -3,7 +3,6 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
 import { Archive, ChevronDown, RotateCcw } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
@@ -23,7 +22,6 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
-  const router = useRouter();
   const [archivedExpanded, setArchivedExpanded] = useState(false);
   const [restoringListId, setRestoringListId] = useState<Id<"lists"> | null>(
     null,
