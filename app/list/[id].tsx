@@ -85,9 +85,7 @@ export default function ListDetailScreen() {
     toggleComplete: offlineToggleComplete,
     removeItem: offlineRemoveItem,
     updateItem: offlineUpdateItem,
-    isOnline,
     isPendingSync,
-    pendingCount,
   } = useOfflineItems(listId);
 
   const archiveList = useMutation(api.lists.archive);
@@ -514,6 +512,8 @@ export default function ListDetailScreen() {
         ref={editSheetRef}
         item={editingItem}
         onClose={handleEditClose}
+        onUpdate={offlineUpdateItem}
+        onDelete={offlineRemoveItem}
       />
 
       {/* Completion celebration overlay */}

@@ -184,13 +184,26 @@ interface EditItemSheetProps {
     notes?: string;
     category?: string;
   } | null;
+  /** Callback to update item (supports offline mode) */
+  onUpdate?: (
+    itemId: Id<"items">,
+    updates: {
+      name?: string;
+      quantity?: number;
+      unit?: string;
+      notes?: string;
+      category?: string;
+    }
+  ) => Promise<void>;
+  /** Callback to delete item (supports offline mode) */
+  onDelete?: (itemId: Id<"items">) => Promise<void>;
 }
 
 /**
  * Bottom sheet for editing item details.
  */
 export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
-  function EditItemSheet({ onClose, item }, ref) {
+  function EditItemSheet({ onClose, item, onUpdate, onDelete }, ref) {
     const [name, setName] = useState("");
     const [quantity, setQuantity] = useState(1);
     const [unit, setUnit] = useState<string | null>(null);
@@ -199,8 +212,9 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const updateItem = useMutation(api.items.update);
-    const removeItem = useMutation(api.items.remove);
+    // Fallback mutations for when callbacks aren't provided
+    const updateItemMutation = useMutation(api.items.update);
+    const removeItemMutation = useMutation(api.items.remove);
 
     // Snap points for the bottom sheet
     const snapPoints = useMemo(() => ["85%"], []);
@@ -264,14 +278,20 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
       setError("");
       setIsSaving(true);
 
+      const updates = {
+        name: name.trim(),
+        quantity: quantity > 0 ? quantity : undefined,
+        unit: unit ?? undefined,
+        notes: notes.trim() || undefined,
+      };
+
       try {
-        await updateItem({
-          itemId: item.id,
-          name: name.trim(),
-          quantity: quantity > 0 ? quantity : undefined,
-          unit: unit ?? undefined,
-          notes: notes.trim() || undefined,
-        });
+        // Use callback if provided (supports offline mode), otherwise use direct mutation
+        if (onUpdate) {
+          await onUpdate(item.id, updates);
+        } else {
+          await updateItemMutation({ itemId: item.id, ...updates });
+        }
 
         // Success!
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -294,7 +314,12 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
       setIsDeleting(true);
 
       try {
-        await removeItem({ itemId: item.id });
+        // Use callback if provided (supports offline mode), otherwise use direct mutation
+        if (onDelete) {
+          await onDelete(item.id);
+        } else {
+          await removeItemMutation({ itemId: item.id });
+        }
 
         // Success!
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
