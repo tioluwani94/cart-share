@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useContext } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Id } from "../convex/_generated/dataModel";
 import { StorageKeys, getItem, setItem, removeItem } from "./storage";
 import { useNetworkStatus } from "./useNetworkStatus";
+import { useSyncStatusSafe } from "./SyncStatusContext";
 
 /**
  * Supported mutation types for offline queueing.
@@ -125,6 +126,9 @@ export function useOfflineQueue() {
   const { isConnected, justCameOnline } = useNetworkStatus();
   const processingRef = useRef(false);
 
+  // Get sync status context (optional - may be null if not in provider)
+  const syncStatus = useSyncStatusSafe();
+
   // Get all mutation references
   const addItem = useMutation(api.items.add);
   const toggleComplete = useMutation(api.items.toggleComplete);
@@ -219,6 +223,7 @@ export function useOfflineQueue() {
   /**
    * Process all queued mutations in order.
    * Uses last-write-wins for conflict resolution (timestamp-based ordering).
+   * Communicates sync status via context for UI feedback.
    */
   const processQueue = useCallback(async (): Promise<{
     success: number;
@@ -238,6 +243,9 @@ export function useOfflineQueue() {
 
     processingRef.current = true;
     setIsProcessing(true);
+
+    // Notify sync status context that syncing has started
+    syncStatus?.startSyncing(currentQueue.length);
 
     let successCount = 0;
     let failedCount = 0;
@@ -285,12 +293,16 @@ export function useOfflineQueue() {
     processingRef.current = false;
     setIsProcessing(false);
 
+    // Notify sync status context that syncing has finished
+    const result = { success: successCount, failed: failedCount };
+    syncStatus?.finishSyncing(result);
+
     console.log(
       `[OfflineQueue] Processing complete. Success: ${successCount}, Failed: ${failedCount}, Remaining: ${failedMutations.length}`
     );
 
-    return { success: successCount, failed: failedCount };
-  }, [executeMutation]);
+    return result;
+  }, [executeMutation, syncStatus]);
 
   /**
    * Clear all queued mutations.

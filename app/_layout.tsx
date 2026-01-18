@@ -16,6 +16,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { OfflineIndicator } from "@/components/layout";
+import { SyncStatusProvider } from "@/lib/SyncStatusContext";
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -148,7 +149,9 @@ function InitialLayout() {
 function ConvexClerkLayout() {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      <InitialLayout />
+      <SyncStatusProvider>
+        <InitialLayout />
+      </SyncStatusProvider>
     </ConvexProviderWithClerk>
   );
 }
