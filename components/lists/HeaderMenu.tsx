@@ -1,5 +1,7 @@
+import * as Haptics from "expo-haptics";
+import { Archive, MoreHorizontal } from "lucide-react-native";
 import { useState } from "react";
-import { View, Text, Pressable, Modal } from "react-native";
+import { Modal, Pressable, Text, TouchableOpacity } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -9,8 +11,6 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { MoreVertical, Archive, MoreHorizontal } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
 
 interface HeaderMenuProps {
   onArchive: () => void;
@@ -47,7 +47,7 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
     <>
       {/* Menu button */}
       <Animated.View style={buttonStyle}>
-        <Pressable
+        <TouchableOpacity
           onPress={toggleMenu}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
@@ -56,7 +56,7 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
           accessibilityRole="button"
         >
           <MoreHorizontal size={22} color="#57534E" strokeWidth={2} />
-        </Pressable>
+        </TouchableOpacity>
       </Animated.View>
 
       {/* Menu dropdown */}

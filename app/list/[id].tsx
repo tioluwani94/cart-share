@@ -350,22 +350,24 @@ export default function ListDetailScreen() {
         <View className="flex-row items-center">
           <Pressable
             onPress={() => router.back()}
-            className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100"
+            className="flex-row items-center gap-3 flex-1"
             accessibilityLabel="Go back"
           >
-            <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
-          </Pressable>
-          <View className="flex-1">
-            <View className="flex-row items-center">
-              <Text className="mr-2 text-2xl">{categoryEmoji}</Text>
-              <Text
-                className="flex-1 text-2xl font-bold text-warm-gray-900"
-                numberOfLines={1}
-              >
-                {list.name}
-              </Text>
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100">
+              <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
             </View>
-          </View>
+            <View className="flex-1">
+              <View className="flex-row items-center">
+                <Text className="mr-2 text-2xl">{categoryEmoji}</Text>
+                <Text
+                  className="flex-1 text-2xl font-bold text-warm-gray-900"
+                  numberOfLines={1}
+                >
+                  {list.name}
+                </Text>
+              </View>
+            </View>
+          </Pressable>
           <HeaderMenu onArchive={handleArchivePress} />
         </View>
 
@@ -490,7 +492,9 @@ export default function ListDetailScreen() {
                       category={item.category}
                       isCompleted={item.isCompleted}
                       addedByUser={item.addedByUser}
-                      isPendingSync={item.isPendingSync || isPendingSync(item._id)}
+                      isPendingSync={
+                        item.isPendingSync || isPendingSync(item._id)
+                      }
                       onToggle={handleToggle}
                       onDelete={handleDelete}
                       onEdit={handleEdit}

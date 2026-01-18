@@ -1,19 +1,18 @@
-import { View, Text, Pressable } from "react-native";
+import { Id } from "@/convex/_generated/dataModel";
+import { cn } from "@/lib/cn";
+import * as Haptics from "expo-haptics";
+import { Archive } from "lucide-react-native";
+import { Pressable, Text, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
+  FadeInDown,
   interpolate,
   interpolateColor,
   runOnJS,
-  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { Archive } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { cn } from "@/lib/cn";
-import { Id } from "@/convex/_generated/dataModel";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -185,11 +184,7 @@ export function ListCard({
           style={cardAnimatedStyle}
           accessibilityRole="button"
           accessibilityLabel={`${name} list, ${formatItemCount(totalItems, completedItems)}. Swipe left to archive.`}
-          className={cn(
-            "rounded-2xl bg-white p-4",
-            "border-l-4 border-coral",
-            "shadow-warm",
-          )}
+          className={cn("rounded-2xl bg-white p-4", "shadow-warm")}
         >
           {/* Header row */}
           <View className="flex-row items-center justify-between">
