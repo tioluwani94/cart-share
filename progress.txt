@@ -729,3 +729,35 @@
   - Added isPendingSync and pendingMutationId fields to ItemWithUser
 - Same satisfying animations work offline (checkbox, confetti, strikethrough)
 - Typecheck passes
+
+## US-032: Implement sync with celebration [COMPLETED]
+- Created lib/SyncStatusContext.tsx:
+  - SyncStatus type: "idle" | "syncing" | "synced" | "error"
+  - SyncStatusProvider component wraps app for shared state
+  - useSyncStatus and useSyncStatusSafe hooks for accessing status
+  - startSyncing(count) called when queue processing begins
+  - finishSyncing(result) called when queue processing completes
+  - Auto-reset to idle after 2.5 seconds of showing "synced" state
+- Updated lib/useOfflineQueue.ts:
+  - Imports useSyncStatusSafe for optional context access
+  - processQueue calls syncStatus.startSyncing at start
+  - processQueue calls syncStatus.finishSyncing with result at end
+  - Sync status context is optional (works without provider)
+- Updated components/layout/OfflineIndicator.tsx:
+  - Added SyncSpinner component with ActivityIndicator
+  - BannerState type: "hidden" | "offline" | "syncing" | "synced" | "online"
+  - Syncing state: Yellow banner with spinner, "Syncing..." message
+  - Synced state: Teal banner with checkmark, "All synced!" message
+  - Success haptic feedback when sync completes
+  - Auto-dismiss after 2 seconds of showing synced state
+  - Uses useSyncStatusSafe for defensive context access
+- Updated app/_layout.tsx:
+  - Added SyncStatusProvider import
+  - Wrapped InitialLayout with SyncStatusProvider inside ConvexProviderWithClerk
+- Queue processing flow:
+  - Network restored triggers queue processing via useEffect
+  - processQueue starts syncing status (shows "Syncing..." banner)
+  - Mutations sent to Convex in timestamp order (last-write-wins)
+  - processQueue finishes syncing status (shows "All synced!" banner)
+  - Partner sees synced changes via real-time Convex subscription
+- Typecheck passes
