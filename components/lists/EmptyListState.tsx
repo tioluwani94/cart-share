@@ -93,7 +93,7 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
     <View className="flex-1 items-center justify-center px-8 pt-12">
       {/* Animated illustration */}
       <Animated.View
-        entering={FadeInUp.delay(100).duration(600).springify()}
+        entering={FadeInUp.delay(100).duration(600).springify().damping(90)}
         className="mb-6 flex-row items-end justify-center"
       >
         {/* Shopping cart */}
@@ -108,7 +108,9 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
       </Animated.View>
 
       {/* Playful heading */}
-      <Animated.View entering={FadeIn.delay(300).duration(500)}>
+      <Animated.View
+        entering={FadeIn.delay(300).duration(500).springify().damping(90)}
+      >
         <Text className="text-center text-2xl font-bold text-warm-gray-900">
           Your lists are feeling lonely!
         </Text>
@@ -124,7 +126,7 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
 
       {/* CTA Button with pulse animation */}
       <Animated.View
-        entering={FadeInUp.delay(500).duration(500).springify()}
+        entering={FadeInUp.delay(500).duration(500).springify().damping(90)}
         className="mt-8 w-full"
       >
         <Button

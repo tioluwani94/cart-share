@@ -121,7 +121,7 @@ export function ListCard({
       if (translateX.value < ARCHIVE_THRESHOLD && onArchive) {
         runOnJS(triggerArchive)();
       }
-      translateX.value = withSpring(0, { damping: 15, stiffness: 200 });
+      translateX.value = withSpring(0, { damping: 100, stiffness: 500 });
     });
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
@@ -164,7 +164,7 @@ export function ListCard({
       entering={FadeInDown.delay(index * 100)
         .duration(400)
         .springify()
-        .damping(15)}
+        .damping(90)}
       className="mb-3"
     >
       {/* Archive background */}

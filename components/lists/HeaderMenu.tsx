@@ -9,7 +9,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { MoreVertical, Archive } from "lucide-react-native";
+import { MoreVertical, Archive, MoreHorizontal } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
 interface HeaderMenuProps {
@@ -55,7 +55,7 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
           accessibilityLabel="More options"
           accessibilityRole="button"
         >
-          <MoreVertical size={22} color="#57534E" strokeWidth={2} />
+          <MoreHorizontal size={22} color="#57534E" strokeWidth={2} />
         </Pressable>
       </Animated.View>
 
@@ -78,7 +78,7 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
           className="absolute right-4 top-28"
         >
           <Animated.View
-            entering={SlideInRight.springify().damping(15)}
+            entering={SlideInRight.springify().damping(90)}
             exiting={SlideOutRight.duration(150)}
             className="min-w-[180px] rounded-2xl bg-white p-2 shadow-lg"
             style={{

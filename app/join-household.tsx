@@ -39,10 +39,6 @@ export default function JoinHouseholdScreen() {
   const celebrationScale = useSharedValue(0);
   const confettiOpacity = useSharedValue(0);
 
-  const celebrationStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: celebrationScale.value }],
-  }));
-
   const handleJoin = async () => {
     if (code.length !== 6) {
       setError("Please enter all 6 characters");

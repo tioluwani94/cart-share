@@ -47,7 +47,7 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
     // Press animation for button
     buttonScale.value = withSequence(
       withSpring(0.85, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 10, stiffness: 400 })
+      withSpring(1, { damping: 10, stiffness: 400 }),
     );
 
     try {
@@ -59,7 +59,7 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
       // Clear animation - subtle fade and scale
       inputOpacity.value = withSequence(
         withTiming(0.3, { duration: 100 }),
-        withTiming(1, { duration: 200 })
+        withTiming(1, { duration: 200 }),
       );
 
       // Clear the input
@@ -133,7 +133,7 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
           onPressOut={handleButtonPressOut}
           disabled={isAddDisabled}
           style={buttonAnimatedStyle}
-          className={`h-12 w-12 items-center justify-center rounded-2xl ${
+          className={`h-12 w-12 items-center justify-center rounded-full ${
             isAddDisabled ? "bg-warm-gray-300" : "bg-coral"
           }`}
           accessibilityLabel="Add item"

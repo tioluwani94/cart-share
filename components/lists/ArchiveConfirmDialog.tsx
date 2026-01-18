@@ -54,7 +54,7 @@ export function ArchiveConfirmDialog({
           accessibilityLabel="Close dialog"
         />
         <Animated.View
-          entering={SlideInDown.springify().damping(15)}
+          entering={SlideInDown.springify().damping(90)}
           exiting={SlideOutDown.duration(200)}
           className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl"
         >
