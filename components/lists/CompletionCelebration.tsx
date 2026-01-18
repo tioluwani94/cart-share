@@ -1,18 +1,17 @@
-import { useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Camera } from "lucide-react-native";
+import { useEffect } from "react";
+import { Pressable, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withSpring,
   withTiming,
-  withSequence,
-  runOnJS,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 
 const CONFETTI_EMOJIS = ["🎉", "✨", "🎊", "💫", "🌟", "⭐", "🥳", "🎈"];
 
@@ -113,8 +112,8 @@ export function CompletionCelebration({
       checkScale.value = withDelay(
         200,
         withSequence(
-          withSpring(1.2, { damping: 8, stiffness: 300 }),
-          withSpring(1, { damping: 12, stiffness: 200 }),
+          withSpring(1.05, { damping: 15, stiffness: 200 }),
+          withSpring(1, { damping: 20, stiffness: 180 }),
         ),
       );
 

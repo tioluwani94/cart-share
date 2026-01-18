@@ -72,24 +72,21 @@ function ConfettiParticle({
 
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 100 }));
-    translateY.value = withDelay(
-      delay,
-      withTiming(-40, { duration: 600 })
-    );
+    translateY.value = withDelay(delay, withTiming(-40, { duration: 600 }));
     translateX.value = withDelay(
       delay,
-      withSpring(startX + (Math.random() - 0.5) * 30, { damping: 8 })
+      withSpring(startX + (Math.random() - 0.5) * 30, { damping: 8 }),
     );
     rotate.value = withDelay(
       delay,
-      withTiming(Math.random() * 360, { duration: 600 })
+      withTiming(Math.random() * 360, { duration: 600 }),
     );
     scale.value = withDelay(
       delay,
       withSequence(
         withTiming(1, { duration: 150 }),
-        withDelay(300, withTiming(0, { duration: 150 }))
-      )
+        withDelay(300, withTiming(0, { duration: 150 })),
+      ),
     );
   }, []);
 
@@ -145,7 +142,7 @@ export function ListItem({
       syncRotation.value = withRepeat(
         withTiming(360, { duration: 1500 }),
         -1, // Infinite repeat
-        false // Don't reverse
+        false, // Don't reverse
       );
     } else {
       syncRotation.value = 0;
@@ -184,7 +181,6 @@ export function ListItem({
     setTimeout(() => setShowConfetti(false), 800);
   };
 
-
   const handleToggle = () => {
     const newCompleted = !isCompleted;
 
@@ -192,12 +188,15 @@ export function ListItem({
       // Checking animation: scale bounce 1.0 → 1.1 → 1.0
       scale.value = withSequence(
         withSpring(1.1, { damping: 10, stiffness: 400 }),
-        withSpring(1, { damping: 15, stiffness: 300 })
+        withSpring(1, { damping: 15, stiffness: 300 }),
       );
       fillProgress.value = withTiming(1, { duration: 200 });
       checkmarkProgress.value = withTiming(1, { duration: 250 });
       // Animate strikethrough and text fade
-      strikethroughProgress.value = withDelay(100, withTiming(1, { duration: 200 }));
+      strikethroughProgress.value = withDelay(
+        100,
+        withTiming(1, { duration: 200 }),
+      );
       textOpacity.value = withDelay(100, withTiming(0.7, { duration: 200 }));
       runOnJS(triggerHaptic)();
       runOnJS(triggerConfetti)();
@@ -220,12 +219,12 @@ export function ListItem({
     backgroundColor: interpolateColor(
       fillProgress.value,
       [0, 1],
-      ["transparent", "#FF6B6B"]
+      ["transparent", "#FF6B6B"],
     ),
     borderColor: interpolateColor(
       fillProgress.value,
       [0, 1],
-      ["#D3D0C9", "#FF6B6B"]
+      ["#D3D0C9", "#FF6B6B"],
     ),
   }));
 
@@ -248,7 +247,7 @@ export function ListItem({
 
   // Close swipe actions
   const closeSwipe = useCallback(() => {
-    translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    translateX.value = withSpring(0, { damping: 100, stiffness: 500 });
     hasTriggeredRevealHaptic.value = false;
   }, [translateX, hasTriggeredRevealHaptic]);
 
@@ -275,7 +274,8 @@ export function ListItem({
     .failOffsetY([-10, 10])
     .onUpdate((event) => {
       // Calculate new position based on current state and gesture
-      const newTranslateX = event.translationX + (translateX.value < SNAP_OPEN / 2 ? SNAP_OPEN : 0);
+      const newTranslateX =
+        event.translationX + (translateX.value < SNAP_OPEN / 2 ? SNAP_OPEN : 0);
 
       // Clamp between SNAP_OPEN and 0
       if (newTranslateX < SNAP_OPEN) {
@@ -287,7 +287,10 @@ export function ListItem({
       }
 
       // Trigger haptic on threshold
-      if (translateX.value < SWIPE_THRESHOLD && !hasTriggeredRevealHaptic.value) {
+      if (
+        translateX.value < SWIPE_THRESHOLD &&
+        !hasTriggeredRevealHaptic.value
+      ) {
         hasTriggeredRevealHaptic.value = true;
         runOnJS(triggerHaptic)();
       } else if (translateX.value > SWIPE_THRESHOLD) {
@@ -296,12 +299,17 @@ export function ListItem({
     })
     .onEnd((event) => {
       // Determine if we should snap open or closed based on velocity and position
-      const shouldOpen = event.velocityX < -500 || (translateX.value < SWIPE_THRESHOLD && event.velocityX < 200);
+      const shouldOpen =
+        event.velocityX < -500 ||
+        (translateX.value < SWIPE_THRESHOLD && event.velocityX < 200);
 
       if (shouldOpen) {
-        translateX.value = withSpring(SNAP_OPEN, { damping: 20, stiffness: 200 });
+        translateX.value = withSpring(SNAP_OPEN, {
+          damping: 100,
+          stiffness: 500,
+        });
       } else {
-        translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+        translateX.value = withSpring(0, { damping: 100, stiffness: 500 });
         hasTriggeredRevealHaptic.value = false;
       }
     });
@@ -324,7 +332,7 @@ export function ListItem({
       translateX.value,
       [0, -30],
       [0, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     ),
   }));
 
@@ -518,4 +526,3 @@ export function ListItem({
     </Animated.View>
   );
 }
-
