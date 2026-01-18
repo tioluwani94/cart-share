@@ -641,3 +641,25 @@
   - Added to InitialLayout component wrapping the Slot
   - Shows on all screens throughout the app
 - Typecheck passes
+
+## US-029: Cache active lists and items in MMKV [COMPLETED]
+- Created lib/useCachedQuery.ts with custom hooks for cached queries:
+  - useCachedLists(householdId) - wraps lists query with MMKV caching
+  - useCachedItems(listId) - wraps items query with MMKV caching
+  - Both hooks return { data, isFromCache, isLoading }
+- Caching behavior:
+  - Caches data to MMKV after successful query when online
+  - Returns cached data when offline (with infinite expiry)
+  - Uses cached data for quick initial render before fresh data arrives
+  - Cache expires after 5 minutes when online (for staleness check)
+- Updated app/(tabs)/index.tsx (home screen):
+  - Replaced useQuery with useCachedLists hook
+  - Added cached data indicator with CloudOff icon
+  - Yellow banner: "Showing cached data (offline)" when using cache
+- Updated app/list/[id].tsx (list detail screen):
+  - Replaced useQuery with useCachedItems hook
+  - Added cached data indicator below progress bar
+  - Smaller yellow banner: "Showing cached items (offline)"
+  - Updated loading state to account for cached data
+- Type definitions match Convex query return types
+- Typecheck passes
