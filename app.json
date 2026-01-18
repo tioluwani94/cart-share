@@ -14,7 +14,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cartshare.app"
+      "bundleIdentifier": "com.cartshare.app",
+      "appleTeamId": "W6SZ22J8C2"
     },
     "android": {
       "adaptiveIcon": {

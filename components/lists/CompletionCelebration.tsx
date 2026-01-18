@@ -43,27 +43,24 @@ function ConfettiParticle({ emoji, index, total }: ConfettiParticleProps) {
       delay,
       withSequence(
         withSpring(1.2, { damping: 8, stiffness: 300 }),
-        withSpring(1, { damping: 12, stiffness: 200 })
-      )
+        withSpring(1, { damping: 12, stiffness: 200 }),
+      ),
     );
     translateX.value = withDelay(
       delay,
-      withSpring(targetX, { damping: 12, stiffness: 80 })
+      withSpring(targetX, { damping: 12, stiffness: 80 }),
     );
     translateY.value = withDelay(
       delay,
-      withSpring(targetY, { damping: 12, stiffness: 80 })
+      withSpring(targetY, { damping: 12, stiffness: 80 }),
     );
     rotate.value = withDelay(
       delay,
-      withTiming(360 + Math.random() * 180, { duration: 1000 })
+      withTiming(360 + Math.random() * 180, { duration: 1000 }),
     );
 
     // Fade out after burst
-    opacity.value = withDelay(
-      delay + 800,
-      withTiming(0, { duration: 400 })
-    );
+    opacity.value = withDelay(delay + 800, withTiming(0, { duration: 400 }));
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -117,8 +114,8 @@ export function CompletionCelebration({
         200,
         withSequence(
           withSpring(1.2, { damping: 8, stiffness: 300 }),
-          withSpring(1, { damping: 12, stiffness: 200 })
-        )
+          withSpring(1, { damping: 12, stiffness: 200 }),
+        ),
       );
 
       // Show button after celebration
@@ -155,7 +152,7 @@ export function CompletionCelebration({
   for (let i = 0; i < 16; i++) {
     const emoji = CONFETTI_EMOJIS[i % CONFETTI_EMOJIS.length];
     confettiParticles.push(
-      <ConfettiParticle key={i} emoji={emoji} index={i} total={16} />
+      <ConfettiParticle key={i} emoji={emoji} index={i} total={16} />,
     );
   }
 
@@ -182,7 +179,7 @@ export function CompletionCelebration({
             style={checkStyle}
             className="h-24 w-24 items-center justify-center rounded-full bg-teal"
           >
-            <Text className="text-4xl">✓</Text>
+            <Text className="text-4xl text-white">✓</Text>
           </Animated.View>
         </View>
 

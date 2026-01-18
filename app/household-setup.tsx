@@ -88,7 +88,7 @@ export default function HouseholdSetupScreen() {
         <View className="flex-1 px-6 pt-8">
           {/* Celebration Header */}
           <Animated.View
-            entering={FadeInUp.delay(100).springify()}
+            entering={FadeInUp.delay(100).springify().damping(90)}
             className="items-center"
           >
             <Text className="text-6xl">🎉</Text>
@@ -102,7 +102,7 @@ export default function HouseholdSetupScreen() {
 
           {/* Invite Code Card */}
           <Animated.View
-            entering={FadeInUp.delay(200).springify()}
+            entering={FadeInUp.delay(200).springify().damping(90)}
             className="mt-10 rounded-3xl bg-white p-6 shadow-lg"
           >
             <Text className="text-center text-lg font-medium text-warm-gray-600">
@@ -138,7 +138,7 @@ export default function HouseholdSetupScreen() {
 
           {/* Partner Instructions */}
           <Animated.View
-            entering={FadeInUp.delay(300).springify()}
+            entering={FadeInUp.delay(300).springify().damping(90)}
             className="mt-6 rounded-2xl bg-yellow/10 p-4"
           >
             <Text className="text-center text-warm-gray-700">
@@ -148,7 +148,7 @@ export default function HouseholdSetupScreen() {
 
           {/* Continue Button */}
           <Animated.View
-            entering={FadeInDown.delay(400).springify()}
+            entering={FadeInDown.delay(400).springify().damping(90)}
             className="mt-auto pb-8"
           >
             <Button onPress={handleContinue} size="lg" className="w-full">
@@ -166,7 +166,7 @@ export default function HouseholdSetupScreen() {
       <View className="flex-1 px-6 pt-8">
         {/* Playful Illustration */}
         <Animated.View
-          entering={FadeInUp.delay(100).springify()}
+          entering={FadeInUp.delay(100).springify().damping(90)}
           className="items-center"
         >
           <View className="flex-row">
@@ -176,7 +176,7 @@ export default function HouseholdSetupScreen() {
 
         {/* Welcome Header */}
         <Animated.View
-          entering={FadeInUp.delay(200).springify()}
+          entering={FadeInUp.delay(200).springify().damping(90)}
           className="mt-6 items-center"
         >
           <Text className="text-center text-3xl font-bold text-warm-gray-900">
@@ -189,7 +189,7 @@ export default function HouseholdSetupScreen() {
 
         {/* Form Section */}
         <Animated.View
-          entering={FadeInUp.delay(300).springify()}
+          entering={FadeInUp.delay(300).springify().damping(90)}
           className="mt-10"
         >
           <Input
@@ -209,7 +209,7 @@ export default function HouseholdSetupScreen() {
 
         {/* Create Button */}
         <Animated.View
-          entering={FadeInDown.delay(400).springify()}
+          entering={FadeInDown.delay(400).springify().damping(90)}
           className="mt-8"
         >
           <Button
@@ -226,7 +226,7 @@ export default function HouseholdSetupScreen() {
 
         {/* Join Option */}
         <Animated.View
-          entering={FadeInDown.delay(500).springify()}
+          entering={FadeInDown.delay(500).springify().damping(90)}
           className="mt-6 items-center"
         >
           <Pressable

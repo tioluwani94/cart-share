@@ -1,26 +1,33 @@
-import { useState, useCallback } from "react";
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useQuery, useMutation } from "convex/react";
+import { Toast } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { Archive, ChevronDown, RotateCcw } from "lucide-react-native";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
   FadeIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
-import { Archive, RotateCcw, ChevronDown } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { Toast } from "@/components/ui";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [archivedExpanded, setArchivedExpanded] = useState(false);
-  const [restoringListId, setRestoringListId] = useState<Id<"lists"> | null>(null);
+  const [restoringListId, setRestoringListId] = useState<Id<"lists"> | null>(
+    null,
+  );
   const [showRestoreToast, setShowRestoreToast] = useState(false);
 
   // Get current household
@@ -29,7 +36,7 @@ export default function SettingsScreen() {
   // Get archived lists
   const archivedLists = useQuery(
     api.lists.getArchivedByHousehold,
-    household?._id ? { householdId: household._id } : "skip"
+    household?._id ? { householdId: household._id } : "skip",
   );
 
   const unarchiveList = useMutation(api.lists.unarchive);
@@ -46,8 +53,8 @@ export default function SettingsScreen() {
     const newExpanded = !archivedExpanded;
     setArchivedExpanded(newExpanded);
     chevronRotation.value = withSpring(newExpanded ? 180 : 0, {
-      damping: 15,
-      stiffness: 200,
+      damping: 100,
+      // stiffness: 200,
     });
   };
 
@@ -64,7 +71,7 @@ export default function SettingsScreen() {
         setRestoringListId(null);
       }
     },
-    [unarchiveList]
+    [unarchiveList],
   );
 
   const handleToastDismiss = useCallback(() => {
@@ -89,7 +96,9 @@ export default function SettingsScreen() {
       <ScrollView className="flex-1 px-4 pt-4">
         {/* Header */}
         <Animated.View entering={FadeInDown.duration(400)}>
-          <Text className="text-2xl font-bold text-warm-gray-900">Settings</Text>
+          <Text className="text-2xl font-bold text-warm-gray-900">
+            Settings
+          </Text>
           <Text className="mt-1 text-warm-gray-600">
             Manage your household and account
           </Text>
@@ -190,7 +199,11 @@ export default function SettingsScreen() {
                           <ActivityIndicator size="small" color="#4ECDC4" />
                         ) : (
                           <>
-                            <RotateCcw size={16} color="#4ECDC4" strokeWidth={2} />
+                            <RotateCcw
+                              size={16}
+                              color="#4ECDC4"
+                              strokeWidth={2}
+                            />
                             <Text className="text-sm font-medium text-teal">
                               Restore
                             </Text>

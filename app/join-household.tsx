@@ -90,14 +90,14 @@ export default function JoinHouseholdScreen() {
 
           {/* Celebration content */}
           <Animated.View
-            entering={ZoomIn.delay(100).springify()}
+            entering={ZoomIn.delay(100).springify().damping(90)}
             className="items-center"
           >
             <Text className="text-7xl">🎊</Text>
           </Animated.View>
 
           <Animated.View
-            entering={FadeInUp.delay(300).springify()}
+            entering={FadeInUp.delay(300).springify().damping(90)}
             className="mt-6 items-center"
           >
             <Text className="text-center text-3xl font-bold text-warm-gray-900">
@@ -109,7 +109,7 @@ export default function JoinHouseholdScreen() {
           </Animated.View>
 
           <Animated.View
-            entering={FadeInUp.delay(500).springify()}
+            entering={FadeInUp.delay(500).springify().damping(90)}
             className="mt-8 flex-row items-center gap-3"
           >
             <Text className="text-4xl">🛒</Text>
@@ -146,14 +146,14 @@ export default function JoinHouseholdScreen() {
 
         {/* Header */}
         <Animated.View
-          entering={FadeInUp.delay(100).springify()}
+          entering={FadeInUp.delay(100).springify().damping(90)}
           className="items-center"
         >
           <Text className="text-5xl">🔑</Text>
         </Animated.View>
 
         <Animated.View
-          entering={FadeInUp.delay(200).springify()}
+          entering={FadeInUp.delay(200).springify().damping(90)}
           className="mt-6 items-center"
         >
           <Text className="text-center text-3xl font-bold text-warm-gray-900">
@@ -166,7 +166,7 @@ export default function JoinHouseholdScreen() {
 
         {/* Code Input */}
         <Animated.View
-          entering={FadeInUp.delay(300).springify()}
+          entering={FadeInUp.delay(300).springify().damping(90)}
           className="mt-10"
         >
           <CodeInput
@@ -189,7 +189,7 @@ export default function JoinHouseholdScreen() {
 
         {/* Helper Text */}
         <Animated.View
-          entering={FadeInUp.delay(400).springify()}
+          entering={FadeInUp.delay(400).springify().damping(90)}
           className="mt-6"
         >
           <Text className="text-center text-sm text-warm-gray-500">
@@ -199,7 +199,7 @@ export default function JoinHouseholdScreen() {
 
         {/* Join Button */}
         <Animated.View
-          entering={FadeInDown.delay(500).springify()}
+          entering={FadeInDown.delay(500).springify().damping(90)}
           className="mt-8"
         >
           <Button
@@ -216,7 +216,7 @@ export default function JoinHouseholdScreen() {
 
         {/* Create option */}
         <Animated.View
-          entering={FadeInDown.delay(600).springify()}
+          entering={FadeInDown.delay(600).springify().damping(90)}
           className="mt-6 items-center"
         >
           <Pressable
