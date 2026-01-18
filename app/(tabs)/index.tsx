@@ -14,6 +14,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ListCard, EmptyListState, CreateListSheet, ArchiveConfirmDialog } from "@/components/lists";
 import { Toast } from "@/components/ui";
+import { useCachedLists } from "@/lib/useCachedQuery";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,7 +22,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { Plus } from "lucide-react-native";
+import { Plus, CloudOff } from "lucide-react-native";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -58,11 +59,8 @@ export default function HomeScreen() {
   // Get current household
   const household = useQuery(api.households.getCurrentHousehold);
 
-  // Get lists for the household (with real-time updates)
-  const lists = useQuery(
-    api.lists.getByHousehold,
-    household?._id ? { householdId: household._id } : "skip",
-  );
+  // Get lists for the household (with real-time updates and offline caching)
+  const { data: lists, isFromCache, isLoading: listsLoading } = useCachedLists(household?._id);
 
   const archiveList = useMutation(api.lists.archive);
 
@@ -159,6 +157,18 @@ export default function HomeScreen() {
             ? `You have ${lists.length} shopping list${lists.length === 1 ? "" : "s"}`
             : "Ready to start shopping?"}
         </Text>
+        {/* Cached data indicator */}
+        {isFromCache && (
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            className="mt-2 flex-row items-center rounded-lg bg-yellow/20 px-3 py-2"
+          >
+            <CloudOff size={16} color="#CA8A04" strokeWidth={2} />
+            <Text className="ml-2 text-sm text-yellow-700">
+              Showing cached data (offline)
+            </Text>
+          </Animated.View>
+        )}
       </Animated.View>
 
       {/* Main content */}

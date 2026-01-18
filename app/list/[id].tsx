@@ -6,6 +6,7 @@ import { FlashList } from "@shopify/flash-list";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useCachedItems } from "@/lib/useCachedQuery";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -26,7 +27,7 @@ import {
 } from "@/components/lists";
 import { Toast } from "@/components/ui";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { ChevronLeft, ChevronDown } from "lucide-react-native";
+import { ChevronLeft, ChevronDown, CloudOff } from "lucide-react-native";
 
 // Type for partner activity toast state
 interface PartnerActivity {
@@ -63,9 +64,9 @@ export default function ListDetailScreen() {
   // Ref for edit item bottom sheet
   const editSheetRef = useRef<BottomSheet>(null);
 
-  // Fetch list, items, and current user
+  // Fetch list, items (with caching), and current user
   const list = useQuery(api.lists.getById, { listId });
-  const items = useQuery(api.items.getByList, { listId });
+  const { data: items, isFromCache, isLoading: itemsLoading } = useCachedItems(listId);
   const currentUser = useQuery(api.users.getCurrentUser);
   const toggleComplete = useMutation(api.items.toggleComplete);
   const addItem = useMutation(api.items.add);
@@ -277,8 +278,8 @@ export default function ListDetailScreen() {
     });
   };
 
-  // Loading state
-  if (list === undefined || items === undefined) {
+  // Loading state (only show if we don't have any data - cached or fresh)
+  if (list === undefined || (items === undefined && itemsLoading)) {
     return (
       <SafeAreaView className="flex-1 bg-background-light">
         <View className="flex-1 items-center justify-center">
@@ -377,6 +378,19 @@ export default function ListDetailScreen() {
               style={{ width: `${progressPercent}%` }}
             />
           </View>
+
+          {/* Cached data indicator */}
+          {isFromCache && (
+            <Animated.View
+              entering={FadeIn.duration(300)}
+              className="mt-3 flex-row items-center rounded-lg bg-yellow/20 px-3 py-2"
+            >
+              <CloudOff size={14} color="#CA8A04" strokeWidth={2} />
+              <Text className="ml-2 text-xs text-yellow-700">
+                Showing cached items (offline)
+              </Text>
+            </Animated.View>
+          )}
         </View>
       </Animated.View>
 
