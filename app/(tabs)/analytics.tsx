@@ -46,10 +46,10 @@ function EmptyStateIllustration() {
   floatValue.value = withRepeat(
     withSequence(
       withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
     ),
     -1,
-    true
+    true,
   );
 
   const floatingStyle = useAnimatedStyle(() => ({
@@ -63,10 +63,10 @@ function EmptyStateIllustration() {
   sparkle1.value = withRepeat(
     withSequence(
       withTiming(1, { duration: 800 }),
-      withTiming(0.3, { duration: 800 })
+      withTiming(0.3, { duration: 800 }),
     ),
     -1,
-    true
+    true,
   );
 
   sparkle2.value = withDelay(
@@ -74,11 +74,11 @@ function EmptyStateIllustration() {
     withRepeat(
       withSequence(
         withTiming(1, { duration: 800 }),
-        withTiming(0.3, { duration: 800 })
+        withTiming(0.3, { duration: 800 }),
       ),
       -1,
-      true
-    )
+      true,
+    ),
   );
 
   const sparkle1Style = useAnimatedStyle(() => ({
@@ -99,13 +99,19 @@ function EmptyStateIllustration() {
         </Animated.Text>
         {/* Sparkles */}
         <Animated.Text
-          style={[sparkle1Style, { position: "absolute", top: -10, right: -15 }]}
+          style={[
+            sparkle1Style,
+            { position: "absolute", top: -10, right: -15 },
+          ]}
           className="text-2xl"
         >
           ✨
         </Animated.Text>
         <Animated.Text
-          style={[sparkle2Style, { position: "absolute", bottom: 10, left: -20 }]}
+          style={[
+            sparkle2Style,
+            { position: "absolute", bottom: 10, left: -20 },
+          ]}
           className="text-xl"
         >
           💫
@@ -124,13 +130,19 @@ function EmptyStateIllustration() {
 /**
  * Large animated total display.
  */
-function TotalDisplay({ amount, sessionCount }: { amount: number; sessionCount: number }) {
+function TotalDisplay({
+  amount,
+  sessionCount,
+}: {
+  amount: number;
+  sessionCount: number;
+}) {
   // Scale animation for the total on mount
   const scaleValue = useSharedValue(0.8);
 
   scaleValue.value = withSequence(
     withTiming(1.05, { duration: 300, easing: Easing.out(Easing.ease) }),
-    withTiming(1, { duration: 200, easing: Easing.inOut(Easing.ease) })
+    withTiming(1, { duration: 200, easing: Easing.inOut(Easing.ease) }),
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -149,9 +161,7 @@ function TotalDisplay({ amount, sessionCount }: { amount: number; sessionCount: 
       <Text className="text-5xl font-bold text-coral">
         {formatDollars(amount)}
       </Text>
-      <Text className="mt-2 text-lg text-warm-gray-600">
-        this {monthName}
-      </Text>
+      <Text className="mt-2 text-lg text-warm-gray-600">this {monthName}</Text>
 
       {/* Session count badge */}
       {sessionCount > 0 && (
@@ -182,7 +192,7 @@ export default function AnalyticsScreen() {
           year: now.getFullYear(),
           month: now.getMonth(),
         }
-      : "skip"
+      : "skip",
   );
 
   const onRefresh = useCallback(() => {
@@ -299,13 +309,6 @@ export default function AnalyticsScreen() {
                 your receipt and track your spending.
               </Text>
             </Animated.View>
-
-            {/* Decorative footer */}
-            <View className="mt-12 flex-row gap-4 opacity-10">
-              <Text className="text-3xl">🛒</Text>
-              <Text className="text-3xl">💳</Text>
-              <Text className="text-3xl">📱</Text>
-            </View>
           </View>
         )}
 
