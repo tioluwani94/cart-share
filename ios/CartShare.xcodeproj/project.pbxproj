@@ -9,10 +9,10 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		5DC31B6BF645277DDD9A1917 /* libPods-CartShare.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DA3B49EAB1EC51E83531740A /* libPods-CartShare.a */; };
-		6E4E9B5CDC99B6B5B063BCA3 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2586A595FD4E387258EFD36 /* ExpoModulesProvider.swift */; };
+		4557335AFEDA38960D949129 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18028DF8BB6160C2E78E5E91 /* ExpoModulesProvider.swift */; };
+		7CF8F3C8276FBF4651F92EF1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 719662EC99410EE92278E9FC /* PrivacyInfo.xcprivacy */; };
+		9B0CBDE03D9DBEFE5F26C8CF /* libPods-CartShare.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2595D98E8116654F346DEC0C /* libPods-CartShare.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		EDD8EEE0CCC58929C461D7B5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3533BC5A87CFF3A858DFE36F /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* CartShare.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CartShare.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = CartShare/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = CartShare/Info.plist; sourceTree = "<group>"; };
-		194FC5E84BDF06D0409B1698 /* Pods-CartShare.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CartShare.release.xcconfig"; path = "Target Support Files/Pods-CartShare/Pods-CartShare.release.xcconfig"; sourceTree = "<group>"; };
-		3533BC5A87CFF3A858DFE36F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CartShare/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		18028DF8BB6160C2E78E5E91 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CartShare/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		2595D98E8116654F346DEC0C /* libPods-CartShare.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CartShare.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5AD7FA7D51D78C1256B942A5 /* Pods-CartShare.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CartShare.debug.xcconfig"; path = "Target Support Files/Pods-CartShare/Pods-CartShare.debug.xcconfig"; sourceTree = "<group>"; };
+		719662EC99410EE92278E9FC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = CartShare/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = CartShare/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		DA3B49EAB1EC51E83531740A /* libPods-CartShare.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CartShare.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2281C382FB1984ED5B7055B /* Pods-CartShare.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CartShare.release.xcconfig"; path = "Target Support Files/Pods-CartShare/Pods-CartShare.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = CartShare/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* CartShare-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "CartShare-Bridging-Header.h"; path = "CartShare/CartShare-Bridging-Header.h"; sourceTree = "<group>"; };
-		F2586A595FD4E387258EFD36 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CartShare/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		F4AEC8E978BC9A25EA10DFD4 /* Pods-CartShare.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CartShare.debug.xcconfig"; path = "Target Support Files/Pods-CartShare/Pods-CartShare.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5DC31B6BF645277DDD9A1917 /* libPods-CartShare.a in Frameworks */,
+				9B0CBDE03D9DBEFE5F26C8CF /* libPods-CartShare.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				3533BC5A87CFF3A858DFE36F /* PrivacyInfo.xcprivacy */,
+				719662EC99410EE92278E9FC /* PrivacyInfo.xcprivacy */,
 			);
 			name = CartShare;
 			sourceTree = "<group>";
@@ -62,9 +62,26 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				DA3B49EAB1EC51E83531740A /* libPods-CartShare.a */,
+				2595D98E8116654F346DEC0C /* libPods-CartShare.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		356B8E536ED65C6C98F5D331 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				5AD7FA7D51D78C1256B942A5 /* Pods-CartShare.debug.xcconfig */,
+				C2281C382FB1984ED5B7055B /* Pods-CartShare.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		42981F7EA003D2CF6015D48B /* CartShare */ = {
+			isa = PBXGroup;
+			children = (
+				18028DF8BB6160C2E78E5E91 /* ExpoModulesProvider.swift */,
+			);
+			name = CartShare;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -81,8 +98,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				F4FE2E0E778F1D23C5FF89D2 /* Pods */,
-				D903B907903A058147EB8E9D /* ExpoModulesProviders */,
+				356B8E536ED65C6C98F5D331 /* Pods */,
+				F8D9084EBFB40C626327FF51 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -106,30 +123,12 @@
 			path = CartShare/Supporting;
 			sourceTree = "<group>";
 		};
-		D903B907903A058147EB8E9D /* ExpoModulesProviders */ = {
+		F8D9084EBFB40C626327FF51 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				DA54503CCFB66D7C9A533484 /* CartShare */,
+				42981F7EA003D2CF6015D48B /* CartShare */,
 			);
 			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		DA54503CCFB66D7C9A533484 /* CartShare */ = {
-			isa = PBXGroup;
-			children = (
-				F2586A595FD4E387258EFD36 /* ExpoModulesProvider.swift */,
-			);
-			name = CartShare;
-			sourceTree = "<group>";
-		};
-		F4FE2E0E778F1D23C5FF89D2 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				F4AEC8E978BC9A25EA10DFD4 /* Pods-CartShare.debug.xcconfig */,
-				194FC5E84BDF06D0409B1698 /* Pods-CartShare.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,13 +139,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "CartShare" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				61358DC767577DD53642D8A5 /* [Expo] Configure project */,
+				D9D7D42035093DC9D4B3BF5C /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				2D8ECE780755F1D25D7597CB /* [CP] Embed Pods Frameworks */,
+				0596D00474DE514801ECF654 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +195,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				EDD8EEE0CCC58929C461D7B5 /* PrivacyInfo.xcprivacy in Resources */,
+				7CF8F3C8276FBF4651F92EF1 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,29 +219,7 @@
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
-		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-CartShare-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		2D8ECE780755F1D25D7597CB /* [CP] Embed Pods Frameworks */ = {
+		0596D00474DE514801ECF654 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -264,29 +241,27 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CartShare/Pods-CartShare-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		61358DC767577DD53642D8A5 /* [Expo] Configure project */ = {
+		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/CartShare/CartShare.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-CartShare/expo-configure-project.sh",
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
 			);
-			name = "[Expo] Configure project";
+			name = "[CP] Check Pods Manifest.lock";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-CartShare/ExpoModulesProvider.swift",
+				"$(DERIVED_FILE_DIR)/Pods-CartShare-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-CartShare/expo-configure-project.sh\"\n";
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -322,6 +297,30 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CartShare/Pods-CartShare-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		D9D7D42035093DC9D4B3BF5C /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/CartShare/CartShare.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-CartShare/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-CartShare/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-CartShare/expo-configure-project.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -330,7 +329,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				6E4E9B5CDC99B6B5B063BCA3 /* ExpoModulesProvider.swift in Sources */,
+				4557335AFEDA38960D949129 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -339,13 +338,13 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F4AEC8E978BC9A25EA10DFD4 /* Pods-CartShare.debug.xcconfig */;
+			baseConfigurationReference = 5AD7FA7D51D78C1256B942A5 /* Pods-CartShare.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CartShare/CartShare.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = W6SZ22J8C2;
+				DEVELOPMENT_TEAM = 5L6QPNNMP8;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -376,13 +375,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 194FC5E84BDF06D0409B1698 /* Pods-CartShare.release.xcconfig */;
+			baseConfigurationReference = C2281C382FB1984ED5B7055B /* Pods-CartShare.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CartShare/CartShare.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = W6SZ22J8C2;
+				DEVELOPMENT_TEAM = 5L6QPNNMP8;
 				INFOPLIST_FILE = CartShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
