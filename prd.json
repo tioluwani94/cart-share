@@ -769,8 +769,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 42,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed - Warm settings screen with large household name, partner avatars side by side with names/roles, invite code copyable card with checkmark animation, outline sign out button with 'See you soon!' confirmation modal"
     },
     {
       "id": "US-043",

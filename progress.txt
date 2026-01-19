@@ -1018,3 +1018,45 @@
   - FadeInDown animation with 400ms delay for staggered entrance
 - Updated components/analytics/index.ts to export MonthOverMonthComparison
 - Typecheck passes
+
+## US-042: Build warm settings screen [COMPLETED]
+- Updated app/(tabs)/settings.tsx with warm, friendly design:
+  - Household section with large name display:
+    - Home icon in coral/10 background circle
+    - "Your Household" label with household name in large bold text
+    - Warm shadow styling consistent with other cards
+  - Partner avatars side by side with names:
+    - Uses existing UserAvatar component with 40px size
+    - Shows each member in rounded-xl pill with name and role (Owner/Member)
+    - Empty slot shown when only one member with "Invite your partner!" message
+    - Uses Members icon from lucide-react-native
+  - Invite code in copyable card format:
+    - Large monospace font with tracking-widest for easy reading
+    - Coral color for the code text
+    - "Share this code with your partner to join" helper text
+    - Full card is pressable to copy
+  - Copy button with checkmark success animation:
+    - Animated circular button that scales with withSequence animation
+    - Swaps from Copy to Check icon when copied
+    - "Copied! ✓" feedback message appears below
+    - Medium haptic feedback on copy
+    - Auto-resets after 2 seconds
+  - Sign out button in outline style at bottom:
+    - Uses Button component with variant="outline"
+    - LogOut icon from lucide-react-native
+    - Warm-gray styling
+  - Friendly sign out confirmation modal:
+    - Wave emoji (👋) at top
+    - "See you soon!" headline
+    - "Are you sure you want to sign out?" message
+    - "Yes, sign out" primary button with loading state
+    - "Stay signed in" ghost button to cancel
+    - Fade animation for modal entrance
+- Animation timing:
+  - Header: instant
+  - Household section: 100ms delay
+  - Invite code card: 200ms delay
+  - Archived lists section: 400ms delay
+  - Sign out button: 500ms delay
+- Added imports: Button, UserAvatar, useAuth from Clerk, Clipboard, Check, Copy, Home, LogOut, Users icons
+- Typecheck passes
