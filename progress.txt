@@ -826,3 +826,34 @@
   - "Processing Coming Soon!" message
   - Navigation to home screen
 - Typecheck passes
+
+## US-035: Upload receipt with progress animation [COMPLETED]
+- Created convex/storage.ts with storage management functions:
+  - generateUploadUrl mutation: generates URL for direct client upload
+    - Validates authentication before generating URL
+  - getUrl query: retrieves URL to view/download a stored file
+  - deleteFile mutation: deletes a file from Convex storage
+- Installed react-native-svg (v15.15.1) for circular progress ring
+- Created components/ui/UploadProgressRing.tsx with animated progress:
+  - Circular SVG progress ring that fills clockwise
+  - Progress ring uses coral color (#FF6B6B) with rounded stroke caps
+  - Background track in warm-gray (#E5E5E0)
+  - Animated progress using react-native-reanimated
+  - Percentage text displayed in center of ring
+  - Pulse animation when uploading (scale 1.0 → 1.02)
+  - Playful rotating messages during upload:
+    - "Crunching numbers...", "Reading your receipt...", "Almost there...",
+    - "Working on it...", "Scanning details..."
+  - Configurable size and stroke width
+- Updated app/receipt-confirm.tsx with full upload flow:
+  - Auto-starts upload when screen loads with photoUri
+  - Simulated progress updates during upload (10%, 20%, 20-85%, 95%, 100%)
+  - Shows receipt preview thumbnail above progress ring
+  - Success state with animated checkmark and "Upload complete!" message
+  - Error state with friendly message: "Oops! Something went wrong"
+  - "Try Again" button with RotateCcw icon for retry
+  - "Skip for now" option on error
+  - Haptic feedback on success/error
+  - Stores storageId for use in OCR processing (US-036/037)
+- Exported UploadProgressRing from components/ui/index.ts
+- Typecheck passes
