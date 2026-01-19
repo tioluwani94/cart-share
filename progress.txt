@@ -916,3 +916,25 @@
   - Error notification on upload failure
 - Processing completes within 5 seconds target
 - Typecheck passes
+
+## US-038: Create shopping session with success animation [COMPLETED]
+- Updated app/receipt-confirm.tsx with session creation flow:
+  - Added "saving_session" and "session_saved" screen states
+  - handleConfirm now calls sessions.create mutation with totalAmount, householdId, listId, receiptImageId
+  - Session records totalAmount (in cents), shopperId, sessionDate
+- Full-screen celebration on success:
+  - Big animated checkmark in teal circle with scale and rotation animation
+  - "Trip saved! 🎉" message in large friendly typography
+  - Amount saved displayed below in warm-gray
+  - Uses checkmarkAnimatedStyle with withSequence and withSpring
+- Fun stat display:
+  - Added getMonthlySessionCount query to convex/sessions.ts
+  - Shows "You've shopped X times this month!" in teal rounded card
+  - Stats fade in after checkmark animation completes
+  - Bonus message "You're a shopping pro! 🛒✨" when 5+ trips
+- Auto-navigate to home after 2.5 seconds
+- Confetti burst animation (reuses existing confetti system)
+- Haptic feedback: success notification on session save, error on failure
+- Loading state with "Saving your trip..." message and animated dots
+- Header title updates: "Saving Trip" and "All Done!"
+- Typecheck passes
