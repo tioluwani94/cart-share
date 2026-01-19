@@ -885,3 +885,34 @@
   - Unable to extract total (OCR worked but no total found)
 - Convex codegen verified, api.d.ts includes vision module
 - Typecheck passes
+
+## US-037: Build celebratory receipt confirmation UI [COMPLETED]
+- Updated app/receipt-confirm.tsx with full OCR flow:
+  - Screen states: uploading, processing, success, manual_entry, ocr_error, upload_error
+  - After upload, automatically triggers OCR processing via vision.processReceipt action
+- Implemented animated scanning effect over receipt preview:
+  - Scan line animates up and down over receipt image during processing
+  - Teal corner accents on receipt frame corners
+  - Subtle teal overlay for visual feedback
+  - "Reading your receipt..." message with animated dots
+- Success state with confetti burst and large extracted total:
+  - 20 confetti emoji particles (🎉 ✨ 🎊 💫 🌟 ⭐ 🥳 💸) burst and fall
+  - "Found it! 🎉" message in friendly typography
+  - Large extracted total in coral color ($XX.XX) with scale animation
+  - Receipt thumbnail preview below total
+- Confirm and edit options:
+  - "That's right!" coral primary button with checkmark icon
+  - "Not quite — let me fix it" link with edit icon opens manual entry
+- Manual entry UI for failures and edits:
+  - "We couldn't read that 😅" friendly error message
+  - Dollar sign prefix with large numeric input
+  - "Enter it manually" primary button
+  - "Retake photo" option to go back to camera
+  - "Skip for now" ghost button
+  - Pre-fills with extracted amount when editing success total
+- Haptic feedback throughout:
+  - Success notification on OCR success
+  - Warning notification on OCR failure
+  - Error notification on upload failure
+- Processing completes within 5 seconds target
+- Typecheck passes
