@@ -971,3 +971,31 @@
 - Decorative footer emojis at 10% opacity (🍎 🥬 🥖 🧀 🥛)
 - Staggered entrance animations (FadeIn, FadeInUp, FadeInDown)
 - Typecheck passes
+
+## US-040: Add animated spending chart [COMPLETED]
+- Created components/analytics/SpendingChart.tsx using react-native-svg:
+  - Custom animated bar chart (no heavy victory-native dependency needed)
+  - Uses existing react-native-svg and react-native-reanimated libraries
+- Bar chart with coral (#FF6B6B) bars and rounded tops (6px border radius)
+- Bars animate in sequentially on load:
+  - Each bar starts at 0 height and springs to target height
+  - Staggered 100ms delay between each bar for sequential effect
+  - Uses withSpring with custom damping (12) and stiffness (80) for smooth animation
+- X-axis shows last 6 months with friendly labels (Jan, Feb, Mar, etc.)
+- Y-axis shows spending with $ format ($0, mid-value, max-value)
+- Tapping bar shows tooltip with exact amount:
+  - Displays formatted dollar amount (e.g., "$487.32")
+  - Shows month, year, and trip count
+  - Light haptic feedback on tap
+  - Tap again or tap outside to dismiss
+- Chart accessible via VoiceOver:
+  - accessibilityRole="image" on chart container
+  - accessibilityLabel describes chart data and highest spending month
+- Added getMonthlySpendingHistory query to convex/sessions.ts:
+  - Returns last 6 months with month, year, label, totalCents, totalDollars, sessionCount
+  - Validates authentication and household membership
+- Integrated SpendingChart into analytics screen:
+  - Shows in "Last 6 Months" card when spending data exists
+  - FadeInDown animation with 300ms delay
+- Created components/analytics/index.ts barrel export
+- Typecheck passes

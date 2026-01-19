@@ -16,6 +16,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { TrendingUp } from "lucide-react-native";
+import { SpendingChart } from "@/components/analytics";
 
 /**
  * Format cents to dollar string.
@@ -195,6 +196,16 @@ export default function AnalyticsScreen() {
       : "skip",
   );
 
+  // Get last 6 months spending history for chart
+  const spendingHistory = useQuery(
+    api.sessions.getMonthlySpendingHistory,
+    household?._id
+      ? {
+          householdId: household._id,
+        }
+      : "skip",
+  );
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     // Convex queries automatically refresh
@@ -255,9 +266,22 @@ export default function AnalyticsScreen() {
               />
             </Animated.View>
 
+            {/* Spending chart */}
+            {spendingHistory && spendingHistory.length > 0 && (
+              <Animated.View
+                entering={FadeInDown.delay(300).springify()}
+                className="mt-6 rounded-3xl bg-white p-4 shadow-warm"
+              >
+                <Text className="text-base font-semibold text-warm-gray-800 mb-2">
+                  Last 6 Months
+                </Text>
+                <SpendingChart data={spendingHistory} />
+              </Animated.View>
+            )}
+
             {/* Playful message */}
             <Animated.View
-              entering={FadeInUp.delay(400).springify()}
+              entering={FadeInUp.delay(500).springify()}
               className="mt-6 items-center"
             >
               <View className="rounded-2xl bg-yellow/10 px-5 py-3">

@@ -322,6 +322,88 @@ export const getMonthlySessionCount = query({
 });
 
 /**
+ * Get spending totals for the last 6 months.
+ * Returns an array of { month, year, totalCents, label } for chart display.
+ */
+export const getMonthlySpendingHistory = query({
+  args: {
+    householdId: v.id("households"),
+  },
+  handler: async (ctx, args) => {
+    // Validate authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+
+    // Get the current user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found in database");
+
+    // Validate user is a member of the household
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_household_and_user", (q) =>
+        q.eq("householdId", args.householdId).eq("userId", user._id)
+      )
+      .unique();
+
+    if (!membership) {
+      throw new Error("You are not a member of this household");
+    }
+
+    // Get all sessions for the household
+    const allSessions = await ctx.db
+      .query("shoppingSessions")
+      .withIndex("by_household", (q) => q.eq("householdId", args.householdId))
+      .collect();
+
+    // Generate last 6 months
+    const now = new Date();
+    const months: { month: number; year: number; startDate: number; endDate: number; label: string }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const startDate = new Date(year, month, 1).getTime();
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+      const label = date.toLocaleString("en-US", { month: "short" }); // "Jan", "Feb", etc.
+
+      months.push({ month, year, startDate, endDate, label });
+    }
+
+    // Calculate totals for each month
+    const monthlyData = months.map(({ month, year, startDate, endDate, label }) => {
+      const monthSessions = allSessions.filter(
+        (session) =>
+          session.sessionDate >= startDate && session.sessionDate <= endDate
+      );
+
+      const totalCents = monthSessions.reduce(
+        (sum, session) => sum + session.totalAmount,
+        0
+      );
+
+      return {
+        month,
+        year,
+        label,
+        totalCents,
+        totalDollars: totalCents / 100,
+        sessionCount: monthSessions.length,
+      };
+    });
+
+    return monthlyData;
+  },
+});
+
+/**
  * Get a single session by ID.
  * Validates that the user has access via household membership.
  */
