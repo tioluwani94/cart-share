@@ -15,7 +15,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cartshare.app",
-      "appleTeamId": "W6SZ22J8C2"
+      "appleTeamId": "W6SZ22J8C2",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CartShare needs camera access to scan your receipts and track spending."
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -1,15 +1,15 @@
-import { useState, useCallback, useRef } from "react";
-import { View, TextInput, Pressable } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Plus } from "lucide-react-native";
+import { useCallback, useRef, useState } from "react";
+import { Pressable, TextInput, View } from "react-native";
 import Animated, {
+  useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
-  withSequence,
-  runOnJS,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -28,6 +28,13 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
   const buttonScale = useSharedValue(1);
   const inputWidth = useSharedValue(1);
   const inputOpacity = useSharedValue(1);
+
+  // Keyboard animation
+  const keyboard = useAnimatedKeyboard();
+
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -keyboard.height.value }],
+  }));
 
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -93,15 +100,18 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
   const isAddDisabled = disabled || !value.trim() || isSubmitting;
 
   return (
-    <View
+    <Animated.View
       className="absolute bottom-0 left-0 right-0 border-t border-warm-gray-100 bg-white px-4 pb-8 pt-3"
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 8,
-      }}
+      style={[
+        {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 8,
+        },
+        containerAnimatedStyle,
+      ]}
     >
       <View className="flex-row items-center gap-3">
         {/* Input field */}
@@ -147,6 +157,6 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
           />
         </AnimatedPressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }

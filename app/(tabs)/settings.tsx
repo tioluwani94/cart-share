@@ -332,7 +332,12 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
 
-                <View className="mt-3 flex-row items-center gap-4">
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="mt-3 -mx-4"
+                  contentContainerClassName="flex-row items-center gap-4 px-4"
+                >
                   {household.members.map((member) => (
                     <View
                       key={member._id}
@@ -371,7 +376,7 @@ export default function SettingsScreen() {
                       </View>
                     </View>
                   )}
-                </View>
+                </ScrollView>
               </View>
             </View>
           </Animated.View>
