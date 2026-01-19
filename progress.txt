@@ -787,3 +787,42 @@
 - All functions validate household membership before allowing access
 - Uses existing indexes: by_household, by_household_and_date, by_shopper, by_list
 - Typecheck passes
+
+## US-034: Build fun receipt camera interface [COMPLETED]
+- Installed expo-camera (v17.0.10) for camera functionality
+- Updated app.json with expo-camera plugin and permission message:
+  - "CartShare needs camera access to scan your receipts and track spending."
+- Implemented app/scan-receipt.tsx with playful camera UI:
+  - Fun header: "Snap your receipt!" with camera emoji
+  - Permission request screen with friendly messaging
+  - "Enable Camera" and "Maybe Later" options
+- Created animated guide frame with pulse animation:
+  - Dashed white border with 24px border radius
+  - Coral corner accents (top-left, top-right, bottom-left, bottom-right)
+  - Subtle scale pulse (1.0 → 1.02) with 1.5s duration
+  - Opacity pulse (0.7 → 1.0) for breathing effect
+  - Uses withRepeat for continuous animation
+- Built capture button with satisfying animations:
+  - Large coral circle (80x80) with camera icon
+  - Inner white ring for visual appeal
+  - Scale animation on press (1.0 → 0.85 → 1.0) using withSequence
+  - Coral shadow/glow effect (shadowOpacity: 0.5)
+  - Medium haptic feedback on capture
+- Implemented white flash effect on capture:
+  - Full-screen white overlay
+  - Quick flash (100ms in, 200ms out) using withSequence/withTiming
+  - Simulates real camera flash for satisfying feedback
+- Preview screen with 'Looks good!' header:
+  - Dark background for photo contrast
+  - Captured photo in rounded frame (GUIDE_FRAME_WIDTH x GUIDE_FRAME_HEIGHT)
+  - Spring animation entrance for photo
+  - "Make sure the total is visible and clear" helper text
+- Action buttons on preview:
+  - "Retake" button with RotateCcw icon and light haptic
+  - "Use Photo" button in coral with Check icon
+  - Staggered entrance animations (delay 300ms, 400ms)
+- Created app/receipt-confirm.tsx placeholder for US-037:
+  - Shows captured photo preview
+  - "Processing Coming Soon!" message
+  - Navigation to home screen
+- Typecheck passes
