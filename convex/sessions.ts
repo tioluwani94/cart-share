@@ -266,6 +266,62 @@ export const getMonthlyTotal = query({
 });
 
 /**
+ * Get the count of shopping sessions for a household in the current month.
+ * Used for displaying fun stats like "You've shopped X times this month!"
+ */
+export const getMonthlySessionCount = query({
+  args: {
+    householdId: v.id("households"),
+  },
+  handler: async (ctx, args) => {
+    // Validate authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+
+    // Get the current user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found in database");
+
+    // Validate user is a member of the household
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_household_and_user", (q) =>
+        q.eq("householdId", args.householdId).eq("userId", user._id)
+      )
+      .unique();
+
+    if (!membership) {
+      throw new Error("You are not a member of this household");
+    }
+
+    // Calculate start and end of the current month
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+
+    // Get all sessions for the household
+    const allSessions = await ctx.db
+      .query("shoppingSessions")
+      .withIndex("by_household", (q) => q.eq("householdId", args.householdId))
+      .collect();
+
+    // Count sessions in current month
+    const count = allSessions.filter(
+      (session) =>
+        session.sessionDate >= startDate && session.sessionDate <= endDate
+    ).length;
+
+    return { count };
+  },
+});
+
+/**
  * Get a single session by ID.
  * Validates that the user has access via household membership.
  */

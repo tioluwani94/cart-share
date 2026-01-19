@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   Edit3,
   DollarSign,
+  Check,
+  ShoppingCart,
 } from "lucide-react-native";
 import Animated, {
   FadeInDown,
@@ -25,7 +27,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { UploadProgressRing, Button } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -36,7 +38,9 @@ type ScreenState =
   | "success"
   | "manual_entry"
   | "upload_error"
-  | "ocr_error";
+  | "ocr_error"
+  | "saving_session"
+  | "session_saved";
 
 // Confetti emoji particles for celebration
 const CONFETTI_EMOJIS = ["🎉", "✨", "🎊", "💫", "🌟", "⭐", "🥳", "💸"];
@@ -57,9 +61,17 @@ export default function ReceiptConfirmScreen() {
   const [extractedTotal, setExtractedTotal] = useState<number | null>(null); // In cents
   const [manualAmount, setManualAmount] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
+  const [monthlySessionCount, setMonthlySessionCount] = useState(0);
 
+  // Queries and mutations
+  const household = useQuery(api.households.getCurrentHousehold);
   const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
   const processReceipt = useAction(api.vision.processReceipt);
+  const createSession = useMutation(api.sessions.create);
+  const monthlyCount = useQuery(
+    api.sessions.getMonthlySessionCount,
+    household?._id ? { householdId: household._id } : "skip"
+  );
 
   const inputRef = useRef<TextInput>(null);
 
@@ -68,6 +80,9 @@ export default function ReceiptConfirmScreen() {
   const scanOpacity = useSharedValue(0);
   const successScale = useSharedValue(0);
   const totalScale = useSharedValue(0);
+  const checkmarkScale = useSharedValue(0);
+  const checkmarkRotation = useSharedValue(0);
+  const statsOpacity = useSharedValue(0);
 
   // Scanning line animation style
   const scanLineStyle = useAnimatedStyle(() => ({
@@ -81,6 +96,17 @@ export default function ReceiptConfirmScreen() {
 
   const totalAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: totalScale.value }],
+  }));
+
+  const checkmarkAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: checkmarkScale.value },
+      { rotate: `${checkmarkRotation.value}deg` },
+    ],
+  }));
+
+  const statsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: statsOpacity.value,
   }));
 
   // Format cents to dollars
@@ -236,21 +262,59 @@ export default function ReceiptConfirmScreen() {
     }
   }, [photoUri]);
 
-  // Handle confirm button
-  const handleConfirm = () => {
+  // Handle confirm button - create session and show celebration
+  const handleConfirm = async () => {
     const totalCents = extractedTotal;
-    if (totalCents) {
-      // Navigate to create session or home
-      // Pass totalCents, storageId, listId for session creation
-      router.replace({
-        pathname: "/(tabs)",
-        params: {
-          totalCents: totalCents.toString(),
-          receiptStorageId: storageId || "",
-          listId: listId || "",
-          showSessionSuccess: "true",
-        },
+    if (!totalCents || !household?._id) return;
+
+    setScreenState("saving_session");
+
+    try {
+      // Create the shopping session
+      await createSession({
+        householdId: household._id,
+        totalAmount: totalCents,
+        listId: listId ? (listId as Id<"lists">) : undefined,
+        receiptImageId: storageId ?? undefined,
       });
+
+      // Update monthly count for display (current count + 1 for the new session)
+      const currentCount = monthlyCount?.count ?? 0;
+      setMonthlySessionCount(currentCount + 1);
+
+      // Transition to session saved state
+      setScreenState("session_saved");
+      setShowConfetti(true);
+
+      // Animate checkmark
+      checkmarkScale.value = withSequence(
+        withSpring(1.3, { damping: 6, stiffness: 120 }),
+        withSpring(1, { damping: 8, stiffness: 150 })
+      );
+      checkmarkRotation.value = withSequence(
+        withTiming(-15, { duration: 100 }),
+        withSpring(0, { damping: 10, stiffness: 200 })
+      );
+
+      // Fade in stats after checkmark
+      setTimeout(() => {
+        statsOpacity.value = withTiming(1, { duration: 500 });
+      }, 400);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Auto-navigate to home after 2 seconds
+      setTimeout(() => {
+        router.replace("/(tabs)");
+      }, 2500);
+
+      // Hide confetti after 3 seconds
+      setTimeout(() => setShowConfetti(false), 3000);
+    } catch (error) {
+      console.error("Error creating session:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // On error, go back to success state so user can try again
+      setScreenState("success");
     }
   };
 
@@ -664,6 +728,81 @@ export default function ReceiptConfirmScreen() {
           </Animated.View>
         );
 
+      case "saving_session":
+        return (
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            className="items-center"
+          >
+            {/* Saving animation */}
+            <View className="mb-6 h-24 w-24 items-center justify-center rounded-full bg-teal/20">
+              <ShoppingCart size={48} color="#4ECDC4" strokeWidth={1.5} />
+            </View>
+
+            <Text className="text-center text-xl font-bold text-warm-gray-900">
+              Saving your trip...
+            </Text>
+
+            {/* Animated dots */}
+            <View className="mt-4 flex-row">
+              {[0, 1, 2].map((i) => (
+                <AnimatedDot key={i} delay={i * 200} />
+              ))}
+            </View>
+          </Animated.View>
+        );
+
+      case "session_saved":
+        return (
+          <Animated.View
+            entering={FadeInUp.springify().damping(12)}
+            className="items-center"
+          >
+            {/* Big animated checkmark */}
+            <Animated.View
+              style={checkmarkAnimatedStyle}
+              className="mb-6 h-28 w-28 items-center justify-center rounded-full bg-teal"
+            >
+              <Check size={64} color="white" strokeWidth={3} />
+            </Animated.View>
+
+            {/* Trip saved message */}
+            <Text className="text-center text-3xl font-bold text-warm-gray-900">
+              Trip saved! 🎉
+            </Text>
+
+            {/* Amount saved */}
+            {extractedTotal !== null && (
+              <Text className="mt-2 text-center text-xl text-warm-gray-600">
+                {formatCentsToDollars(extractedTotal)}
+              </Text>
+            )}
+
+            {/* Fun stat - shopping count this month */}
+            <Animated.View style={statsAnimatedStyle} className="mt-8">
+              <View className="rounded-2xl bg-teal/10 px-6 py-4">
+                <Text className="text-center text-lg text-warm-gray-700">
+                  You've shopped{" "}
+                  <Text className="font-bold text-teal">
+                    {monthlySessionCount} {monthlySessionCount === 1 ? "time" : "times"}
+                  </Text>{" "}
+                  this month!
+                </Text>
+                {monthlySessionCount >= 5 && (
+                  <Text className="mt-1 text-center text-sm text-warm-gray-500">
+                    You're a shopping pro! 🛒✨
+                  </Text>
+                )}
+              </View>
+            </Animated.View>
+
+            {/* Auto-redirect message */}
+            <Text className="mt-6 text-center text-sm text-warm-gray-400">
+              Taking you home...
+            </Text>
+          </Animated.View>
+        );
+
       default:
         return null;
     }
@@ -680,6 +819,10 @@ export default function ReceiptConfirmScreen() {
         return "Receipt Total";
       case "manual_entry":
         return "Enter Total";
+      case "saving_session":
+        return "Saving Trip";
+      case "session_saved":
+        return "All Done!";
       case "ocr_error":
       case "upload_error":
         return "Hmm...";
