@@ -33,7 +33,7 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
 
   return (
     <Animated.View
-      entering={FadeInUp.springify().damping(12)}
+      entering={FadeInUp.springify().damping(90)}
       className="items-center"
     >
       {/* Success icon */}

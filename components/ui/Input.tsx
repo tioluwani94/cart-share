@@ -69,9 +69,9 @@ export function Input({
         <Animated.Text
           style={animatedLabelStyle}
           className={cn(
-            "absolute left-4 z-10 bg-white px-1",
+            "absolute left-4 z-10 -top-2 bg-white px-1",
             isFocused ? "text-teal" : "text-warm-gray-500",
-            error && "text-coral"
+            error && "text-coral",
           )}
         >
           {label}
@@ -84,7 +84,7 @@ export function Input({
             "min-h-[56px] rounded-2xl border-2 px-4 pt-4 text-base text-warm-gray-900",
             isFocused ? "border-teal" : "border-warm-gray-200",
             error && "border-coral",
-            className
+            className,
           )}
           placeholderTextColor="#A9A69E"
           accessibilityLabel={label}
@@ -92,9 +92,7 @@ export function Input({
           {...props}
         />
       </View>
-      {error && (
-        <Text className="mt-2 px-2 text-sm text-coral">{error}</Text>
-      )}
+      {error && <Text className="mt-2 px-2 text-sm text-coral">{error}</Text>}
     </View>
   );
 }

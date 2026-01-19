@@ -1,3 +1,4 @@
+import { InviteCode } from "@/components/household-setup/InviteCode";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { api } from "@/convex/_generated/api";
@@ -83,79 +84,14 @@ export default function HouseholdSetupScreen() {
   // Show invite code screen after household is created
   if (inviteCode) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
-        <View className="flex-1 px-6 pt-8">
-          {/* Celebration Header */}
-          <Animated.View
-            entering={FadeInUp.delay(100).springify().damping(90)}
-            className="items-center"
-          >
-            <Text className="text-6xl">🎉</Text>
-            <Text className="mt-4 text-center text-3xl font-bold text-warm-gray-900">
-              You're all set!
-            </Text>
-            <Text className="mt-2 text-center text-lg text-warm-gray-600">
-              Welcome to {householdName}
-            </Text>
-          </Animated.View>
-
-          {/* Invite Code Card */}
-          <Animated.View
-            entering={FadeInUp.delay(200).springify().damping(90)}
-            className="mt-10 rounded-3xl bg-white p-6 shadow-lg"
-          >
-            <Text className="text-center text-lg font-medium text-warm-gray-600">
-              Share this code with your partner!
-            </Text>
-
-            {/* Large Invite Code Display */}
-            <View className="mt-4 rounded-2xl bg-warm-gray-50 py-6">
-              <Text
-                className="text-center text-4xl font-bold tracking-[8px] text-coral"
-                accessibilityLabel={`Invite code: ${inviteCode.split("").join(" ")}`}
-              >
-                {inviteCode}
-              </Text>
-            </View>
-
-            {/* Copy Button */}
-            <Animated.View style={copyAnimatedStyle} className="mt-4">
-              <Pressable
-                onPress={handleCopyCode}
-                className="flex-row items-center justify-center rounded-xl bg-teal/10 py-3"
-                accessibilityLabel={
-                  copied ? "Copied to clipboard" : "Copy invite code"
-                }
-                accessibilityRole="button"
-              >
-                <Text className="text-lg font-semibold text-teal">
-                  {copied ? "Copied! ✓" : "Copy Code"}
-                </Text>
-              </Pressable>
-            </Animated.View>
-          </Animated.View>
-
-          {/* Partner Instructions */}
-          <Animated.View
-            entering={FadeInUp.delay(300).springify().damping(90)}
-            className="mt-6 rounded-2xl bg-yellow/10 p-4"
-          >
-            <Text className="text-center text-warm-gray-700">
-              💡 Your partner can join by entering this code when they sign up!
-            </Text>
-          </Animated.View>
-
-          {/* Continue Button */}
-          <Animated.View
-            entering={FadeInDown.delay(400).springify().damping(90)}
-            className="mt-auto pb-8"
-          >
-            <Button onPress={handleContinue} size="lg" className="w-full">
-              Let's Go Shopping!
-            </Button>
-          </Animated.View>
-        </View>
-      </SafeAreaView>
+      <InviteCode
+        copied={copied}
+        inviteCode={inviteCode}
+        householdName={householdName}
+        copyAnimatedStyle={copyAnimatedStyle}
+        handleContinue={handleContinue}
+        handleCopyCode={handleCopyCode}
+      />
     );
   }
 
@@ -199,6 +135,7 @@ export default function HouseholdSetupScreen() {
             autoCapitalize="words"
             autoCorrect={false}
             error={error ?? undefined}
+            keyboardType="default"
           />
 
           <Text className="mt-2 px-2 text-sm text-warm-gray-500">
@@ -240,11 +177,6 @@ export default function HouseholdSetupScreen() {
             </Text>
           </Pressable>
         </Animated.View>
-
-        {/* Decorative Footer */}
-        <View className="mt-auto items-center pb-8">
-          <Text className="text-4xl opacity-20">🛒 🥑 🍞</Text>
-        </View>
       </View>
     </SafeAreaView>
   );

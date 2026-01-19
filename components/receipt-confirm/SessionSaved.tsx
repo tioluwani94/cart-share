@@ -34,7 +34,7 @@ export const SessionSaved = ({
 
   return (
     <Animated.View
-      entering={FadeInUp.springify().damping(12)}
+      entering={FadeInUp.springify().damping(90)}
       className="items-center"
     >
       {/* Big animated checkmark */}
