@@ -857,3 +857,31 @@
   - Stores storageId for use in OCR processing (US-036/037)
 - Exported UploadProgressRing from components/ui/index.ts
 - Typecheck passes
+
+## US-036: Integrate Google Cloud Vision OCR action [COMPLETED]
+- Created convex/vision.ts with processReceipt action:
+  - Action takes imageId parameter (Convex storage ID)
+  - Gets signed URL from ctx.storage.getUrl(imageId)
+  - Calls Google Cloud Vision TEXT_DETECTION API
+  - Uses GOOGLE_CLOUD_VISION_API_KEY from environment variables
+- Implemented comprehensive total extraction using regex patterns:
+  - TOTAL, GRAND TOTAL, TOTAL DUE patterns (most common)
+  - AMOUNT DUE, BALANCE DUE patterns
+  - SUBTOTAL as fallback
+  - Credit/debit card total patterns
+  - Fallback heuristic: largest dollar amount on receipt
+- dollarsToCents helper converts "45.67" to 4567 cents
+- Sanity check: totals between $0.01 and $10,000 accepted
+- Returns ProcessReceiptResult interface:
+  - success: boolean indicating if OCR worked
+  - extractedTotal: number | null (total in cents)
+  - rawText: string | null (full OCR text)
+  - error: optional error message
+- Error handling for:
+  - Missing API key configuration
+  - Failed image URL retrieval
+  - Vision API errors
+  - No text found in image
+  - Unable to extract total (OCR worked but no total found)
+- Convex codegen verified, api.d.ts includes vision module
+- Typecheck passes
