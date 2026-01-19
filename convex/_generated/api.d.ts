@@ -15,6 +15,7 @@ import type * as lists from "../lists.js";
 import type * as sessions from "../sessions.js";
 import type * as storage from "../storage.js";
 import type * as users from "../users.js";
+import type * as vision from "../vision.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   sessions: typeof sessions;
   storage: typeof storage;
   users: typeof users;
+  vision: typeof vision;
 }>;
 
 /**
