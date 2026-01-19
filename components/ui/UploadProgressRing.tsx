@@ -1,14 +1,13 @@
 import React, { useEffect } from "react";
-import { View, Text } from "react-native";
+import { Text, View } from "react-native";
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedProps,
-  withTiming,
+  useDerivedValue,
+  useSharedValue,
   withRepeat,
   withSequence,
-  Easing,
-  useDerivedValue,
-  interpolate,
+  withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, G } from "react-native-svg";
 
@@ -58,23 +57,26 @@ export function UploadProgressRing({
       duration: 300,
       easing: Easing.out(Easing.cubic),
     });
-  }, [progress]);
+  }, [animatedProgress, progress]);
 
   // Pulse animation when uploading
   useEffect(() => {
     if (isUploading) {
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.02, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.02, {
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
-        true
+        true,
       );
     } else {
       pulseScale.value = withTiming(1, { duration: 200 });
     }
-  }, [isUploading]);
+  }, [isUploading, pulseScale]);
 
   // Rotate through messages
   useEffect(() => {
@@ -84,7 +86,7 @@ export function UploadProgressRing({
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [isUploading]);
+  }, [isUploading, messageIndex]);
 
   // Animated stroke dash offset for progress
   const strokeDashoffset = useDerivedValue(() => {
@@ -97,7 +99,9 @@ export function UploadProgressRing({
   }));
 
   // Get current message
-  const currentMessage = message || (isUploading ? UPLOAD_MESSAGES[Math.floor(messageIndex.value)] : "");
+  const currentMessage =
+    message ||
+    (isUploading ? UPLOAD_MESSAGES[Math.floor(messageIndex.value)] : "");
 
   return (
     <View className="items-center justify-center">

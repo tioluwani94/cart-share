@@ -1,22 +1,22 @@
-import "../global.css";
-import { useEffect } from "react";
-import { View } from "react-native";
-import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
-import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
+import { OfflineIndicator } from "@/components/layout";
 import { api } from "@/convex/_generated/api";
+import { SyncStatusProvider } from "@/lib/SyncStatusContext";
+import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import {
   Slot,
+  useRootNavigationState,
   useRouter,
   useSegments,
-  useRootNavigationState,
 } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { OfflineIndicator } from "@/components/layout";
-import { SyncStatusProvider } from "@/lib/SyncStatusContext";
+import "../global.css";
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -74,8 +74,7 @@ const HOUSEHOLD_EXEMPT_ROUTES = ["household-setup", "join-household"];
  */
 function InitialLayout() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } =
-    useConvexAuth();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
@@ -110,7 +109,9 @@ function InitialLayout() {
       return;
     }
 
-    if (!household && !inHouseholdExemptRoute) {
+    // Only redirect if household is definitively null (loaded but doesn't exist),
+    // not undefined (still loading)
+    if (household === null && !inHouseholdExemptRoute) {
       router.replace("/household-setup");
       SplashScreen.hideAsync();
       return;
@@ -124,15 +125,6 @@ function InitialLayout() {
 
     SplashScreen.hideAsync();
   }, [isLoaded, isSignedIn, segments, navigationState?.key, household, router]);
-
-  // Keep splash visible while loading auth OR Convex auth OR household query
-  if (
-    !isLoaded ||
-    isConvexLoading ||
-    (isConvexAuthenticated && household === undefined)
-  ) {
-    return null;
-  }
 
   return (
     <View style={{ flex: 1 }}>

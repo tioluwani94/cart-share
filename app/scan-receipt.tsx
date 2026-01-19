@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { View, Text, Pressable, Image, Dimensions, Platform } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  Image,
+  Dimensions,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -12,13 +19,10 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  withDelay,
   Easing,
   FadeIn,
   FadeInDown,
   FadeInUp,
-  FadeOut,
-  runOnJS,
 } from "react-native-reanimated";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -47,18 +51,18 @@ export default function ScanReceiptScreen() {
     guideFrameScale.value = withRepeat(
       withSequence(
         withTiming(1.02, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
     guideFrameOpacity.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.7, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        withTiming(0.7, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -85,13 +89,13 @@ export default function ScanReceiptScreen() {
     // Scale animation on capture button
     captureScale.value = withSequence(
       withSpring(0.85, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 10, stiffness: 400 })
+      withSpring(1, { damping: 10, stiffness: 400 }),
     );
 
     // Flash effect
     flashOpacity.value = withSequence(
       withTiming(1, { duration: 100 }),
-      withTiming(0, { duration: 200 })
+      withTiming(0, { duration: 200 }),
     );
 
     try {
@@ -102,7 +106,9 @@ export default function ScanReceiptScreen() {
 
       if (photo?.uri) {
         setCapturedPhoto(photo.uri);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
       }
     } catch (error) {
       console.error("Error capturing photo:", error);
@@ -168,7 +174,8 @@ export default function ScanReceiptScreen() {
           </Text>
 
           <Text className="mt-3 text-center text-base text-warm-gray-600">
-            We need camera permission to scan your receipts and help you track spending.
+            We need camera permission to scan your receipts and help you track
+            spending.
           </Text>
 
           <Pressable
@@ -186,9 +193,7 @@ export default function ScanReceiptScreen() {
             className="mt-4 px-8 py-3"
             accessibilityLabel="Go back without enabling camera"
           >
-            <Text className="text-base text-warm-gray-500">
-              Maybe Later
-            </Text>
+            <Text className="text-base text-warm-gray-500">Maybe Later</Text>
           </Pressable>
         </Animated.View>
       </SafeAreaView>
@@ -292,11 +297,7 @@ export default function ScanReceiptScreen() {
   // Camera view
   return (
     <View className="flex-1 bg-black">
-      <CameraView
-        ref={cameraRef}
-        style={{ flex: 1 }}
-        facing="back"
-      >
+      <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back">
         <SafeAreaView className="flex-1">
           {/* Header */}
           <View className="flex-row items-center justify-between px-4 py-3">
