@@ -16,7 +16,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { TrendingUp } from "lucide-react-native";
-import { SpendingChart } from "@/components/analytics";
+import { SpendingChart, MonthOverMonthComparison } from "@/components/analytics";
 
 /**
  * Format cents to dollar string.
@@ -277,6 +277,13 @@ export default function AnalyticsScreen() {
                 </Text>
                 <SpendingChart data={spendingHistory} />
               </Animated.View>
+            )}
+
+            {/* Month-over-month comparison card */}
+            {spendingHistory && spendingHistory.length >= 2 && (
+              <View className="mt-4">
+                <MonthOverMonthComparison spendingHistory={spendingHistory} />
+              </View>
             )}
 
             {/* Playful message */}

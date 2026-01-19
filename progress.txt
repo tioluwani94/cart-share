@@ -999,3 +999,22 @@
   - FadeInDown animation with 300ms delay
 - Created components/analytics/index.ts barrel export
 - Typecheck passes
+
+## US-041: Add fun month-over-month comparison [COMPLETED]
+- Created components/analytics/MonthOverMonthComparison.tsx:
+  - Comparison card component using existing getMonthlySpendingHistory data
+  - Compares current month (index 5) vs last month (index 4) from history array
+  - Down arrow + green: "You spent $XX less! 🎉" message with TrendingDown icon
+  - Up arrow + coral: "You spent $XX more" message with TrendingUp icon
+  - Flat change shows "Same as last month" with Minus icon
+  - Percentage badge with trend direction (↓ or ↑ with percentage)
+  - Badge has spring scale animation on mount
+  - First month/no data shows: "Keep shopping to see trends!" with chart emoji
+  - Icon circles use semantic colors (green-100 for down, coral/20 for up)
+- Integrated comparison card into app/(tabs)/analytics.tsx:
+  - Added below the spending chart with mt-4 spacing
+  - Conditional rendering when spendingHistory.length >= 2
+  - Uses existing spendingHistory query data (no new query needed)
+  - FadeInDown animation with 400ms delay for staggered entrance
+- Updated components/analytics/index.ts to export MonthOverMonthComparison
+- Typecheck passes
