@@ -69,8 +69,8 @@ export default function HouseholdSetupScreen() {
 
     // Animate the copy button
     copyScale.value = withSequence(
-      withSpring(1.1, { damping: 10 }),
-      withSpring(1, { damping: 10 }),
+      withSpring(1.1, { damping: 90 }),
+      withSpring(1, { damping: 90 }),
     );
 
     setCopied(true);

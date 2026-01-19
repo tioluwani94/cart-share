@@ -104,21 +104,17 @@ function InitialLayout() {
     }
 
     if (inAuthGroup) {
-      router.replace(household ? "/(tabs)" : "/household-setup");
+      if (household) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/household-setup");
+      }
       SplashScreen.hideAsync();
       return;
     }
 
-    // Only redirect if household is definitively null (loaded but doesn't exist),
-    // not undefined (still loading)
     if (household === null && !inHouseholdExemptRoute) {
       router.replace("/household-setup");
-      SplashScreen.hideAsync();
-      return;
-    }
-
-    if (household && inHouseholdExemptRoute) {
-      router.replace("/(tabs)");
       SplashScreen.hideAsync();
       return;
     }
