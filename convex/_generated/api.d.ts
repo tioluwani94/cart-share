@@ -13,6 +13,7 @@ import type * as http from "../http.js";
 import type * as items from "../items.js";
 import type * as lists from "../lists.js";
 import type * as sessions from "../sessions.js";
+import type * as storage from "../storage.js";
 import type * as users from "../users.js";
 
 import type {
@@ -27,6 +28,7 @@ declare const fullApi: ApiFromModules<{
   items: typeof items;
   lists: typeof lists;
   sessions: typeof sessions;
+  storage: typeof storage;
   users: typeof users;
 }>;
 
