@@ -114,20 +114,26 @@ export const getByHousehold = query({
       ? await sessionsQuery.take(args.limit)
       : await sessionsQuery.collect();
 
-    // Enrich sessions with shopper info
-    const sessionsWithShopperInfo = await Promise.all(
+    // Enrich sessions with shopper info and receipt URLs
+    const sessionsWithInfo = await Promise.all(
       sessions.map(async (session) => {
         const shopper = await ctx.db.get(session.shopperId);
+        // Get receipt URL if image exists
+        let receiptUrl: string | null = null;
+        if (session.receiptImageId) {
+          receiptUrl = await ctx.storage.getUrl(session.receiptImageId);
+        }
         return {
           ...session,
           shopperName: shopper?.name ?? "Unknown",
           shopperImageUrl: shopper?.imageUrl,
+          receiptUrl,
         };
       })
     );
 
     // Sort by sessionDate descending (since index order may not match)
-    return sessionsWithShopperInfo.sort((a, b) => b.sessionDate - a.sessionDate);
+    return sessionsWithInfo.sort((a, b) => b.sessionDate - a.sessionDate);
   },
 });
 

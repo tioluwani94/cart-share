@@ -15,8 +15,14 @@ import Animated, {
   withDelay,
   Easing,
 } from "react-native-reanimated";
-import { TrendingUp } from "lucide-react-native";
-import { SpendingChart, MonthOverMonthComparison } from "@/components/analytics";
+import { TrendingUp, Clock } from "lucide-react-native";
+import {
+  SpendingChart,
+  MonthOverMonthComparison,
+  SessionHistoryCard,
+  ReceiptImageViewer,
+} from "@/components/analytics";
+import { Id } from "@/convex/_generated/dataModel";
 
 /**
  * Format cents to dollar string.
@@ -177,8 +183,22 @@ function TotalDisplay({
   );
 }
 
+// Session with receipt URL for display
+interface SessionWithReceiptUrl {
+  _id: Id<"shoppingSessions">;
+  totalAmount: number;
+  storeName?: string;
+  sessionDate: number;
+  receiptImageId?: Id<"_storage">;
+  receiptUrl: string | null;
+  shopperName?: string;
+  shopperImageUrl?: string;
+}
+
 export default function AnalyticsScreen() {
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionWithReceiptUrl | null>(null);
+  const [receiptViewerVisible, setReceiptViewerVisible] = useState(false);
 
   // Get current household
   const household = useQuery(api.households.getCurrentHousehold);
@@ -205,6 +225,38 @@ export default function AnalyticsScreen() {
         }
       : "skip",
   );
+
+  // Get recent shopping sessions for history
+  const sessions = useQuery(
+    api.sessions.getByHousehold,
+    household?._id
+      ? {
+          householdId: household._id,
+          limit: 10, // Show last 10 sessions
+        }
+      : "skip",
+  );
+
+  // Handle session card press to view receipt
+  const handleSessionPress = (session: typeof sessions extends (infer T)[] | undefined ? T : never) => {
+    if (!session) return;
+    setSelectedSession({
+      _id: session._id,
+      totalAmount: session.totalAmount,
+      storeName: session.storeName,
+      sessionDate: session.sessionDate,
+      receiptImageId: session.receiptImageId,
+      receiptUrl: session.receiptUrl,
+      shopperName: session.shopperName,
+      shopperImageUrl: session.shopperImageUrl,
+    });
+    setReceiptViewerVisible(true);
+  };
+
+  const handleCloseReceiptViewer = () => {
+    setReceiptViewerVisible(false);
+    setSelectedSession(null);
+  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -286,6 +338,45 @@ export default function AnalyticsScreen() {
               </View>
             )}
 
+            {/* Session history section */}
+            <Animated.View
+              entering={FadeInDown.delay(500).springify()}
+              className="mt-6"
+            >
+              <View className="flex-row items-center mb-3">
+                <Clock size={18} color="#A3A096" strokeWidth={2} />
+                <Text className="ml-2 text-base font-semibold text-warm-gray-800">
+                  Recent Trips
+                </Text>
+              </View>
+
+              {sessions && sessions.length > 0 ? (
+                <View className="gap-3">
+                  {sessions.map((session, index) => (
+                    <SessionHistoryCard
+                      key={session._id}
+                      sessionId={session._id}
+                      amount={session.totalAmount}
+                      storeName={session.storeName}
+                      sessionDate={session.sessionDate}
+                      receiptImageUrl={session.receiptUrl}
+                      shopperName={session.shopperName}
+                      shopperImageUrl={session.shopperImageUrl}
+                      index={index}
+                      onPress={() => handleSessionPress(session)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View className="rounded-2xl bg-warm-gray-50 p-6 items-center">
+                  <Text className="text-3xl mb-2">🧾</Text>
+                  <Text className="text-center text-warm-gray-500">
+                    Your shopping history will appear here
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
+
             {/* Playful message */}
             <Animated.View
               entering={FadeInUp.delay(500).springify()}
@@ -346,6 +437,15 @@ export default function AnalyticsScreen() {
         {/* Bottom padding for tab bar */}
         <View className="h-24" />
       </ScrollView>
+
+      {/* Receipt image viewer modal */}
+      <ReceiptImageViewer
+        visible={receiptViewerVisible}
+        imageUrl={selectedSession?.receiptUrl ?? null}
+        sessionDate={selectedSession?.sessionDate}
+        amount={selectedSession?.totalAmount}
+        onClose={handleCloseReceiptViewer}
+      />
     </SafeAreaView>
   );
 }
