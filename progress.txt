@@ -761,3 +761,29 @@
   - processQueue finishes syncing status (shows "All synced!" banner)
   - Partner sees synced changes via real-time Convex subscription
 - Typecheck passes
+
+## US-033: Create shopping sessions Convex functions [COMPLETED]
+- Created convex/sessions.ts with shopping session management functions:
+  - create mutation: accepts householdId, totalAmount, storeName, shopperId, listId
+    - totalAmount stored in cents (integer) for precision
+    - Uses Math.round() to ensure integer values
+    - Optional sessionDate (defaults to current time)
+    - Optional receiptImageId for receipt storage
+    - Validates list belongs to household if provided
+  - getByHousehold query: returns sessions ordered by date (newest first)
+    - Optional limit parameter for pagination
+    - Enriches sessions with shopper name and imageUrl
+    - Validates user is member of household
+  - getByDateRange query: returns sessions within startDate-endDate range
+    - For analytics filtering by custom date ranges
+    - Enriches sessions with shopper info
+    - Sorts by sessionDate descending
+  - getMonthlyTotal query: returns total spending for a specific month
+    - Returns totalCents, totalDollars, and sessionCount
+    - Useful for analytics dashboard
+  - getById query: returns single session with shopper info
+    - Validates user has access via household membership
+- All functions validate authentication via ctx.auth.getUserIdentity()
+- All functions validate household membership before allowing access
+- Uses existing indexes: by_household, by_household_and_date, by_shopper, by_list
+- Typecheck passes
