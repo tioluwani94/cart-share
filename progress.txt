@@ -1060,3 +1060,39 @@
   - Sign out button: 500ms delay
 - Added imports: Button, UserAvatar, useAuth from Clerk, Clipboard, Check, Copy, Home, LogOut, Users icons
 - Typecheck passes
+
+## US-043: Add shopping session history [COMPLETED]
+- Created components/analytics/SessionHistoryCard.tsx:
+  - Card component displaying shopping session in history
+  - Shows date, amount, store name (if set)
+  - Receipt thumbnail with Image component when available
+  - Receipt placeholder with Receipt icon when no image
+  - Friendly date formatting: "Today", "Yesterday", "Last Tuesday", "Jan 15"
+  - Press animation with scale spring (0.97)
+  - Light haptic feedback on press
+  - Staggered FadeInDown entrance animation
+  - Shows shopper name if available
+  - Chevron indicator for tappable affordance
+  - Full accessibility support with descriptive labels
+- Created components/analytics/ReceiptImageViewer.tsx:
+  - Full-screen modal for viewing receipt images
+  - Dark backdrop (black/95) for photo contrast
+  - Header with session date and amount
+  - Close button with circular white/20 background
+  - Zoom in/out functionality with scale animation (1x to 1.5x)
+  - Toggle zoom button in footer
+  - Light haptic feedback on interactions
+  - Empty state when no receipt image attached
+  - Uses Modal with transparent + custom animations
+- Updated app/(tabs)/analytics.tsx:
+  - Added "Recent Trips" section with Clock icon header
+  - Session cards show last 10 shopping trips
+  - Tapping card opens ReceiptImageViewer modal
+  - Empty state: "Your shopping history will appear here" with 🧾 emoji
+  - FadeInDown animation with 500ms delay for staggered entrance
+- Updated convex/sessions.ts getByHousehold query:
+  - Now includes receiptUrl for sessions with receipt images
+  - Uses ctx.storage.getUrl() to get signed URLs for receipts
+  - Enables thumbnails in session history cards without extra queries
+- Updated components/analytics/index.ts barrel export
+- Typecheck passes
