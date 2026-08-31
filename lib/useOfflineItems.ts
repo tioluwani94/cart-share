@@ -66,14 +66,15 @@ export interface OptimisticItem extends ItemWithUser {
 export function useOfflineItems(
   listId: Id<"lists">,
   householdId?: Id<"households">,
+  ownsQueue = true,
 ) {
   const { userId } = useAuth();
   const scope = useMemo<OfflineScope | null>(
     () =>
-      userId && householdId
+      ownsQueue && userId && householdId
         ? { clerkUserId: userId, householdId }
         : null,
-    [householdId, userId],
+    [householdId, ownsQueue, userId],
   );
   const isOnline = useIsOnline();
   const {

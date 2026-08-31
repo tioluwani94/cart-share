@@ -12,6 +12,7 @@ import {
   listenForNotificationResponses,
 } from "@/lib/pushNotifications";
 import type { RestockNotificationResponse } from "@/lib/notificationResponse";
+import { routeOwnsForegroundQueue } from "@/lib/offlineQueueOwnership";
 import { SyncStatusProvider } from "@/lib/SyncStatusContext";
 import { getAuthRedirect } from "@/lib/authRouting";
 import { useScopedOfflineQueue } from "@/lib/useScopedOfflineQueue";
@@ -118,10 +119,10 @@ function InitialLayout() {
 
   const rootSegment = segments[0] as string | undefined;
   const childSegment = segments[1] as string | undefined;
-  const ownsForegroundQueue =
-    rootSegment === "list" ||
-    rootSegment === "restock-review" ||
-    (rootSegment === "(tabs)" && childSegment === "shop");
+  const ownsForegroundQueue = routeOwnsForegroundQueue(
+    rootSegment,
+    childSegment,
+  );
   const backgroundSyncScope = useMemo<OfflineScope | null>(
     () =>
       isSignedIn && userId && household && !ownsForegroundQueue

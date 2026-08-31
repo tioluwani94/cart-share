@@ -24,6 +24,7 @@ import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useShoppingList } from "@/lib/useShoppingList";
 import { useUser } from "@clerk/clerk-expo";
+import { useIsFocused } from "@react-navigation/native";
 import { FlashList } from "@shopify/flash-list";
 import * as Clipboard from "expo-clipboard";
 import { type Href, useRouter } from "expo-router";
@@ -63,6 +64,7 @@ function ShopLoadingState() {
 
 export default function ShopScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { user } = useUser();
   const { data: household } = useCachedHousehold(user?.id);
   const { data: review } = useCachedRestockReview(user?.id, household?._id);
@@ -93,6 +95,7 @@ export default function ShopScreen() {
   return (
     <ActiveShop
       householdId={household._id}
+      ownsQueue={isFocused}
       list={review.activeList}
       locale={review.household.locale}
       planningTimeZone={review.household.planningTimeZone}
@@ -103,6 +106,7 @@ export default function ShopScreen() {
 
 interface ActiveShopProps {
   householdId: Id<"households">;
+  ownsQueue: boolean;
   locale: string;
   planningTimeZone: string;
   preferredShoppingMode?: PreferredShoppingMode;
@@ -117,6 +121,7 @@ interface ActiveShopProps {
 
 function ActiveShop({
   householdId,
+  ownsQueue,
   list,
   locale,
   planningTimeZone,
@@ -143,7 +148,7 @@ function ActiveShop({
     totalItems: totalCount,
     progress,
     plannedTotalPence,
-  } = useShoppingList(list._id, householdId);
+  } = useShoppingList(list._id, householdId, ownsQueue);
   const finishSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [completionQueued, setCompletionQueued] = useState(

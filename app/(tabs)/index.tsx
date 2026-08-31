@@ -1,4 +1,5 @@
 import { CreateListSheet, ListCard } from "@/components/lists";
+import { RestockQuickDecisionRow } from "@/components/restocks/RestockQuickDecisionRow";
 import {
   Button,
   GlassSegmentedControl,
@@ -6,16 +7,21 @@ import {
   UserAvatar,
 } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
-import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
+import {
+  formatCurrencyFromPence,
+  formatDateWithWeekday,
+  formatFriendlyDate,
+} from "@/lib/formatters";
 import {
   getEffectiveShoppingMode,
   type ShoppingMode,
 } from "@/lib/shoppingList";
-import { cn } from "@/lib/cn";
 import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
+import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { themeColors } from "@/lib/theme";
 import { useUser } from "@clerk/clerk-expo";
+import { useIsFocused } from "@react-navigation/native";
 import { useMutation } from "convex/react";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -65,6 +71,7 @@ function nextSaturday(now = new Date()): number {
 
 export default function PlanScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { user } = useUser();
   const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,6 +86,14 @@ export default function PlanScreen() {
   const { data: review } = useCachedRestockReview(user?.id, household?._id);
   const setNextShop = useMutation(api.restocks.setNextShop);
   const recalculate = useMutation(api.notifications.recalculateForHousehold);
+  const { error: decisionError, hiddenProductIds, makeDecision } =
+    useRestockDecisionActions({
+      householdId: household?._id,
+      isActive: isFocused,
+      marketCountryCode: review?.household.marketCountryCode,
+      source: "plan",
+      userId: user?.id,
+    });
 
   const otherLists = useMemo(
     () =>
@@ -91,6 +106,15 @@ export default function PlanScreen() {
   );
   const displayedShoppingMode =
     optimisticShoppingMode ?? effectiveShoppingMode;
+  const visibleCandidates = useMemo(
+    () =>
+      review?.candidates.filter(
+        (candidate) =>
+          !hiddenProductIds.has(candidate.householdProductId),
+      ) ?? [],
+    [hiddenProductIds, review?.candidates],
+  );
+  const visibleCandidateCount = visibleCandidates.length;
 
   useEffect(() => {
     if (review?.activeList?.shoppingMode === optimisticShoppingMode) {
@@ -265,24 +289,24 @@ export default function PlanScreen() {
             <Button
               onPress={() =>
                 router.push(
-                  (review.candidateCount > 0
+                  (visibleCandidateCount > 0
                     ? "/restock-review"
                     : "/(tabs)/shop") as Href,
                 )
               }
               className="mt-5 w-full"
               accessibilityLabel={
-                review.candidateCount > 0
-                  ? `Review ${review.candidateCount} suggested restocks`
+                visibleCandidateCount > 0
+                  ? `Review ${visibleCandidateCount} suggested restocks`
                   : "Start shopping"
               }
             >
-              {review.candidateCount > 0
-                ? `Review ${review.candidateCount} ${review.candidateCount === 1 ? "item" : "items"}`
+              {visibleCandidateCount > 0
+                ? `Review ${visibleCandidateCount} ${visibleCandidateCount === 1 ? "item" : "items"}`
                 : "Start shopping"}
             </Button>
 
-            {review.candidateCount > 0 && (
+            {visibleCandidateCount > 0 && (
               <Button
                 variant="tonal"
                 onPress={() => router.push("/(tabs)/shop" as Href)}
@@ -349,15 +373,15 @@ export default function PlanScreen() {
               Restock check
             </Text>
             <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-              {review.candidateCount > 0
-                ? `${review.candidateCount} ${review.candidateCount === 1 ? "item may" : "items may"} need a quick check`
+              {visibleCandidateCount > 0
+                ? `${visibleCandidateCount} ${visibleCandidateCount === 1 ? "item may" : "items may"} need a quick check`
                 : `Next check around ${formatDateWithWeekday(nextReviewDate, dateOptions)}`}
             </Text>
           </View>
-          {review.candidateCount > 0 && (
+          {visibleCandidateCount > 0 && (
             <View className="rounded-full bg-coral-soft px-3 py-1.5">
               <Text className="text-sm font-semibold text-coral">
-                {review.candidateCount}
+                {visibleCandidateCount}
               </Text>
             </View>
           )}
@@ -381,31 +405,46 @@ export default function PlanScreen() {
               Continue setup
             </Button>
           </View>
-        ) : review.candidateCount > 0 ? (
-          <Pressable
-            onPress={() => router.push("/restock-review" as Href)}
-            className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4"
-            accessibilityLabel="Open restock review"
-            accessibilityRole="button"
-          >
-            {review.candidates.slice(0, 3).map((candidate, index) => (
-              <View
+        ) : visibleCandidateCount > 0 ? (
+          <View className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4">
+            {visibleCandidates.slice(0, 3).map((candidate, index) => (
+              <RestockQuickDecisionRow
                 key={candidate.householdProductId}
-                className={cn(
-                  "min-h-14 flex-row items-center py-3",
-                  index > 0 && "border-t border-separator",
-                )}
-              >
-                <Text className="flex-1 text-base font-medium text-ink">
-                  {candidate.displayName}
-                </Text>
-                <Text className="mr-1 text-sm font-medium text-coral">
-                  Review
-                </Text>
-                <ChevronRight size={18} color={themeColors.coral} />
-              </View>
+                cadenceLabel={
+                  candidate.lastPurchasedAt
+                    ? `Last bought ${formatFriendlyDate(
+                        candidate.lastPurchasedAt,
+                        Date.now(),
+                        dateOptions,
+                      )}`
+                    : `Usually bought every ${candidate.cadenceDays} days`
+                }
+                displayName={candidate.displayName}
+                isAdded={candidate.isAdded}
+                isBusy={false}
+                onDecision={(decision) =>
+                  void makeDecision(candidate.householdProductId, decision)
+                }
+                showDivider={index > 0}
+              />
             ))}
-          </Pressable>
+            <Pressable
+              onPress={() => router.push("/restock-review" as Href)}
+              className="min-h-12 flex-row items-center justify-center border-t border-separator"
+              accessibilityLabel="Open full restock review"
+              accessibilityRole="button"
+            >
+              <Text className="mr-1 text-sm font-semibold text-coral">
+                {visibleCandidateCount > 3 ? "Review all" : "Review details"}
+              </Text>
+              <ChevronRight size={17} color={themeColors.coral} />
+            </Pressable>
+            {decisionError && (
+              <Text className="pb-3 text-center text-sm text-coral">
+                {decisionError}
+              </Text>
+            )}
+          </View>
         ) : (
           <View className="mt-3 flex-row items-center rounded-2xl border border-teal/20 bg-teal-soft p-4">
             <CheckCircle2 size={24} color={themeColors.teal} />

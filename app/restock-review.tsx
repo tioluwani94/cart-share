@@ -1,24 +1,21 @@
 import { Button } from "@/components/ui";
-import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatDateWithWeekday, formatFriendlyDate } from "@/lib/formatters";
-import type { OfflineScope } from "@/lib/offlineQueue";
 import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
-import { useScopedOfflineQueue } from "@/lib/useScopedOfflineQueue";
+import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { useAuth } from "@clerk/clerk-expo";
-import { useMutation } from "convex/react";
+import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ChevronLeft, Pause, ShoppingBasket } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type Decision = "add" | "still_have_some" | "not_this_time" | "stop_tracking";
-
 export default function RestockReviewScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const { userId } = useAuth();
   const analytics = useAnalytics();
@@ -27,33 +24,20 @@ export default function RestockReviewScreen() {
     userId,
     household?._id,
   );
-  const queueScope = useMemo<OfflineScope | null>(
-    () =>
-      userId && household?._id
-        ? { clerkUserId: userId, householdId: household._id }
-        : null,
-    [household?._id, userId],
-  );
-  const { addToQueue, isOnline, queue } = useScopedOfflineQueue(queueScope);
-  const decide = useMutation(api.restocks.decide);
-  const recalculate = useMutation(api.notifications.recalculateForHousehold);
-  const [busyProductId, setBusyProductId] =
-    useState<Id<"householdProducts"> | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const sourceName = source === "notification" ? "notification" : "plan";
+  const { error, hiddenProductIds, makeDecision, pendingProductIds } =
+    useRestockDecisionActions({
+      householdId: household?._id,
+      isActive: isFocused,
+      marketCountryCode: review?.household.marketCountryCode,
+      source: sourceName,
+      userId,
+    });
   const [whyProductId, setWhyProductId] =
     useState<Id<"householdProducts"> | null>(null);
-  const queuedProductIds = useMemo(
-    () =>
-      new Set(
-        queue
-          .filter((operation) => operation.type === "restocks.decide")
-          .map((operation) => operation.args.householdProductId),
-      ),
-    [queue],
-  );
   const visibleCandidates =
     review?.candidates.filter(
-      (candidate) => !queuedProductIds.has(candidate.householdProductId),
+      (candidate) => !hiddenProductIds.has(candidate.householdProductId),
     ) ?? [];
 
   useEffect(() => {
@@ -65,40 +49,10 @@ export default function RestockReviewScreen() {
           : review.candidateCount <= 3
             ? "1-3"
             : "4+",
-      source: source === "notification" ? "notification" : "plan",
+      source: sourceName,
       market: review.household.marketCountryCode,
     });
-  }, [analytics, review, source]);
-
-  const makeDecision = async (
-    householdProductId: Id<"householdProducts">,
-    decision: Decision,
-  ) => {
-    setBusyProductId(householdProductId);
-    setError(null);
-    try {
-      const operationId = `restock_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      if (isOnline) {
-        await decide({ householdProductId, decision, operationId });
-        await recalculate({});
-      } else {
-        addToQueue({
-          type: "restocks.decide",
-          args: { householdProductId, decision, operationId },
-        });
-      }
-      analytics.track("restock decision made", {
-        decision,
-        source: source === "notification" ? "notification" : "plan",
-        market: review?.household.marketCountryCode,
-      });
-    } catch (caughtError) {
-      console.error("Couldn't save restock decision:", caughtError);
-      setError("That change wasn't saved. Please try again.");
-    } finally {
-      setBusyProductId(null);
-    }
-  };
+  }, [analytics, review, sourceName]);
 
   if (review === undefined) {
     return (
@@ -155,7 +109,9 @@ export default function RestockReviewScreen() {
         ) : (
           <View className="gap-3">
             {visibleCandidates.map((candidate) => {
-              const isBusy = busyProductId === candidate.householdProductId;
+              const isBusy = pendingProductIds.has(
+                candidate.householdProductId,
+              );
               return (
                 <View
                   key={candidate.householdProductId}
