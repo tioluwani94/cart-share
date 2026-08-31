@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAnalytics } from "./AnalyticsContext";
 import { createOfflineId, type OfflineScope } from "./offlineQueue";
 import { useScopedOfflineQueue } from "./useScopedOfflineQueue";
@@ -13,12 +13,16 @@ export type RestockDecision =
   | "stop_tracking";
 
 export function useRestockDecisionActions({
+  candidateProductIds,
+  hasActiveList,
   householdId,
   isActive,
   marketCountryCode,
   source,
   userId,
 }: {
+  candidateProductIds?: readonly Id<"householdProducts">[];
+  hasActiveList: boolean;
   householdId?: Id<"households">;
   isActive: boolean;
   marketCountryCode?: string;
@@ -63,11 +67,26 @@ export function useRestockDecisionActions({
     [pendingProductIds, queuedProductIds, resolvedProductIds],
   );
 
+  useEffect(() => {
+    if (!candidateProductIds) return;
+    const currentCandidateIds = new Set(candidateProductIds);
+    setResolvedProductIds((current) => {
+      const next = new Set(
+        [...current].filter((productId) => currentCandidateIds.has(productId)),
+      );
+      return next.size === current.size ? current : next;
+    });
+  }, [candidateProductIds, resolvedProductIds]);
+
   const makeDecision = useCallback(
     async (
       householdProductId: Id<"householdProducts">,
       decision: RestockDecision,
     ) => {
+      if (decision === "add" && !hasActiveList) {
+        setError("Choose a Next shop before adding restocks.");
+        return;
+      }
       if (pendingProductIdsRef.current.has(householdProductId)) return;
       pendingProductIdsRef.current.add(householdProductId);
       setPendingProductIds(new Set(pendingProductIdsRef.current));
@@ -116,6 +135,7 @@ export function useRestockDecisionActions({
       addToQueue,
       analytics,
       decide,
+      hasActiveList,
       isOnline,
       marketCountryCode,
       recalculate,

@@ -9,7 +9,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ChevronLeft, Pause, ShoppingBasket } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -24,9 +24,17 @@ export default function RestockReviewScreen() {
     userId,
     household?._id,
   );
+  const candidateProductIds = useMemo(
+    () =>
+      review?.candidates.map((candidate) => candidate.householdProductId),
+    [review?.candidates],
+  );
+  const hasActiveList = Boolean(review?.activeList);
   const sourceName = source === "notification" ? "notification" : "plan";
   const { error, hiddenProductIds, makeDecision, pendingProductIds } =
     useRestockDecisionActions({
+      candidateProductIds,
+      hasActiveList,
       householdId: household?._id,
       isActive: isFocused,
       marketCountryCode: review?.household.marketCountryCode,
@@ -88,6 +96,16 @@ export default function RestockReviewScreen() {
           <View className="mb-3 rounded-xl bg-yellow/20 px-3 py-2">
             <Text className="text-sm leading-5 text-yellow-800">
               Offline choices are saved on this device and will sync in order when you reconnect.
+            </Text>
+          </View>
+        )}
+        {!hasActiveList && visibleCandidates.length > 0 && (
+          <View className="mb-3 rounded-xl border border-coral/20 bg-coral-soft px-3 py-3">
+            <Text className="text-sm font-semibold text-ink">
+              Choose a Next shop before adding items
+            </Text>
+            <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+              You can still postpone or stop tracking suggestions here.
             </Text>
           </View>
         )}
@@ -175,14 +193,25 @@ export default function RestockReviewScreen() {
                     onPress={() =>
                       void makeDecision(candidate.householdProductId, "add")
                     }
-                    disabled={isBusy || candidate.isAdded}
+                    disabled={isBusy || candidate.isAdded || !hasActiveList}
                     loading={isBusy}
                     className="mt-4 w-full"
+                    accessibilityLabel={
+                      candidate.isAdded
+                        ? `${candidate.displayName} already added to shop`
+                        : !hasActiveList
+                          ? `Choose a Next shop before adding ${candidate.displayName}`
+                          : `Add ${candidate.displayName} to shop`
+                    }
                   >
                     <View className="flex-row items-center">
                       <ShoppingBasket size={18} color="#FFFFFF" />
                       <Text className="ml-2 font-semibold text-white">
-                        {candidate.isAdded ? "Added to shop" : "Add to shop"}
+                        {candidate.isAdded
+                          ? "Added to shop"
+                          : hasActiveList
+                            ? "Add to shop"
+                            : "Choose Next shop first"}
                       </Text>
                     </View>
                   </Button>

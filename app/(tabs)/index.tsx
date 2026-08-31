@@ -84,10 +84,17 @@ export default function PlanScreen() {
   const { data: household } = useCachedHousehold(user?.id);
   const { data: lists, isFromCache } = useCachedLists(household?._id);
   const { data: review } = useCachedRestockReview(user?.id, household?._id);
+  const candidateProductIds = useMemo(
+    () =>
+      review?.candidates.map((candidate) => candidate.householdProductId),
+    [review?.candidates],
+  );
   const setNextShop = useMutation(api.restocks.setNextShop);
   const recalculate = useMutation(api.notifications.recalculateForHousehold);
   const { error: decisionError, hiddenProductIds, makeDecision } =
     useRestockDecisionActions({
+      candidateProductIds,
+      hasActiveList: Boolean(review?.activeList),
       householdId: household?._id,
       isActive: isFocused,
       marketCountryCode: review?.household.marketCountryCode,
@@ -422,6 +429,7 @@ export default function PlanScreen() {
                 displayName={candidate.displayName}
                 isAdded={candidate.isAdded}
                 isBusy={false}
+                canAdd={Boolean(activeList)}
                 onDecision={(decision) =>
                   void makeDecision(candidate.householdProductId, decision)
                 }

@@ -12,6 +12,7 @@ export function RestockQuickDecisionRow({
   displayName,
   isAdded,
   isBusy,
+  canAdd = true,
   onDecision,
   showDivider = false,
 }: {
@@ -19,6 +20,7 @@ export function RestockQuickDecisionRow({
   displayName: string;
   isAdded: boolean;
   isBusy: boolean;
+  canAdd?: boolean;
   onDecision: (decision: RestockQuickDecision) => void;
   showDivider?: boolean;
 }) {
@@ -37,11 +39,13 @@ export function RestockQuickDecisionRow({
       <View className="mt-3 gap-2">
         <Pressable
           onPress={() => onDecision("add")}
-          disabled={isBusy || isAdded}
+          disabled={isBusy || isAdded || !canAdd}
           className="min-h-12 flex-row items-center justify-center rounded-full bg-coral px-4 py-2 disabled:opacity-60"
           accessibilityLabel={
             isAdded
               ? `${displayName} already added to shop`
+              : !canAdd
+                ? `Choose a Next shop before adding ${displayName}`
               : `Add ${displayName} to shop`
           }
           accessibilityRole="button"
@@ -52,7 +56,7 @@ export function RestockQuickDecisionRow({
             <Plus size={15} color={themeColors.surface} />
           )}
           <Text className="ml-1.5 text-sm font-semibold text-white">
-            {isAdded ? "Added" : "Add"}
+            {isAdded ? "Added" : canAdd ? "Add" : "Choose Next shop first"}
           </Text>
         </Pressable>
         <View className="flex-row gap-2">

@@ -57,4 +57,27 @@ describe("RestockQuickDecisionRow", () => {
     expect(add.props.disabled).toBe(true);
     expect(onDecision).not.toHaveBeenCalled();
   });
+
+  it("keeps Add unavailable until the household chooses a Next shop", () => {
+    const onDecision = jest.fn();
+    let renderer!: ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <RestockQuickDecisionRow
+          cadenceLabel="Usually bought every 7 days"
+          displayName="Milk"
+          isAdded={false}
+          isBusy={false}
+          canAdd={false}
+          onDecision={onDecision}
+        />,
+      );
+    });
+
+    const add = renderer.root.findByProps({
+      accessibilityLabel: "Choose a Next shop before adding Milk",
+    });
+    expect(add.props.disabled).toBe(true);
+    expect(onDecision).not.toHaveBeenCalled();
+  });
 });

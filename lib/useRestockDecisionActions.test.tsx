@@ -49,8 +49,16 @@ describe("useRestockDecisionActions", () => {
   const householdProductId = "product_1" as Id<"householdProducts">;
   let actions!: ReturnType<typeof useRestockDecisionActions>;
 
-  function Harness() {
+  function Harness({
+    candidateProductIds = [householdProductId],
+    hasActiveList = true,
+  }: {
+    candidateProductIds?: readonly Id<"householdProducts">[];
+    hasActiveList?: boolean;
+  }) {
     actions = useRestockDecisionActions({
+      candidateProductIds,
+      hasActiveList,
       householdId: "household_1" as Id<"households">,
       isActive: true,
       marketCountryCode: "GB",
@@ -117,6 +125,23 @@ describe("useRestockDecisionActions", () => {
     expect(mockRecalculate).not.toHaveBeenCalled();
   });
 
+  it("does not queue an Add that cannot succeed without a Next shop", async () => {
+    mockQueueState.isOnline = false;
+    act(() => {
+      TestRenderer.create(<Harness hasActiveList={false} />);
+    });
+
+    await act(async () => {
+      await actions.makeDecision(householdProductId, "add");
+    });
+
+    expect(mockAddToQueue).not.toHaveBeenCalled();
+    expect(mockDecide).not.toHaveBeenCalled();
+    expect(actions.error).toBe(
+      "Choose a Next shop before adding restocks.",
+    );
+  });
+
   it("keeps a committed decision successful when reminder refresh fails", async () => {
     const consoleError = jest.spyOn(console, "error").mockImplementation();
     mockRecalculate.mockRejectedValueOnce(new Error("temporary failure"));
@@ -133,6 +158,38 @@ describe("useRestockDecisionActions", () => {
     expect(actions.hiddenProductIds.has(householdProductId)).toBe(true);
     expect(mockTrack).toHaveBeenCalledTimes(1);
     consoleError.mockRestore();
+  });
+
+  it("allows a product to reappear in a later review cycle", async () => {
+    let setCandidateProductIds!: React.Dispatch<
+      React.SetStateAction<readonly Id<"householdProducts">[]>
+    >;
+
+    function ReconciliationHarness() {
+      const [candidateProductIds, setCandidates] = React.useState<
+        readonly Id<"householdProducts">[]
+      >([householdProductId]);
+      setCandidateProductIds = setCandidates;
+      return <Harness candidateProductIds={candidateProductIds} />;
+    }
+
+    act(() => {
+      TestRenderer.create(<ReconciliationHarness />);
+    });
+
+    await act(async () => {
+      await actions.makeDecision(householdProductId, "not_this_time");
+    });
+    expect(actions.hiddenProductIds.has(householdProductId)).toBe(true);
+
+    act(() => {
+      setCandidateProductIds([]);
+    });
+    act(() => {
+      setCandidateProductIds([householdProductId]);
+    });
+
+    expect(actions.hiddenProductIds.has(householdProductId)).toBe(false);
   });
 
   it("tracks overlapping product decisions independently", async () => {
