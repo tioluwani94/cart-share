@@ -2,6 +2,10 @@ import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import {
+  parseRestockNotificationResponse,
+  type RestockNotificationResponse,
+} from "./notificationResponse";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -70,12 +74,29 @@ export async function registerForPushNotifications(): Promise<PushRegistrationRe
 }
 
 export function listenForNotificationResponses(
-  onRestockReminder: (kind?: string) => void,
+  onRestockReminder: (response: RestockNotificationResponse) => void,
 ): Notifications.EventSubscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data;
-    if (data.url === "cartshare://restock-review") {
-      onRestockReminder(typeof data.kind === "string" ? data.kind : undefined);
-    }
+    const restockResponse = parseRestockNotificationResponse({
+      data: response.notification.request.content.data,
+      identifier: response.notification.request.identifier,
+    });
+    if (restockResponse) onRestockReminder(restockResponse);
   });
+}
+
+export async function getLastRestockNotificationResponse(): Promise<
+  RestockNotificationResponse | null
+> {
+  const response = await Notifications.getLastNotificationResponseAsync();
+  if (!response) return null;
+  const restockResponse = parseRestockNotificationResponse({
+    data: response.notification.request.content.data,
+    identifier: response.notification.request.identifier,
+  });
+  return restockResponse;
+}
+
+export async function clearLastRestockNotificationResponse(): Promise<void> {
+  await Notifications.clearLastNotificationResponseAsync();
 }
