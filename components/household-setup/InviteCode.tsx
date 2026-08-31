@@ -34,17 +34,20 @@ export const InviteCode = (props: InviteCodeProps) => {
 
   return (
     <SafeAreaView className="flex-1 bg-background-light">
-      <View className="flex-1 px-6 pt-8">
+      <View className="flex-1 px-6 pt-10">
         {/* Celebration Header */}
         <Animated.View
           entering={FadeInUp.delay(100).springify().damping(90)}
           className="items-center"
         >
-          <Text className="text-6xl">🎉</Text>
-          <Text className="mt-4 text-center text-3xl font-bold text-warm-gray-900">
-            You're all set!
+          <Text className="text-5xl">🎉</Text>
+          <Text
+            className="mt-5 text-center text-[34px] leading-[40px] tracking-tight text-warm-gray-900"
+            style={{ fontFamily: "Nunito_900Black" }}
+          >
+            Household ready
           </Text>
-          <Text className="mt-2 text-center text-lg text-warm-gray-600">
+          <Text className="mt-2 text-center text-base text-warm-gray-600">
             Welcome to {householdName}
           </Text>
         </Animated.View>
@@ -52,10 +55,10 @@ export const InviteCode = (props: InviteCodeProps) => {
         {/* Invite Code Card */}
         <Animated.View
           entering={FadeInUp.delay(200).springify().damping(90)}
-          className="mt-10 rounded-3xl bg-white p-6 shadow-lg"
+          className="mt-10 rounded-3xl border border-warm-gray-200 bg-white p-6 shadow-warm"
         >
-          <Text className="text-center text-lg font-medium text-warm-gray-600">
-            Share this code with your partner!
+          <Text className="text-center text-sm font-semibold text-warm-gray-600">
+            Invite code
           </Text>
 
           {/* Large Invite Code Display */}
@@ -85,13 +88,13 @@ export const InviteCode = (props: InviteCodeProps) => {
           </Animated.View>
         </Animated.View>
 
-        {/* Partner Instructions */}
+        {/* Reassurance */}
         <Animated.View
           entering={FadeInUp.delay(300).springify().damping(90)}
-          className="mt-6 rounded-2xl bg-yellow/10 p-4"
+          className="mt-5 px-4"
         >
-          <Text className="text-center text-warm-gray-700">
-            💡 Your partner can join by entering this code when they sign up!
+          <Text className="text-center text-sm leading-5 text-warm-gray-500">
+            Share it now, or find it later in Settings.
           </Text>
         </Animated.View>
 
@@ -100,8 +103,13 @@ export const InviteCode = (props: InviteCodeProps) => {
           entering={FadeInDown.delay(400).springify().damping(90)}
           className="mt-auto pb-8"
         >
-          <Button onPress={handleContinue} size="lg" className="w-full">
-            Let's Go Shopping!
+          <Button
+            onPress={handleContinue}
+            size="lg"
+            className="w-full"
+            forceSolid
+          >
+            Set up your plan
           </Button>
         </Animated.View>
       </View>

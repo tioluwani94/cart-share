@@ -3,6 +3,45 @@ import TestRenderer, { act } from "react-test-renderer";
 
 import RestockSetupScreen from "../app/restock-setup";
 
+jest.mock("react-native-reanimated", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const transition = {
+    duration: () => transition,
+    easing: () => transition,
+    withInitialValues: () => transition,
+  };
+
+  return {
+    __esModule: true,
+    default: {
+      View,
+      createAnimatedComponent: (Component) => Component,
+    },
+    cubicBezier: () => jest.fn(),
+    Easing: { bezier: () => jest.fn() },
+    FadeIn: transition,
+    FadeInLeft: transition,
+    FadeInRight: transition,
+    ZoomIn: transition,
+    useAnimatedStyle: (factory) => factory(),
+    useReducedMotion: () => false,
+    useSharedValue: (initialValue) => {
+      const value = React.useRef(initialValue);
+      return React.useMemo(
+        () => ({
+          get: () => value.current,
+          set: (nextValue) => {
+            value.current = nextValue;
+          },
+        }),
+        [value],
+      );
+    },
+    withTiming: (value) => value,
+  };
+});
+
 const mockReplace = jest.fn();
 const mockCompleteSetup = jest.fn();
 const mockCreateList = jest.fn();
@@ -86,6 +125,17 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
+jest.mock("react-native-safe-area-context", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    SafeAreaView: ({ children, ...props }) => (
+      <View {...props}>{children}</View>
+    ),
+    useSafeAreaInsets: () => ({ top: 59, right: 0, bottom: 34, left: 0 }),
+  };
+});
+
 jest.mock("lucide-react-native", () => {
   const React = require("react");
   const { View } = require("react-native");
@@ -93,6 +143,7 @@ jest.mock("lucide-react-native", () => {
   return {
     Bell: Icon,
     Check: Icon,
+    ChevronLeft: Icon,
     Minus: Icon,
     Plus: Icon,
     ShieldCheck: Icon,
@@ -106,27 +157,135 @@ describe("RestockSetupScreen", () => {
     mockUpdatePreferences.mockResolvedValue({ success: true });
   });
 
-  it("lets a household defer activation without replacing its existing list", async () => {
+  it("keeps activation focused without a skip action and puts back in the header", async () => {
     let renderer;
     await act(async () => {
       renderer = TestRenderer.create(<RestockSetupScreen />);
     });
 
-    const skip = renderer.root.findByProps({
-      accessibilityLabel: "Set up grocery rhythm later",
-    });
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: "Set up grocery rhythm later",
+      }),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: "Go back one setup step",
+      }),
+    ).toHaveLength(0);
 
     await act(async () => {
-      await skip.props.onPress();
+      renderer.root
+        .findByProps({ accessibilityLabel: "Continue setup" })
+        .props.onPress();
     });
 
-    expect(mockCreateList).not.toHaveBeenCalled();
+    const back = renderer.root.findByProps({
+      accessibilityLabel: "Go back one setup step",
+    });
+    await act(async () => {
+      back.props.onPress();
+    });
+
+    expect(
+      renderer.root.findByProps({ accessibilityLabel: "Setup progress" }).props
+        .accessibilityValue.now,
+    ).toBe(1);
+  });
+
+  it("presents one short setup question at a time with progress", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<RestockSetupScreen />);
+    });
+
+    expect(
+      renderer.root.findByProps({ accessibilityLabel: "Setup progress" }).props,
+    ).toEqual(
+      expect.objectContaining({
+        accessibilityValue: { min: 1, max: 4, now: 1, text: "Step 1 of 4" },
+      }),
+    );
+    expect(
+      renderer.root.findAllByProps({ children: "Step 1 of 4" }),
+    ).toHaveLength(0);
+    expect(
+      renderer.root.findByProps({
+        children: "How many people do you shop for?",
+      }),
+    ).toBeTruthy();
+    expect(() =>
+      renderer.root.findByProps({ children: "Usual shopping cadence" }),
+    ).toThrow();
+
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: "Continue setup" })
+        .props.onPress();
+    });
+
+    expect(
+      renderer.root.findByProps({
+        children: "How often is your main grocery shop?",
+      }),
+    ).toBeTruthy();
+    expect(
+      renderer.root.findByProps({ accessibilityLabel: "Setup progress" }).props
+        .accessibilityValue.now,
+    ).toBe(2);
+
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: "Continue setup" })
+        .props.onPress();
+    });
+
+    expect(
+      renderer.root.findByProps({ accessibilityLabel: "In store" }).props
+        .accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      renderer.root.findByProps({ accessibilityLabel: "Online" }).props
+        .accessibilityRole,
+    ).toBe("radio");
+  });
+
+  it("builds the plan without requesting notifications or deciding analytics consent", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<RestockSetupScreen />);
+    });
+
+    for (let index = 0; index < 3; index += 1) {
+      await act(async () => {
+        renderer.root
+          .findByProps({ accessibilityLabel: "Continue setup" })
+          .props.onPress();
+      });
+    }
+
+    await act(async () => {
+      await renderer.root
+        .findByProps({ accessibilityLabel: "Build my grocery plan" })
+        .props.onPress();
+    });
+
     expect(mockCompleteSetup).toHaveBeenCalledWith(
       expect.objectContaining({
         activeListId: "list_1",
-        products: [],
+        peopleServed: 2,
+        shoppingCadenceDays: 7,
+        preferredShoppingMode: "in_store",
       }),
     );
+    expect(mockUpdatePreferences).toHaveBeenCalledWith({
+      notificationTimeZone: "Europe/London",
+    });
+    expect(mockUpdatePreferences).not.toHaveBeenCalledWith(
+      expect.objectContaining({ analyticsConsent: expect.anything() }),
+    );
+    expect(mockRegisterDevice).not.toHaveBeenCalled();
+    expect(mockAnalytics.setConsent).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
   });
 });

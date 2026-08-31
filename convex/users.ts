@@ -1,5 +1,46 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+
+/**
+ * Ensure an authenticated Clerk user has a matching Convex user record.
+ * This repairs webhook delivery gaps and allows development data resets to
+ * recover without trusting identity fields supplied by the client.
+ */
+export const ensureCurrent = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    if (!identity.email) {
+      throw new Error("Authenticated user email is unavailable");
+    }
+
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    const now = Date.now();
+
+    if (existingUser) {
+      await ctx.db.patch(existingUser._id, {
+        email: identity.email,
+        ...(identity.name ? { name: identity.name } : {}),
+        ...(identity.pictureUrl ? { imageUrl: identity.pictureUrl } : {}),
+        updatedAt: now,
+      });
+      return existingUser._id;
+    }
+
+    return await ctx.db.insert("users", {
+      clerkId: identity.subject,
+      email: identity.email,
+      name: identity.name,
+      imageUrl: identity.pictureUrl,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
 
 /**
  * Create or update a user from Clerk webhook events.

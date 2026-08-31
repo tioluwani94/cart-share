@@ -225,7 +225,17 @@ A shopping row prioritises the checkbox, product name, quantity, and optional pr
 
 ### Activation Step
 
-Each activation screen asks for one small household decision and keeps Skip visible. “People you usually buy groceries for” uses a simple stepper with a numeric accessibility value; it is not presented as surveillance or a precise consumption formula. The flow ends by revealing a useful Next shop, not with a decorative success screen.
+Each activation screen asks for one small household decision. The four-step launch activation is deliberately short and required; do not add a skip action inside it. Optional notification and analytics choices remain separate and skippable. “People you usually buy groceries for” uses a simple stepper with a numeric accessibility value; it is not presented as surveillance or a precise consumption formula. The flow ends by revealing a useful Next shop, not with a decorative success screen.
+
+### Activation Choice Illustration
+
+Dimensional illustrations may appear in activation choice rows only when the image makes the options faster to distinguish. The approved set covers shopping cadence and shopping method. Household size stays focused on the number, while the dynamic starter-product grid stays text-led so it remains compact and can represent products that do not have bespoke artwork.
+
+- **Visual language:** Original, softly rounded 3D miniatures with a tactile matte finish, a front three-quarter view, transparent canvas, soft upper-left light, and a restrained contact shadow. Household Coral leads; warm ivory and charcoal form the object; Fresh Teal is a small accent only.
+- **Size and layout:** Render artwork at 64 pt inside an 80 pt minimum-height choice row. Keep a consistent square footprint and enough transparent margin that silhouettes do not feel crowded.
+- **Interaction:** Illustrations are static at rest and inherit the row's short press and selection response. Do not add autonomous loops, decorative particles, or motion that delays the decision.
+- **Accessibility:** The row label carries the accessible name and state. Treat the bitmap as decorative, hide it from assistive technology, and never put essential text or numerals inside the artwork.
+- **Restraint:** Do not extend this treatment to ordinary settings, repeated grocery rows, or every empty state. Generated art should strengthen a meaningful moment, not become the default icon system.
 
 ### Notification Permission Prompt
 

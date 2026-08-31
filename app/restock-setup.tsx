@@ -1,13 +1,13 @@
-import { Button, GlassSegmentedControl } from "@/components/ui";
+import { ActivationProgress } from "@/components/onboarding/ActivationProgress";
+import { Button } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
-import { registerForPushNotifications } from "@/lib/pushNotifications";
 import { useMutation, useQuery } from "convex/react";
+import { Image } from "expo-image";
 import { getCalendars } from "expo-localization";
 import { useRouter } from "expo-router";
-import { Bell, Check, Minus, Plus, ShieldCheck } from "lucide-react-native";
+import { Check, Minus, Plus } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,7 +17,43 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import Animated, {
+  cubicBezier,
+  Easing,
+  FadeIn,
+  FadeInLeft,
+  FadeInRight,
+  useReducedMotion,
+  ZoomIn,
+} from "react-native-reanimated";
+
+import cadenceFortnightlyIcon from "@/assets/onboarding/choices/cadence-fortnightly.png";
+import cadenceMonthlyIcon from "@/assets/onboarding/choices/cadence-monthly.png";
+import cadenceVariableIcon from "@/assets/onboarding/choices/cadence-variable.png";
+import cadenceWeeklyIcon from "@/assets/onboarding/choices/cadence-weekly.png";
+import shopBothIcon from "@/assets/onboarding/choices/shop-both.png";
+import shopInStoreIcon from "@/assets/onboarding/choices/shop-in-store.png";
+import shopOnlineIcon from "@/assets/onboarding/choices/shop-online.png";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const MOTION_EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const PRESS_DURATION_MS = "120ms";
+const PRESS_EASING = cubicBezier(0.23, 1, 0.32, 1);
+const STEP_ENTER_FORWARD = FadeInRight.duration(220)
+  .easing(MOTION_EASE_OUT)
+  .withInitialValues({ opacity: 0, transform: [{ translateX: 12 }] });
+const STEP_ENTER_BACK = FadeInLeft.duration(220)
+  .easing(MOTION_EASE_OUT)
+  .withInitialValues({ opacity: 0, transform: [{ translateX: -12 }] });
+const STEP_ENTER_REDUCED = FadeIn.duration(140).easing(MOTION_EASE_OUT);
+const CHECK_ENTER = ZoomIn.duration(160)
+  .easing(MOTION_EASE_OUT)
+  .withInitialValues({ opacity: 0, transform: [{ scale: 0.95 }] });
+const CHECK_ENTER_REDUCED = FadeIn.duration(140).easing(MOTION_EASE_OUT);
 
 const starterProducts = [
   { displayName: "Milk", cadenceDays: 7, category: "Dairy" },
@@ -28,11 +64,31 @@ const starterProducts = [
   { displayName: "Toilet roll", cadenceDays: 21, category: "Household" },
 ];
 
+const setupCopy = [
+  {
+    title: "How many people do you shop for?",
+    helper: "An estimate is fine — you can change this later.",
+  },
+  {
+    title: "How often is your main grocery shop?",
+    helper: "Choose the rhythm that feels closest.",
+  },
+  {
+    title: "How do you usually shop?",
+    helper: "We'll shape your list around the way you shop.",
+  },
+  {
+    title: "What should we remember first?",
+    helper: "Pick a few staples. You can add more later.",
+  },
+] as const;
+
 type ShoppingMode = "in_store" | "online" | "both";
-type CompletionMode = "complete" | "deferred";
 
 export default function RestockSetupScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const analytics = useAnalytics();
   const household = useQuery(api.households.getCurrentHousehold);
   const lists = useQuery(
@@ -43,25 +99,18 @@ export default function RestockSetupScreen() {
   const completeSetup = useMutation(api.restocks.completeSetup);
   const createList = useMutation(api.lists.create);
   const updatePreferences = useMutation(api.notifications.updatePreferences);
-  const registerDevice = useMutation(api.notifications.registerDevice);
-  const recalculateReminders = useMutation(
-    api.notifications.recalculateForHousehold,
-  );
   const [step, setStep] = useState(0);
+  const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
   const [peopleServed, setPeopleServed] = useState(2);
   const [cadenceDays, setCadenceDays] = useState<number | undefined>(7);
   const [shoppingMode, setShoppingMode] = useState<ShoppingMode>("in_store");
-  const [selectedListId, setSelectedListId] =
-    useState<Id<"lists"> | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
     new Set(),
   );
-  const [shareAnalytics, setShareAnalytics] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasTrackedActivationStart = useRef(false);
-  const planningTimeZone =
-    getCalendars()[0]?.timeZone ?? "Europe/London";
+  const planningTimeZone = getCalendars()[0]?.timeZone ?? "Europe/London";
 
   useEffect(() => {
     if (!household?._id || hasTrackedActivationStart.current) return;
@@ -95,15 +144,12 @@ export default function RestockSetupScreen() {
     });
   };
 
-  const finish = async (
-    enableNotifications: boolean,
-    completionMode: CompletionMode = "complete",
-  ) => {
+  const finish = async () => {
     if (!household?._id) return;
     setIsFinishing(true);
     setError(null);
     try {
-      let activeListId = selectedListId ?? lists?.[0]?._id;
+      let activeListId = lists?.[0]?._id;
       if (!activeListId) {
         const result = await createList({
           householdId: household._id,
@@ -112,22 +158,19 @@ export default function RestockSetupScreen() {
         });
         activeListId = result.listId;
       }
+
       const products = suggestions
         .filter((product) => selectedProducts.has(product.displayName))
         .map((product) => ({
           displayName: product.displayName,
           category: product.category,
           defaultQuantity:
-            "defaultQuantity" in product
-              ? product.defaultQuantity
-              : undefined,
+            "defaultQuantity" in product ? product.defaultQuantity : undefined,
           defaultUnit:
             "defaultUnit" in product ? product.defaultUnit : undefined,
           cadenceDays: product.cadenceDays,
           lastPurchasedAt:
-            "lastPurchasedAt" in product
-              ? product.lastPurchasedAt
-              : undefined,
+            "lastPurchasedAt" in product ? product.lastPurchasedAt : undefined,
           purchaseObservationCount:
             "purchaseObservationCount" in product
               ? product.purchaseObservationCount
@@ -142,49 +185,16 @@ export default function RestockSetupScreen() {
         planningTimeZone,
         products,
       });
-      if (completionMode === "complete") {
-        await updatePreferences({
-          analyticsConsent: shareAnalytics ? "granted" : "denied",
-          notificationTimeZone: planningTimeZone,
-        });
-        analytics.setConsent(shareAnalytics ? "granted" : "denied");
-        analytics.track("activation completed", {
-          household_id: household._id,
-          market: "GB",
-          household_size_bucket:
-            peopleServed <= 2 ? "1-2" : peopleServed <= 4 ? "3-4" : "5+",
-          cadence_bucket: cadenceDays ? `${cadenceDays}_days` : "variable",
-          shopping_mode: shoppingMode,
-        });
-      } else {
-        await updatePreferences({ notificationTimeZone: planningTimeZone });
-        analytics.track("activation skipped", {
-          household_id: household._id,
-          market: "GB",
-          step: String(step + 1),
-        });
-      }
+      await updatePreferences({ notificationTimeZone: planningTimeZone });
 
-      if (enableNotifications) {
-        const registration = await registerForPushNotifications();
-        analytics.track("notification permission answered", {
-          household_id: household._id,
-          answer: registration.status === "granted" ? "granted" : "denied",
-        });
-        if (registration.status === "granted") {
-          await registerDevice({
-            token: registration.token,
-            platform: registration.platform,
-            deviceId: registration.deviceId,
-          });
-          await updatePreferences({
-            restockNotificationsEnabled: true,
-            notificationTimeMinutesLocal: 18 * 60,
-            notificationTimeZone: planningTimeZone,
-          });
-          await recalculateReminders({});
-        }
-      }
+      analytics.track("activation completed", {
+        household_id: household._id,
+        market: "GB",
+        household_size_bucket:
+          peopleServed <= 2 ? "1-2" : peopleServed <= 4 ? "3-4" : "5+",
+        cadence_bucket: cadenceDays ? `${cadenceDays}_days` : "variable",
+        shopping_mode: shoppingMode,
+      });
       router.replace("/(tabs)");
     } catch (caughtError) {
       console.error("Couldn't complete restock setup:", caughtError);
@@ -203,295 +213,270 @@ export default function RestockSetupScreen() {
     );
   }
 
+  const currentCopy = setupCopy[step];
+  const stepEntering = reduceMotion
+    ? STEP_ENTER_REDUCED
+    : transitionDirection === 1
+      ? STEP_ENTER_FORWARD
+      : STEP_ENTER_BACK;
+  const goBack = () => {
+    setTransitionDirection(-1);
+    setStep((value) => Math.max(0, value - 1));
+  };
+  const goForward = () => {
+    setTransitionDirection(1);
+    setStep((value) => Math.min(setupCopy.length - 1, value + 1));
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-background-light">
-      <View className="px-5 pt-3">
-        <Text className="text-sm font-semibold text-coral">{step + 1} of 4</Text>
-        <Text className="mt-2 text-3xl font-bold text-warm-gray-900">
-          {step === 0
-            ? "Your grocery rhythm"
-            : step === 1
-              ? "What comes up often?"
-              : step === 2
-                ? "Choose your next shop"
-                : "Your first plan is ready"}
-        </Text>
-        <Text className="mt-2 text-base leading-6 text-warm-gray-600">
-          {step === 0
-            ? "A few starting details help us ask at the right time. You can change them later."
-            : step === 1
-              ? "Pick only the staples you want us to remember. Three is plenty to begin."
-              : step === 2
-                ? "Nothing will be merged or archived. This simply becomes the shop we prepare."
-                : `${selectedProducts.size} staples will be watched for ${peopleServed} ${peopleServed === 1 ? "person" : "people"}.`}
-        </Text>
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["top", "left", "right"]}
+    >
+      <View className="px-6 pt-4">
+        <ActivationProgress
+          current={step + 1}
+          total={setupCopy.length}
+          onBack={step > 0 ? goBack : undefined}
+        />
       </View>
 
-      <ScrollView className="flex-1 px-5" contentContainerClassName="py-6">
-        {step === 0 && (
-          <View>
-            <Text className="text-base font-semibold text-warm-gray-900">
-              People you usually buy for
-            </Text>
-            <View className="mt-3 flex-row items-center self-start rounded-2xl bg-white p-2">
-              <Pressable
-                onPress={() => setPeopleServed((value) => Math.max(1, value - 1))}
-                className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
-                accessibilityLabel="Decrease people served"
-                accessibilityRole="button"
-              >
-                <Minus size={20} color="#1A1917" />
-              </Pressable>
-              <Text
-                className="w-16 text-center text-2xl font-bold text-warm-gray-900"
-                accessibilityLabel={`${peopleServed} people`}
-              >
-                {peopleServed}
-              </Text>
-              <Pressable
-                onPress={() => setPeopleServed((value) => Math.min(20, value + 1))}
-                className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
-                accessibilityLabel="Increase people served"
-                accessibilityRole="button"
-              >
-                <Plus size={20} color="#1A1917" />
-              </Pressable>
-            </View>
+      <Animated.View key={step} entering={stepEntering} style={{ flex: 1 }}>
+        <View className="px-6">
+          <Text
+            className="mt-7 text-[34px] leading-[40px] tracking-tight text-warm-gray-900"
+            style={{ fontFamily: "Nunito_900Black" }}
+          >
+            {currentCopy.title}
+          </Text>
+          <Text className="mt-2 text-base leading-6 text-warm-gray-600">
+            {currentCopy.helper}
+          </Text>
+        </View>
 
-            <Text className="mt-7 text-base font-semibold text-warm-gray-900">
-              Usual shopping cadence
-            </Text>
-            <View className="mt-3 flex-row flex-wrap gap-2">
-              {[
-                ["Weekly", 7],
-                ["Fortnightly", 14],
-                ["Monthly", 30],
-                ["It varies", undefined],
-              ].map(([label, value]) => (
-                <Choice
-                  key={label as string}
-                  label={label as string}
-                  selected={cadenceDays === value}
-                  onPress={() => setCadenceDays(value as number | undefined)}
+        <ScrollView
+          className="flex-1 px-6"
+          contentContainerClassName="flex-grow py-7"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 0 && (
+            <View className="flex-1 items-center justify-center pb-16">
+              <View className="flex-row items-center rounded-full border border-warm-gray-200 bg-white p-2 shadow-warm">
+                <Pressable
+                  onPress={() =>
+                    setPeopleServed((value) => Math.max(1, value - 1))
+                  }
+                  className="h-14 w-14 items-center justify-center rounded-full bg-warm-gray-100"
+                  accessibilityLabel="Decrease household size"
+                  accessibilityRole="button"
+                >
+                  <Minus size={24} color="#1A1917" />
+                </Pressable>
+                <View className="w-28 items-center">
+                  <Text
+                    className="text-5xl leading-[56px] text-warm-gray-900"
+                    style={{ fontFamily: "Nunito_900Black" }}
+                    accessibilityLabel={`${peopleServed} people`}
+                  >
+                    {peopleServed}
+                  </Text>
+                  <Text className="text-sm text-warm-gray-500">
+                    {peopleServed === 1 ? "person" : "people"}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() =>
+                    setPeopleServed((value) => Math.min(20, value + 1))
+                  }
+                  className="h-14 w-14 items-center justify-center rounded-full bg-warm-gray-100"
+                  accessibilityLabel="Increase household size"
+                  accessibilityRole="button"
+                >
+                  <Plus size={24} color="#1A1917" />
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {step === 1 && (
+            <View className="gap-3">
+              <Choice
+                label="Weekly"
+                iconSource={cadenceWeeklyIcon}
+                selected={cadenceDays === 7}
+                onPress={() => setCadenceDays(7)}
+              />
+              <Choice
+                label="Every two weeks"
+                iconSource={cadenceFortnightlyIcon}
+                selected={cadenceDays === 14}
+                onPress={() => setCadenceDays(14)}
+              />
+              <Choice
+                label="Monthly"
+                iconSource={cadenceMonthlyIcon}
+                selected={cadenceDays === 30}
+                onPress={() => setCadenceDays(30)}
+              />
+              <Choice
+                label="It varies"
+                iconSource={cadenceVariableIcon}
+                selected={cadenceDays === undefined}
+                onPress={() => setCadenceDays(undefined)}
+              />
+            </View>
+          )}
+
+          {step === 2 && (
+            <View className="gap-3">
+              <Choice
+                label="In store"
+                iconSource={shopInStoreIcon}
+                selected={shoppingMode === "in_store"}
+                onPress={() => setShoppingMode("in_store")}
+              />
+              <Choice
+                label="Online"
+                iconSource={shopOnlineIcon}
+                selected={shoppingMode === "online"}
+                onPress={() => setShoppingMode("online")}
+              />
+              <Choice
+                label="Both"
+                iconSource={shopBothIcon}
+                selected={shoppingMode === "both"}
+                onPress={() => setShoppingMode("both")}
+              />
+            </View>
+          )}
+
+          {step === 3 && (
+            <View className="flex-row flex-wrap justify-between gap-y-3">
+              {suggestions.map((product) => (
+                <ProductChoice
+                  key={product.displayName}
+                  label={product.displayName}
+                  selected={selectedProducts.has(product.displayName)}
+                  onPress={() => toggleProduct(product.displayName)}
                 />
               ))}
             </View>
+          )}
 
-            <Text className="mt-7 text-base font-semibold text-warm-gray-900">
-              How you usually shop
+          {error && (
+            <Text
+              className="mt-5 text-center text-red-700"
+              accessibilityRole="alert"
+            >
+              {error}
             </Text>
-            <GlassSegmentedControl
-              value={shoppingMode}
-              options={[
-                { label: "In store", value: "in_store" },
-                { label: "Online", value: "online" },
-                { label: "Both", value: "both" },
-              ]}
-              onValueChange={setShoppingMode}
-              accessibilityLabel="Usual shopping method"
-              className="mt-3"
-            />
-            <Text className="mt-6 text-sm leading-5 text-warm-gray-500">
-              Household size only improves the starting plan. Your purchase history
-              and corrections will take over as better evidence.
-            </Text>
-          </View>
-        )}
+          )}
+        </ScrollView>
+      </Animated.View>
 
-        {step === 1 && (
-          <View className="gap-2">
-            {suggestions.map((product) => {
-              const selected = selectedProducts.has(product.displayName);
-              return (
-                <Pressable
-                  key={product.displayName}
-                  onPress={() => toggleProduct(product.displayName)}
-                  className={cn(
-                    "min-h-14 flex-row items-center justify-between rounded-xl border px-4 py-3",
-                    selected
-                      ? "border-coral bg-coral/10"
-                      : "border-warm-gray-200 bg-white",
-                  )}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: selected }}
-                >
-                  <View className="flex-1 pr-3">
-                    <Text className="text-base font-semibold text-warm-gray-900">
-                      {product.displayName}
-                    </Text>
-                    <Text className="mt-1 text-sm text-warm-gray-500">
-                      Usually every {product.cadenceDays} days
-                    </Text>
-                  </View>
-                  {selected && <Check size={20} color="#C94A4A" />}
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-
-        {step === 2 && (
-          <View className="gap-2">
-            {lists.map((list) => (
-              <Pressable
-                key={list._id}
-                onPress={() => setSelectedListId(list._id)}
-                className={cn(
-                  "min-h-16 flex-row items-center justify-between rounded-xl border px-4 py-3",
-                  selectedListId === list._id
-                    ? "border-coral bg-coral/10"
-                    : "border-warm-gray-200 bg-white",
-                )}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: selectedListId === list._id }}
-              >
-                <View>
-                  <Text className="text-base font-semibold text-warm-gray-900">
-                    {list.name}
-                  </Text>
-                  <Text className="mt-1 text-sm text-warm-gray-500">
-                    {list.totalItems} items
-                  </Text>
-                </View>
-                {selectedListId === list._id && (
-                  <Check size={20} color="#C94A4A" />
-                )}
-              </Pressable>
-            ))}
-            {lists.length === 0 && (
-              <View className="rounded-xl bg-white p-5">
-                <Text className="font-semibold text-warm-gray-900">
-                  We'll create a list called Next shop
-                </Text>
-                <Text className="mt-1 text-sm text-warm-gray-500">
-                  You can rename it whenever you like.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {step === 3 && (
-          <View>
-            <View className="rounded-2xl bg-white p-5">
-              <Text className="text-xl font-bold text-warm-gray-900">
-                {lists.find((list) => list._id === selectedListId)?.name ??
-                  lists[0]?.name ??
-                  "Next shop"}
-              </Text>
-              <Text className="mt-2 text-warm-gray-600">
-                We'll collect uncertain restocks into one calm review instead of
-                asking about every product separately.
-              </Text>
-            </View>
-
-            <View className="mt-4 rounded-2xl bg-teal/10 p-5">
-              <View className="flex-row items-center">
-                <Bell size={21} color="#297D76" />
-                <Text className="ml-2 text-base font-semibold text-warm-gray-900">
-                  One useful reminder
-                </Text>
-              </View>
-              <Text className="mt-2 leading-5 text-warm-gray-600">
-                We can let you know when a restock review is ready, plus one reminder
-                before the shop if it is still unresolved.
-              </Text>
-            </View>
-
-            <Pressable
-              onPress={() => setShareAnalytics((value) => !value)}
-              className="mt-4 min-h-14 flex-row items-start rounded-2xl bg-white p-4"
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: shareAnalytics }}
-            >
-              <View
-                className={cn(
-                  "mt-0.5 h-6 w-6 items-center justify-center rounded-md border",
-                  shareAnalytics
-                    ? "border-coral bg-coral"
-                    : "border-warm-gray-300",
-                )}
-              >
-                {shareAnalytics && <Check size={16} color="#FFFFFF" />}
-              </View>
-              <View className="ml-3 flex-1">
-                <View className="flex-row items-center">
-                  <ShieldCheck size={18} color="#57534E" />
-                  <Text className="ml-2 font-semibold text-warm-gray-900">
-                    Share anonymous beta usage
-                  </Text>
-                </View>
-                <Text className="mt-1 text-sm leading-5 text-warm-gray-500">
-                  Helps improve the first beta. Product names, receipts, notes and exact
-                  spending are never included. This is optional.
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-        )}
-
-        {error && <Text className="mt-4 text-center text-coral">{error}</Text>}
-      </ScrollView>
-
-      <View className="border-t border-warm-gray-200 bg-white px-5 pb-4 pt-3">
-        {step < 3 ? (
-          <View>
-            <View className="flex-row gap-3">
-              {step > 0 && (
-                <Button
-                  variant="outline"
-                  onPress={() => setStep((value) => value - 1)}
-                  disabled={isFinishing}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-              )}
-              <Button
-                onPress={() => setStep((value) => value + 1)}
-                disabled={isFinishing}
-                className="flex-1"
-              >
-                Continue
-              </Button>
-            </View>
-            <Button
-              variant="ghost"
-              onPress={() => void finish(false, "deferred")}
-              disabled={isFinishing}
-              loading={isFinishing}
-              accessibilityLabel="Set up grocery rhythm later"
-              className="mt-1 w-full"
-            >
-              Set up later
-            </Button>
-          </View>
-        ) : (
-          <View>
-            <Button
-              onPress={() => void finish(true)}
-              loading={isFinishing}
-              disabled={isFinishing}
-              className="w-full"
-            >
-              Remind me when it's ready
-            </Button>
-            <Pressable
-              onPress={() => void finish(false)}
-              disabled={isFinishing}
-              className="min-h-12 items-center justify-center"
-              accessibilityRole="button"
-            >
-              <Text className="font-semibold text-warm-gray-600">Not now</Text>
-            </Pressable>
-          </View>
-        )}
+      <View
+        className="border-t border-warm-gray-200 bg-white px-6 pt-3"
+        style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+      >
+        <Button
+          onPress={() => {
+            if (step === setupCopy.length - 1) void finish();
+            else goForward();
+          }}
+          disabled={isFinishing}
+          loading={isFinishing}
+          size="lg"
+          className="w-full"
+          forceSolid
+          accessibilityLabel={
+            step === setupCopy.length - 1
+              ? "Build my grocery plan"
+              : "Continue setup"
+          }
+        >
+          {step === setupCopy.length - 1 ? "Build my plan" : "Continue"}
+        </Button>
       </View>
     </SafeAreaView>
   );
 }
 
 function Choice({
+  label,
+  iconSource,
+  selected,
+  onPress,
+}: {
+  label: string;
+  iconSource: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [pressed, setPressed] = useState(false);
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      pressRetentionOffset={16}
+      className={cn(
+        "min-h-20 flex-row items-center rounded-2xl border py-2 pl-2 pr-5",
+        selected
+          ? "border-coral bg-coral-soft"
+          : "border-warm-gray-200 bg-white",
+      )}
+      style={{
+        opacity: pressed ? 0.84 : 1,
+        transform: [{ scale: pressed && !reduceMotion ? 0.98 : 1 }],
+        transitionProperty: reduceMotion
+          ? ["opacity", "backgroundColor", "borderColor"]
+          : ["opacity", "transform", "backgroundColor", "borderColor"],
+        transitionDuration: PRESS_DURATION_MS,
+        transitionTimingFunction: PRESS_EASING,
+      }}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+    >
+      <Image
+        source={iconSource}
+        contentFit="contain"
+        transition={reduceMotion ? 0 : 100}
+        style={{ width: 64, height: 64 }}
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
+      <Text
+        className={cn(
+          "ml-2 flex-1 text-base font-semibold",
+          selected ? "text-coral" : "text-warm-gray-900",
+        )}
+      >
+        {label}
+      </Text>
+      <View
+        className={cn(
+          "h-6 w-6 items-center justify-center rounded-full",
+          selected ? "bg-coral" : "border border-warm-gray-300",
+        )}
+      >
+        {selected && (
+          <Animated.View
+            entering={reduceMotion ? CHECK_ENTER_REDUCED : CHECK_ENTER}
+          >
+            <Check size={15} color="#FFFFFF" />
+          </Animated.View>
+        )}
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+function ProductChoice({
   label,
   selected,
   onPress,
@@ -500,26 +485,57 @@ function Choice({
   selected: boolean;
   onPress: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
+  const [pressed, setPressed] = useState(false);
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      pressRetentionOffset={16}
       className={cn(
-        "min-h-12 items-center justify-center rounded-xl border px-4",
+        "min-h-16 w-[48.5%] flex-row items-center justify-between rounded-2xl border px-4 py-3",
         selected
-          ? "border-coral bg-coral/10"
+          ? "border-coral bg-coral-soft"
           : "border-warm-gray-200 bg-white",
       )}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      style={{
+        opacity: pressed ? 0.84 : 1,
+        transform: [{ scale: pressed && !reduceMotion ? 0.98 : 1 }],
+        transitionProperty: reduceMotion
+          ? ["opacity", "backgroundColor", "borderColor"]
+          : ["opacity", "transform", "backgroundColor", "borderColor"],
+        transitionDuration: PRESS_DURATION_MS,
+        transitionTimingFunction: PRESS_EASING,
+      }}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={label}
     >
       <Text
         className={cn(
-          "font-semibold",
-          selected ? "text-coral" : "text-warm-gray-700",
+          "mr-2 flex-1 text-base font-semibold",
+          selected ? "text-coral" : "text-warm-gray-900",
         )}
+        numberOfLines={2}
       >
         {label}
       </Text>
-    </Pressable>
+      <View
+        className={cn(
+          "h-6 w-6 items-center justify-center rounded-full",
+          selected ? "bg-coral" : "border border-warm-gray-300",
+        )}
+      >
+        {selected && (
+          <Animated.View
+            entering={reduceMotion ? CHECK_ENTER_REDUCED : CHECK_ENTER}
+          >
+            <Check size={15} color="#FFFFFF" />
+          </Animated.View>
+        )}
+      </View>
+    </AnimatedPressable>
   );
 }

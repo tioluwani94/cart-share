@@ -54,7 +54,23 @@ async function currentHousehold(
 export const getPreferences = query({
   args: {},
   handler: async (ctx) => {
-    const user = await requireCurrentUser(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (index) =>
+        index.eq("clerkId", identity.subject),
+      )
+      .unique();
+    if (!user) {
+      return {
+        analyticsConsent: undefined,
+        restockNotificationsEnabled: false,
+        notificationTimeMinutesLocal: 18 * 60,
+        notificationTimeZone: "Europe/London",
+        viewerClerkId: identity.subject,
+      };
+    }
     const preference = await ctx.db
       .query("userPreferences")
       .withIndex("by_user", (index) => index.eq("userId", user._id))

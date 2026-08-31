@@ -2,8 +2,18 @@ import type { Id } from "./_generated/dataModel";
 import {
   disableAllDevices,
   excludeProductsAlreadyPlanned,
+  getPreferences,
   getDueDeliveries,
 } from "./notifications";
+
+type GetPreferencesHandler = (
+  ctx: unknown,
+  args: Record<string, never>,
+) => Promise<unknown>;
+
+const readPreferences = (
+  getPreferences as unknown as { _handler: GetPreferencesHandler }
+)._handler;
 
 type DisableDevicesHandler = (
   ctx: unknown,
@@ -55,6 +65,29 @@ describe("notifications.disableAllDevices", () => {
       tokenIds[0],
       expect.objectContaining({ disabledAt: expect.any(Number) }),
     );
+  });
+});
+
+describe("notifications.getPreferences", () => {
+  it("returns neutral preferences while an authenticated user is being recreated", async () => {
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: () => ({
+          withIndex: () => ({
+            unique: async () => null,
+          }),
+        }),
+      },
+    };
+
+    await expect(readPreferences(ctx, {})).resolves.toEqual({
+      analyticsConsent: undefined,
+      restockNotificationsEnabled: false,
+      notificationTimeMinutesLocal: 18 * 60,
+      notificationTimeZone: "Europe/London",
+      viewerClerkId: "clerk_1",
+    });
   });
 });
 

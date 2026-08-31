@@ -6,6 +6,7 @@ import {
   useAnalytics,
   useAnalyticsSession,
 } from "@/lib/AnalyticsContext";
+import { AuthenticatedUserBoundary } from "@/lib/AuthenticatedUserBoundary";
 import { getNotificationHandlingDecision } from "@/lib/notificationHandling";
 import {
   clearLastRestockNotificationResponse,
@@ -307,11 +308,13 @@ function InitialLayout() {
 function ConvexClerkLayout() {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      <SyncStatusProvider>
-        <AnalyticsProvider>
-          <InitialLayout />
-        </AnalyticsProvider>
-      </SyncStatusProvider>
+      <AuthenticatedUserBoundary>
+        <SyncStatusProvider>
+          <AnalyticsProvider>
+            <InitialLayout />
+          </AnalyticsProvider>
+        </SyncStatusProvider>
+      </AuthenticatedUserBoundary>
     </ConvexProviderWithClerk>
   );
 }

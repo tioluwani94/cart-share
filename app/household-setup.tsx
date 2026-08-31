@@ -123,7 +123,7 @@ export default function HouseholdSetupScreen() {
   // Initial creation screen
   return (
     <SafeAreaView className="flex-1 bg-background-light">
-      <View className="flex-1 px-6 pt-8">
+      <View className="flex-1 px-6 pt-10">
         {/* Playful Illustration */}
         <Animated.View
           entering={FadeInUp.delay(100).springify().damping(90)}
@@ -137,35 +137,34 @@ export default function HouseholdSetupScreen() {
         {/* Welcome Header */}
         <Animated.View
           entering={FadeInUp.delay(200).springify().damping(90)}
-          className="mt-6 items-center"
+          className="mt-7 items-center"
         >
-          <Text className="text-center text-3xl font-bold text-warm-gray-900">
-            Start your shopping{"\n"}adventure!
+          <Text
+            className="text-center text-[34px] leading-[40px] tracking-tight text-warm-gray-900"
+            style={{ fontFamily: "Nunito_900Black" }}
+          >
+            Name your household
           </Text>
-          <Text className="mt-3 text-center text-lg text-warm-gray-600">
-            Create your household and invite your partner to shop together
+          <Text className="mt-3 text-center text-base leading-6 text-warm-gray-600">
+            Keep everyone's grocery plan in one place.
           </Text>
         </Animated.View>
 
         {/* Form Section */}
         <Animated.View
           entering={FadeInUp.delay(300).springify().damping(90)}
-          className="mt-10"
+          className="mt-12"
         >
           <Input
-            label="Household Name"
+            label="Household name"
             value={householdName}
             onChangeText={setHouseholdName}
-            placeholder="The Smith Family"
+            placeholder="e.g. The Smiths"
             autoCapitalize="words"
             autoCorrect={false}
             error={error ?? undefined}
             keyboardType="default"
           />
-
-          <Text className="mt-2 px-2 text-sm text-warm-gray-500">
-            Give your household a fun name — this is what you'll see in the app!
-          </Text>
         </Animated.View>
 
         {/* Create Button */}
@@ -180,8 +179,9 @@ export default function HouseholdSetupScreen() {
             size="lg"
             className="w-full"
             accessibilityLabel="Create household"
+            forceSolid
           >
-            Create Household
+            Continue
           </Button>
         </Animated.View>
 
@@ -197,8 +197,8 @@ export default function HouseholdSetupScreen() {
             accessibilityRole="link"
           >
             <Text className="text-base text-warm-gray-600">
-              Have a code?{" "}
-              <Text className="font-semibold text-teal">Join a household</Text>
+              Have an invite code?{" "}
+              <Text className="font-semibold text-teal">Join instead</Text>
             </Text>
           </Pressable>
         </Animated.View>

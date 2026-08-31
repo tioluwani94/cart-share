@@ -17,6 +17,7 @@
       "bundleIdentifier": "com.cartshare.app",
       "appleTeamId": "W6SZ22J8C2",
       "infoPlist": {
+        "CADisableMinimumFrameDurationOnPhone": true,
         "NSCameraUsageDescription": "OurPantry needs camera access to scan your receipts and track spending."
       }
     },
