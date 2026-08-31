@@ -14,6 +14,19 @@ import { internal } from "./_generated/api";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
+export function excludeProductsAlreadyPlanned<
+  ProductId,
+  Product extends { _id: ProductId },
+  Item extends { householdProductId?: ProductId },
+>(products: readonly Product[], activeItems: readonly Item[]): Product[] {
+  const plannedProductIds = new Set(
+    activeItems
+      .map((item) => item.householdProductId)
+      .filter((productId): productId is ProductId => productId !== undefined),
+  );
+  return products.filter((product) => !plannedProductIds.has(product._id));
+}
+
 async function requireCurrentUser(ctx: ReadCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
@@ -263,12 +276,18 @@ export async function recalculateHouseholdReminders(
       index.eq("householdId", householdId).eq("status", "active"),
     )
     .collect();
+  const activeItems = activeList
+    ? await ctx.db
+        .query("items")
+        .withIndex("by_list", (index) => index.eq("listId", activeList._id))
+        .collect()
+    : [];
   const now = Date.now();
   const horizon =
     (activeList?.plannedFor ??
       now + Math.min(household.shoppingCadenceDays ?? 7, 7) * DAY_MS) +
     DAY_MS;
-  const eligibleTimings = products
+  const eligibleTimings = excludeProductsAlreadyPlanned(products, activeItems)
     .map((product) =>
       getRestockTiming({
         id: product._id,
@@ -417,8 +436,17 @@ export const getDueDeliveries = internalQuery({
               )
               .collect()
           : [];
+        const activeItems = activeList
+          ? await ctx.db
+              .query("items")
+              .withIndex("by_list", (index) =>
+                index.eq("listId", activeList._id),
+              )
+              .collect()
+          : [];
         const candidates = household
-          ? products.filter((product) => {
+          ? excludeProductsAlreadyPlanned(products, activeItems).filter(
+              (product) => {
               const timing = getRestockTiming({
                 id: product._id,
                 displayName: product.displayName,
@@ -435,7 +463,8 @@ export const getDueDeliveries = internalQuery({
                     Math.min(household.shoppingCadenceDays ?? 7, 7) * DAY_MS) +
                 DAY_MS;
               return timing.reviewAt <= now && timing.expectedDueAt <= horizon;
-            })
+              },
+            )
           : [];
         if (!household || candidates.length === 0) {
           return { reminderId: reminder._id, action: "cancel" as const };

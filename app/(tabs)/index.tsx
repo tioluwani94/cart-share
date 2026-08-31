@@ -14,6 +14,7 @@ import {
   formatDateWithWeekday,
   formatFriendlyDate,
 } from "@/lib/formatters";
+import { partitionRestockCandidates } from "@/lib/restockReview";
 import {
   getEffectiveShoppingMode,
   shouldWaitForPlanLists,
@@ -129,10 +130,10 @@ export default function PlanScreen() {
     optimisticShoppingMode ?? effectiveShoppingMode;
   const visibleCandidates = useMemo(
     () =>
-      review?.candidates.filter(
-        (candidate) =>
-          !hiddenProductIds.has(candidate.householdProductId),
-      ) ?? [],
+      partitionRestockCandidates(
+        review?.candidates ?? [],
+        hiddenProductIds,
+      ).actionableCandidates,
     [hiddenProductIds, review?.candidates],
   );
   const visibleCandidateCount = visibleCandidates.length;

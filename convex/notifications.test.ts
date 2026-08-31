@@ -1,5 +1,9 @@
 import type { Id } from "./_generated/dataModel";
-import { disableAllDevices, getDueDeliveries } from "./notifications";
+import {
+  disableAllDevices,
+  excludeProductsAlreadyPlanned,
+  getDueDeliveries,
+} from "./notifications";
 
 type DisableDevicesHandler = (
   ctx: unknown,
@@ -86,5 +90,99 @@ describe("notifications.getDueDeliveries", () => {
     await expect(readDueDeliveries(ctx, { now: 2 })).resolves.toEqual([
       { reminderId, action: "cancel" },
     ]);
+  });
+
+  it("cancels a stale reminder when every due product is already planned", async () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.UTC(2026, 8, 1, 12);
+    const reminderId = "reminder_1" as Id<"notificationReminders">;
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    const listId = "list_1" as Id<"lists">;
+    const productId = "product_1" as Id<"householdProducts">;
+    const ctx = {
+      db: {
+        get: async (id: string) => {
+          if (id === householdId) {
+            return { _id: householdId, activeListId: listId };
+          }
+          if (id === listId) {
+            return {
+              _id: listId,
+              isArchived: false,
+              plannedFor: now + DAY_MS,
+            };
+          }
+          return null;
+        },
+        query: (table: string) => ({
+          withIndex: () => ({
+            take: async () =>
+              table === "notificationReminders"
+                ? [
+                    {
+                      _id: reminderId,
+                      userId,
+                      householdId,
+                      kind: "restock_review" as const,
+                      status: "pending" as const,
+                      scheduledFor: now,
+                    },
+                  ]
+                : [],
+            unique: async () => {
+              if (table === "householdMembers") return { userId, householdId };
+              if (table === "userPreferences") {
+                return {
+                  restockNotificationsEnabled: true,
+                  notificationTimeZone: "Europe/London",
+                };
+              }
+              return null;
+            },
+            collect: async () => {
+              if (table === "householdProducts") {
+                return [
+                  {
+                    _id: productId,
+                    displayName: "Milk",
+                    status: "active" as const,
+                    cadenceDays: 1,
+                    lastPurchasedAt: now - 2 * DAY_MS,
+                    createdAt: now - 30 * DAY_MS,
+                    purchaseObservationCount: 2,
+                  },
+                ];
+              }
+              if (table === "items") {
+                return [{ householdProductId: productId, isCompleted: false }];
+              }
+              if (table === "pushTokens") {
+                return [{ token: "ExponentPushToken[test]" }];
+              }
+              return [];
+            },
+          }),
+        }),
+      },
+    };
+
+    await expect(readDueDeliveries(ctx, { now })).resolves.toEqual([
+      { reminderId, action: "cancel" },
+    ]);
+  });
+});
+
+describe("excludeProductsAlreadyPlanned", () => {
+  it("removes products linked to items on the active list", () => {
+    const milk = { _id: "product_1" };
+    const bread = { _id: "product_2" };
+
+    expect(
+      excludeProductsAlreadyPlanned([milk, bread], [
+        { householdProductId: "product_1", isCompleted: false },
+        { householdProductId: "product_2", isCompleted: true },
+      ]),
+    ).toEqual([]);
   });
 });

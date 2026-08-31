@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui";
+import { AlreadyAddedRestocks } from "@/components/restocks/AlreadyAddedRestocks";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatDateWithWeekday, formatFriendlyDate } from "@/lib/formatters";
+import { partitionRestockCandidates } from "@/lib/restockReview";
 import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
@@ -9,7 +11,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ChevronLeft, Pause, ShoppingBasket } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -43,24 +45,31 @@ export default function RestockReviewScreen() {
     });
   const [whyProductId, setWhyProductId] =
     useState<Id<"householdProducts"> | null>(null);
-  const visibleCandidates =
-    review?.candidates.filter(
-      (candidate) => !hiddenProductIds.has(candidate.householdProductId),
-    ) ?? [];
+  const hasTrackedReviewShown = useRef(false);
+  const { actionableCandidates: visibleCandidates, alreadyAddedCandidates } =
+    useMemo(
+      () =>
+        partitionRestockCandidates(
+          review?.candidates ?? [],
+          hiddenProductIds,
+        ),
+      [hiddenProductIds, review?.candidates],
+    );
 
   useEffect(() => {
-    if (!review) return;
+    if (!review || hasTrackedReviewShown.current) return;
+    hasTrackedReviewShown.current = true;
     analytics.track("restock review shown", {
       candidate_count_bucket:
-        review.candidateCount === 0
+        visibleCandidates.length === 0
           ? "0"
-          : review.candidateCount <= 3
+          : visibleCandidates.length <= 3
             ? "1-3"
             : "4+",
       source: sourceName,
       market: review.household.marketCountryCode,
     });
-  }, [analytics, review, sourceName]);
+  }, [analytics, review, sourceName, visibleCandidates.length]);
 
   if (review === undefined) {
     return (
@@ -85,8 +94,15 @@ export default function RestockReviewScreen() {
           <Text className="text-xl font-bold text-warm-gray-900">
             Review restocks
           </Text>
-          <Text className="text-sm text-warm-gray-500">
-            {visibleCandidates.length} things need a quick check
+          <Text
+            className="text-sm text-warm-gray-500"
+            accessibilityLabel={`${visibleCandidates.length} ${
+              visibleCandidates.length === 1 ? "thing" : "things"
+            } need a quick check`}
+          >
+            {visibleCandidates.length}{" "}
+            {visibleCandidates.length === 1 ? "thing" : "things"} need a quick
+            check
           </Text>
         </View>
       </View>
@@ -109,6 +125,7 @@ export default function RestockReviewScreen() {
             </Text>
           </View>
         )}
+        <AlreadyAddedRestocks candidates={alreadyAddedCandidates} />
         {visibleCandidates.length === 0 ? (
           <View className="mt-16 items-center px-8">
             <View className="h-16 w-16 items-center justify-center rounded-full bg-teal/10">

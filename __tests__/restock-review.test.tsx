@@ -12,7 +12,7 @@ const mockTrack = jest.fn();
 const mockMakeDecision = jest.fn();
 
 const mockReview = {
-  activeList: null,
+  activeList: null as null | { _id: string; name: string },
   candidateCount: 1,
   trackedProductCount: 1,
   household: {
@@ -92,6 +92,8 @@ jest.mock("lucide-react-native", () => {
 describe("RestockReviewScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockReview.activeList = null;
+    mockReview.candidates[0].isAdded = false;
   });
 
   it("keeps Add unavailable when there is no Next shop", () => {
@@ -104,6 +106,47 @@ describe("RestockReviewScreen", () => {
       accessibilityLabel: "Choose a Next shop before adding Milk",
     });
     expect(add.props.disabled).toBe(true);
+  });
+
+  it("treats a product added by another member as resolved", () => {
+    mockReview.activeList = {
+      _id: "list_1",
+      name: "Weekly shop",
+    };
+    mockReview.candidates[0].isAdded = true;
+    let renderer!: ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<RestockReviewScreen />);
+    });
+
+    expect(
+      renderer.root.findByProps({
+        accessibilityLabel: "0 things need a quick check",
+      }),
+    ).toBeTruthy();
+    expect(
+      renderer.root.findByProps({ children: "Already in Next shop" }),
+    ).toBeTruthy();
+    expect(() =>
+      renderer.root.findByProps({
+        accessibilityLabel: "Milk already added to shop",
+      }),
+    ).toThrow();
+    expect(mockTrack).toHaveBeenCalledWith("restock review shown", {
+      candidate_count_bucket: "0",
+      market: "GB",
+      source: "plan",
+    });
+
+    act(() => {
+      mockReview.candidates[0].isAdded = false;
+      (
+        renderer as ReactTestRenderer & {
+          update: (element: React.ReactElement) => void;
+        }
+      ).update(<RestockReviewScreen />);
+    });
+    expect(mockTrack).toHaveBeenCalledTimes(1);
   });
 
 });
