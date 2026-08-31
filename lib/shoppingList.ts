@@ -29,6 +29,28 @@ interface ShoppingListCompletionItem {
 export type ShoppingMode = "in_store" | "online";
 export type PreferredShoppingMode = ShoppingMode | "both";
 
+export function shouldRejectNextShopClaim({
+  currentActiveList,
+  onlyIfNoActiveList,
+}: {
+  currentActiveList: { isArchived: boolean } | null;
+  onlyIfNoActiveList: boolean;
+}): boolean {
+  return Boolean(
+    onlyIfNoActiveList && currentActiveList && !currentActiveList.isArchived,
+  );
+}
+
+export function shouldWaitForPlanLists({
+  areListsLoading,
+  isOnline,
+}: {
+  areListsLoading: boolean;
+  isOnline: boolean;
+}): boolean {
+  return isOnline && areListsLoading;
+}
+
 interface FinishShoppingListState {
   totalItems: number;
   isFinishing: boolean;

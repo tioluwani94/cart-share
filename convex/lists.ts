@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { shouldRejectNextShopClaim } from "../lib/shoppingList";
 import { mutation, query } from "./_generated/server";
 
 /**
@@ -120,6 +121,8 @@ export const create = mutation({
     name: v.string(),
     category: v.optional(v.string()),
     tripBudgetPence: v.optional(v.number()),
+    setAsNextShop: v.optional(v.boolean()),
+    onlyIfNoActiveList: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Validate authentication
@@ -149,6 +152,22 @@ export const create = mutation({
       throw new Error("You are not a member of this household");
     }
 
+    if (args.setAsNextShop && args.onlyIfNoActiveList) {
+      const household = await ctx.db.get(args.householdId);
+      if (!household) throw new Error("Household not found");
+      const currentActiveList = household.activeListId
+        ? await ctx.db.get(household.activeListId)
+        : null;
+      if (
+        shouldRejectNextShopClaim({
+          currentActiveList,
+          onlyIfNoActiveList: true,
+        })
+      ) {
+        throw new Error("Another household member already chose a Next shop");
+      }
+    }
+
     // Create the list
     const listId = await ctx.db.insert("lists", {
       householdId: args.householdId,
@@ -163,6 +182,13 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    if (args.setAsNextShop) {
+      await ctx.db.patch(args.householdId, {
+        activeListId: listId,
+        updatedAt: now,
+      });
+    }
 
     return { listId };
   },

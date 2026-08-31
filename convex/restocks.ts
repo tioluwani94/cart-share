@@ -6,6 +6,7 @@ import {
   learnFromPurchase,
 } from "../lib/restockEngine";
 import { calculatePlannedTotal } from "../lib/budget";
+import { shouldRejectNextShopClaim } from "../lib/shoppingList";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
@@ -466,12 +467,26 @@ export const setNextShop = mutation({
     shoppingMode: v.optional(
       v.union(v.literal("in_store"), v.literal("online")),
     ),
+    onlyIfNoActiveList: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
     const list = await ctx.db.get(args.listId);
     if (!list || list.isArchived) throw new Error("Active list not found");
     await requireMembership(ctx, list.householdId, user._id);
+    const household = await ctx.db.get(list.householdId);
+    if (!household) throw new Error("Household not found");
+    const currentActiveList = household.activeListId
+      ? await ctx.db.get(household.activeListId)
+      : null;
+    if (
+      shouldRejectNextShopClaim({
+        currentActiveList,
+        onlyIfNoActiveList: args.onlyIfNoActiveList ?? false,
+      })
+    ) {
+      throw new Error("Another household member already chose a Next shop");
+    }
     const now = Date.now();
     const listChanges: Partial<Doc<"lists">> & { updatedAt: number } = {
       updatedAt: now,

@@ -4,6 +4,8 @@ import {
   createShopCompletionSnapshot,
   getEffectiveShoppingMode,
   getShopCompletionMode,
+  shouldRejectNextShopClaim,
+  shouldWaitForPlanLists,
   summarizeShoppingList,
 } from "./shoppingList";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -124,5 +126,38 @@ describe("shopping list summary", () => {
     expect(getEffectiveShoppingMode(undefined, "online")).toBe("online");
     expect(getEffectiveShoppingMode(undefined, "both")).toBe("in_store");
     expect(getEffectiveShoppingMode("online", "in_store")).toBe("online");
+  });
+
+  it("rejects a no-active-list claim when another member already chose one", () => {
+    expect(
+      shouldRejectNextShopClaim({
+        onlyIfNoActiveList: true,
+        currentActiveList: { isArchived: false },
+      }),
+    ).toBe(true);
+    expect(
+      shouldRejectNextShopClaim({
+        onlyIfNoActiveList: true,
+        currentActiveList: { isArchived: true },
+      }),
+    ).toBe(false);
+    expect(
+      shouldRejectNextShopClaim({
+        onlyIfNoActiveList: false,
+        currentActiveList: { isArchived: false },
+      }),
+    ).toBe(false);
+  });
+
+  it("waits for list choices online without blocking a cached offline plan", () => {
+    expect(
+      shouldWaitForPlanLists({ areListsLoading: true, isOnline: true }),
+    ).toBe(true);
+    expect(
+      shouldWaitForPlanLists({ areListsLoading: true, isOnline: false }),
+    ).toBe(false);
+    expect(
+      shouldWaitForPlanLists({ areListsLoading: false, isOnline: true }),
+    ).toBe(false);
   });
 });

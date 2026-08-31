@@ -16,16 +16,18 @@ import { SuccessCelebration } from "./SuccessCelebration";
 import { CATEGORIES, CategoryChip } from "./CategoryChip";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
 import { themeColors } from "@/lib/theme";
+import { useIsOnline } from "@/lib/useNetworkStatus";
 
 /**
  * Bottom sheet for creating a new shopping list.
  */
 export const CreateListSheet = forwardRef<
   GlassBottomSheetRef,
-  Record<never, never>
+  { setAsNextShop?: boolean }
 >(
-  function CreateListSheet(_props, ref) {
+  function CreateListSheet({ setAsNextShop = false }, ref) {
     const router = useRouter();
+    const isOnline = useIsOnline();
     const [listName, setListName] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string | null>(
       null,
@@ -39,6 +41,7 @@ export const CreateListSheet = forwardRef<
     // Get current household
     const household = useQuery(api.households.getCurrentHousehold);
     const createList = useMutation(api.lists.create);
+    const recalculate = useMutation(api.notifications.recalculateForHousehold);
 
     // Snap points for the bottom sheet
     const snapPoints = useMemo(() => ["72%"], []);
@@ -62,6 +65,12 @@ export const CreateListSheet = forwardRef<
 
     const handleCreate = async () => {
       Keyboard.dismiss();
+
+      if (!isOnline) {
+        setError("Reconnect to create this list.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
 
       // Validate
       if (!listName.trim()) {
@@ -94,7 +103,20 @@ export const CreateListSheet = forwardRef<
           name: listName.trim(),
           category: selectedCategory ?? undefined,
           tripBudgetPence: tripBudgetPence ?? undefined,
+          setAsNextShop: setAsNextShop || undefined,
+          onlyIfNoActiveList: setAsNextShop || undefined,
         });
+
+        if (setAsNextShop) {
+          try {
+            await recalculate({});
+          } catch (recalculationError) {
+            console.error(
+              "Couldn't refresh reminder timing:",
+              recalculationError,
+            );
+          }
+        }
 
         // Success!
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -136,7 +158,7 @@ export const CreateListSheet = forwardRef<
                 </View>
                 <View className="ml-3 flex-1 pr-3">
                   <Text className="text-2xl font-bold tracking-tight text-ink">
-                    New shopping list
+                    {setAsNextShop ? "New Next shop" : "New shopping list"}
                   </Text>
                   <Text className="mt-1 text-sm leading-5 text-ink-secondary">
                     Name the shop, then add a budget or category if useful.
@@ -206,13 +228,30 @@ export const CreateListSheet = forwardRef<
                   variant="primary"
                   size="md"
                   loading={isCreating}
-                  disabled={!listName.trim()}
-                  accessibilityLabel="Create shopping list"
-                  accessibilityHint="Creates the list and opens it"
+                  disabled={!listName.trim() || !isOnline}
+                  accessibilityLabel={
+                    !isOnline
+                      ? setAsNextShop
+                        ? "Reconnect to create Next shop"
+                        : "Reconnect to create shopping list"
+                      : setAsNextShop
+                        ? "Create Next shop"
+                        : "Create shopping list"
+                  }
+                  accessibilityHint={
+                    setAsNextShop
+                      ? "Creates this list as the household's Next shop and opens it"
+                      : "Creates the list and opens it"
+                  }
                   className="w-full"
                 >
-                  Create list
+                  {setAsNextShop ? "Create Next shop" : "Create list"}
                 </Button>
+                {!isOnline && (
+                  <Text className="mt-2 text-center text-sm text-ink-secondary">
+                    Reconnect to create this list
+                  </Text>
+                )}
               </View>
             </>
           )}

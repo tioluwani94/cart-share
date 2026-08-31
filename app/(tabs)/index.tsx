@@ -1,4 +1,5 @@
 import { CreateListSheet, ListCard } from "@/components/lists";
+import { NextShopChooser } from "@/components/restocks/NextShopChooser";
 import { RestockQuickDecisionRow } from "@/components/restocks/RestockQuickDecisionRow";
 import {
   Button,
@@ -7,6 +8,7 @@ import {
   UserAvatar,
 } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   formatCurrencyFromPence,
   formatDateWithWeekday,
@@ -14,6 +16,7 @@ import {
 } from "@/lib/formatters";
 import {
   getEffectiveShoppingMode,
+  shouldWaitForPlanLists,
   type ShoppingMode,
 } from "@/lib/shoppingList";
 import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
@@ -76,14 +79,25 @@ export default function PlanScreen() {
   const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
+  const [choosingListId, setChoosingListId] =
+    useState<Id<"lists"> | null>(null);
+  const [createAsNextShop, setCreateAsNextShop] = useState(false);
+  const [nextShopError, setNextShopError] = useState<string | null>(null);
   const [planningError, setPlanningError] = useState<string | null>(null);
   const [isChangingMode, setIsChangingMode] = useState(false);
   const [shoppingModeError, setShoppingModeError] = useState<string | null>(null);
   const [optimisticShoppingMode, setOptimisticShoppingMode] =
     useState<ShoppingMode | null>(null);
   const { data: household } = useCachedHousehold(user?.id);
-  const { data: lists, isFromCache } = useCachedLists(household?._id);
-  const { data: review } = useCachedRestockReview(user?.id, household?._id);
+  const {
+    data: lists,
+    isFromCache,
+    isLoading: areListsLoading,
+  } = useCachedLists(household?._id);
+  const { data: review, isOnline } = useCachedRestockReview(
+    user?.id,
+    household?._id,
+  );
   const candidateProductIds = useMemo(
     () =>
       review?.candidates.map((candidate) => candidate.householdProductId),
@@ -147,6 +161,30 @@ export default function PlanScreen() {
     }
   }, [recalculate, review?.activeList, setNextShop]);
 
+  const chooseExistingList = useCallback(
+    async (listId: Id<"lists">) => {
+      if (!isOnline || choosingListId) return;
+      setChoosingListId(listId);
+      setNextShopError(null);
+      try {
+        await setNextShop({ listId, onlyIfNoActiveList: true });
+      } catch (error) {
+        console.error("Couldn't choose the next shop:", error);
+        setNextShopError("We couldn't choose that list. Please try again.");
+        setChoosingListId(null);
+        return;
+      }
+
+      try {
+        await recalculate({});
+      } catch (error) {
+        console.error("Couldn't refresh reminder timing:", error);
+      } finally {
+        setChoosingListId(null);
+      }
+    }, [choosingListId, isOnline, recalculate, setNextShop],
+  );
+
   const chooseShoppingMode = useCallback(
     async (shoppingMode: ShoppingMode) => {
       if (!review?.activeList || shoppingMode === displayedShoppingMode) return;
@@ -173,7 +211,11 @@ export default function PlanScreen() {
     setTimeout(() => setRefreshing(false), 500);
   }, []);
 
-  if (household === undefined || review === undefined) {
+  if (
+    household === undefined ||
+    review === undefined ||
+    shouldWaitForPlanLists({ areListsLoading, isOnline })
+  ) {
     return <PlanLoadingState />;
   }
 
@@ -325,23 +367,17 @@ export default function PlanScreen() {
             )}
           </View>
         ) : (
-          <View className="rounded-2xl border border-separator bg-surface p-5">
-            <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
-              <ShoppingBasket size={23} color={themeColors.coral} />
-            </View>
-            <Text className="mt-4 text-2xl font-bold text-ink">
-              Choose your next shop
-            </Text>
-            <Text className="mt-2 text-base leading-6 text-ink-secondary">
-              Create a list and we'll keep likely restocks together for you.
-            </Text>
-            <Button
-              onPress={() => bottomSheetRef.current?.present()}
-              className="mt-5 w-full"
-            >
-              Create Next shop
-            </Button>
-          </View>
+          <NextShopChooser
+            choosingListId={choosingListId}
+            error={nextShopError}
+            existingLists={otherLists}
+            isOnline={isOnline}
+            onChoose={(listId) => void chooseExistingList(listId)}
+            onCreate={() => {
+              setCreateAsNextShop(true);
+              bottomSheetRef.current?.present();
+            }}
+          />
         )}
 
         {activeList && !activeList.plannedFor && (
@@ -485,7 +521,7 @@ export default function PlanScreen() {
           <ChevronRight size={20} color={themeColors.secondaryInk} />
         </Pressable>
 
-        {otherLists.length > 0 && (
+        {activeList && otherLists.length > 0 && (
           <View className="mt-7">
             <Text className="mb-3 text-xl font-bold text-ink">
               Other lists
@@ -505,17 +541,30 @@ export default function PlanScreen() {
           </View>
         )}
 
-        <Pressable
-          onPress={() => bottomSheetRef.current?.present()}
-          className="mt-7 min-h-12 flex-row items-center justify-center rounded-full border border-separator bg-surface px-4"
-          accessibilityLabel="Create another list"
-          accessibilityRole="button"
-        >
-          <Plus size={20} color={themeColors.secondaryInk} />
-          <Text className="ml-2 font-semibold text-ink-secondary">New list</Text>
-        </Pressable>
+        {activeList && (
+          <Pressable
+            onPress={() => {
+              setCreateAsNextShop(false);
+              bottomSheetRef.current?.present();
+            }}
+            disabled={!isOnline}
+            className="mt-7 min-h-12 flex-row items-center justify-center rounded-full border border-separator bg-surface px-4 disabled:opacity-60"
+            accessibilityLabel={
+              isOnline ? "Create another list" : "Reconnect to create another list"
+            }
+            accessibilityRole="button"
+          >
+            <Plus size={20} color={themeColors.secondaryInk} />
+            <Text className="ml-2 font-semibold text-ink-secondary">
+              {isOnline ? "New list" : "Reconnect to create"}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
-      <CreateListSheet ref={bottomSheetRef} />
+      <CreateListSheet
+        ref={bottomSheetRef}
+        setAsNextShop={createAsNextShop}
+      />
     </SafeAreaView>
   );
 }
