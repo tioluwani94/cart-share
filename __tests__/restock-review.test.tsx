@@ -5,6 +5,7 @@ import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import RestockReviewScreen from "../app/restock-review";
 
 const mockReplace = jest.fn();
+const mockBack = jest.fn();
 const mockTrack = jest.fn();
 const mockMakeDecision = jest.fn();
 const mockFlashList = jest.fn();
@@ -117,7 +118,7 @@ jest.mock("@react-navigation/native", () => ({
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({}),
-  useRouter: () => ({ back: jest.fn(), replace: mockReplace }),
+  useRouter: () => ({ back: mockBack, replace: mockReplace }),
 }));
 
 jest.mock("lucide-react-native", () => {
@@ -145,6 +146,23 @@ describe("RestockReviewScreen", () => {
       accessibilityLabel: "Choose a Next shop before adding Milk",
     });
     expect(add.props.disabled).toBe(true);
+  });
+
+  it("returns to Plan deterministically instead of relying on stack history", () => {
+    let renderer!: ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<RestockReviewScreen />);
+    });
+
+    act(() => {
+      const onPress = renderer.root.findByProps({
+        accessibilityLabel: "Back to Plan",
+      }).props.onPress as () => void;
+      onPress();
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it("treats a product added by another member as resolved", () => {

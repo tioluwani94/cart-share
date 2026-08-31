@@ -12,19 +12,31 @@ export type RestockDecision =
   | "not_this_time"
   | "stop_tracking";
 
+const ACTIVE_LIST_CONFLICT_MESSAGE =
+  "Your Next shop changed before that item was added. Review it again.";
+
+function hasActiveListConflict(
+  result: unknown,
+): result is { conflict: "active_list_changed" } {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    "conflict" in result &&
+    result.conflict === "active_list_changed"
+  );
+}
+
 export function useRestockDecisionActions({
+  activeListId,
   candidateProductIds,
-  hasActiveList,
   householdId,
-  isActive,
   marketCountryCode,
   source,
   userId,
 }: {
+  activeListId?: Id<"lists">;
   candidateProductIds?: readonly Id<"householdProducts">[];
-  hasActiveList: boolean;
   householdId?: Id<"households">;
-  isActive: boolean;
   marketCountryCode?: string;
   source: "plan" | "notification";
   userId?: string | null;
@@ -32,12 +44,18 @@ export function useRestockDecisionActions({
   const analytics = useAnalytics();
   const queueScope = useMemo<OfflineScope | null>(
     () =>
-      isActive && userId && householdId
+      userId && householdId
         ? { clerkUserId: userId, householdId }
         : null,
-    [householdId, isActive, userId],
+    [householdId, userId],
   );
-  const { addToQueue, isOnline, queue } = useScopedOfflineQueue(queueScope);
+  const {
+    addToQueue,
+    conflicts,
+    dismissConflict,
+    isOnline,
+    queue,
+  } = useScopedOfflineQueue(queueScope);
   const decide = useMutation(api.restocks.decide);
   const recalculate = useMutation(api.notifications.recalculateForHousehold);
   const [pendingProductIds, setPendingProductIds] = useState(
@@ -48,6 +66,13 @@ export function useRestockDecisionActions({
   );
   const pendingProductIdsRef = useRef(new Set<Id<"householdProducts">>());
   const [error, setError] = useState<string | null>(null);
+  const activeListConflicts = useMemo(
+    () =>
+      conflicts.filter(
+        (conflict) => conflict.type === "restocks.active_list_changed",
+      ),
+    [conflicts],
+  );
   const queuedProductIds = useMemo(
     () =>
       new Set(
@@ -83,10 +108,16 @@ export function useRestockDecisionActions({
       householdProductId: Id<"householdProducts">,
       decision: RestockDecision,
     ) => {
-      if (decision === "add" && !hasActiveList) {
+      if (decision === "add" && !activeListId) {
         setError("Choose a Next shop before adding restocks.");
         return;
       }
+      activeListConflicts
+        .filter(
+          (conflict) =>
+            conflict.householdProductId === householdProductId,
+        )
+        .forEach((conflict) => dismissConflict(conflict.id));
       if (pendingProductIdsRef.current.has(householdProductId)) return;
       pendingProductIdsRef.current.add(householdProductId);
       setPendingProductIds(new Set(pendingProductIdsRef.current));
@@ -94,12 +125,25 @@ export function useRestockDecisionActions({
       let decisionSaved = false;
       try {
         const operationId = createOfflineId("restock");
+        const args =
+          decision === "add"
+            ? {
+                householdProductId,
+                decision,
+                operationId,
+                expectedActiveListId: activeListId!,
+              }
+            : { householdProductId, decision, operationId };
         if (isOnline) {
-          await decide({ householdProductId, decision, operationId });
+          const result = await decide(args);
+          if (hasActiveListConflict(result)) {
+            setError(ACTIVE_LIST_CONFLICT_MESSAGE);
+            return;
+          }
         } else {
           addToQueue({
             type: "restocks.decide",
-            args: { householdProductId, decision, operationId },
+            args,
           });
         }
         decisionSaved = true;
@@ -133,9 +177,11 @@ export function useRestockDecisionActions({
       }
     }, [
       addToQueue,
+      activeListConflicts,
+      activeListId,
       analytics,
       decide,
-      hasActiveList,
+      dismissConflict,
       isOnline,
       marketCountryCode,
       recalculate,
@@ -144,7 +190,11 @@ export function useRestockDecisionActions({
   );
 
   return {
-    error,
+    error:
+      error ??
+      (activeListConflicts.length > 0
+        ? ACTIVE_LIST_CONFLICT_MESSAGE
+        : null),
     hiddenProductIds,
     makeDecision,
     pendingProductIds,

@@ -12,10 +12,9 @@ import {
   listenForNotificationResponses,
 } from "@/lib/pushNotifications";
 import type { RestockNotificationResponse } from "@/lib/notificationResponse";
-import { routeOwnsForegroundQueue } from "@/lib/offlineQueueOwnership";
 import { SyncStatusProvider } from "@/lib/SyncStatusContext";
 import { getAuthRedirect } from "@/lib/authRouting";
-import { useScopedOfflineQueue } from "@/lib/useScopedOfflineQueue";
+import { OfflineQueueProvider } from "@/lib/useScopedOfflineQueue";
 import type { OfflineScope } from "@/lib/offlineQueue";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -118,21 +117,13 @@ function InitialLayout() {
   );
 
   const rootSegment = segments[0] as string | undefined;
-  const childSegment = segments[1] as string | undefined;
-  const ownsForegroundQueue = routeOwnsForegroundQueue(
-    rootSegment,
-    childSegment,
-  );
-  const backgroundSyncScope = useMemo<OfflineScope | null>(
+  const offlineQueueScope = useMemo<OfflineScope | null>(
     () =>
-      isSignedIn && userId && household && !ownsForegroundQueue
+      isSignedIn && userId && household
         ? { clerkUserId: userId, householdId: household._id }
         : null,
-    [household, isSignedIn, ownsForegroundQueue, userId],
+    [household, isSignedIn, userId],
   );
-  // List screens own their live queue state; everywhere else this keeps
-  // queued work replaying as soon as the connection is restored.
-  useScopedOfflineQueue(backgroundSyncScope);
 
   const authRedirect = getAuthRedirect({
     isNavigationReady: Boolean(navigationState?.key),
@@ -279,18 +270,20 @@ function InitialLayout() {
   ]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <OfflineIndicator />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: reduceMotion ? "fade" : "default",
-          gestureEnabled: true,
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
-      </Stack>
-    </View>
+    <OfflineQueueProvider scope={offlineQueueScope}>
+      <View style={{ flex: 1 }}>
+        <OfflineIndicator />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: reduceMotion ? "fade" : "default",
+            gestureEnabled: true,
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
+        </Stack>
+      </View>
+    </OfflineQueueProvider>
   );
 }
 

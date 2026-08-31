@@ -330,7 +330,7 @@ export default function ReceiptConfirmScreen() {
       setShowConfetti(true);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => router.replace("/(tabs)"), 2500);
+      setTimeout(() => router.replace("/(tabs)/analytics"), 2500);
       setTimeout(() => setShowConfetti(false), 3000);
     } catch (error) {
       console.error("Error creating session:", error);

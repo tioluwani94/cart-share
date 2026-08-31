@@ -56,7 +56,10 @@ jest.mock("@/lib/AnalyticsContext", () => ({
 }));
 
 jest.mock("expo-router", () => ({
-  router: mockRouter,
+  router: {
+    back: (...args: unknown[]) => mockRouter.back(...args),
+    replace: (...args: unknown[]) => mockRouter.replace(...args),
+  },
   useLocalSearchParams: () => ({ entry: "manual", listId: "list_1" }),
 }));
 
@@ -239,6 +242,10 @@ describe("ReceiptConfirmScreen manual completion", () => {
       receipt_present: false,
       total_present: false,
     });
+    act(() => {
+      jest.advanceTimersByTime(2500);
+    });
+    expect(mockRouter.replace).toHaveBeenCalledWith("/(tabs)/analytics");
   });
 
   it("saves a manual total, store, and selected household payer", async () => {

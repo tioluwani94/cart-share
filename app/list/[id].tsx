@@ -27,7 +27,6 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
-import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronLeft, CloudOff } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -59,7 +58,6 @@ export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const listId = id as Id<"lists">;
   const { userId } = useAuth();
-  const isFocused = useIsFocused();
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
@@ -109,7 +107,7 @@ export default function ListDetailScreen() {
     removeItem: offlineRemoveItem,
     updateItem: offlineUpdateItem,
     isPendingSync,
-  } = useShoppingList(listId, list?.householdId, isFocused);
+  } = useShoppingList(listId, list?.householdId);
 
   const archiveList = useMutation(api.lists.archive);
   const updateList = useMutation(api.lists.update);

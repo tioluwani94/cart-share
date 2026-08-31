@@ -8,7 +8,6 @@ import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { useAuth } from "@clerk/clerk-expo";
-import { useIsFocused } from "@react-navigation/native";
 import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ChevronLeft, Pause, ShoppingBasket } from "lucide-react-native";
@@ -18,7 +17,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function RestockReviewScreen() {
   const router = useRouter();
-  const isFocused = useIsFocused();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const { userId } = useAuth();
   const analytics = useAnalytics();
@@ -35,10 +33,9 @@ export default function RestockReviewScreen() {
   const sourceName = source === "notification" ? "notification" : "plan";
   const { error, hiddenProductIds, makeDecision, pendingProductIds } =
     useRestockDecisionActions({
+      activeListId: review?.activeList?._id,
       candidateProductIds,
-      hasActiveList,
       householdId: household?._id,
-      isActive: isFocused,
       marketCountryCode: review?.household.marketCountryCode,
       source: sourceName,
       userId,
@@ -80,7 +77,7 @@ export default function RestockReviewScreen() {
     <SafeAreaView className="flex-1 bg-background-light">
       <View className="flex-row items-center px-4 py-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)")}
           className="h-11 w-11 items-center justify-center rounded-full bg-white"
           accessibilityLabel="Back to Plan"
           accessibilityRole="button"

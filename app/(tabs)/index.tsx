@@ -25,7 +25,6 @@ import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { themeColors } from "@/lib/theme";
 import { useUser } from "@clerk/clerk-expo";
-import { useIsFocused } from "@react-navigation/native";
 import { useMutation } from "convex/react";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -75,7 +74,6 @@ function nextSaturday(now = new Date()): number {
 
 export default function PlanScreen() {
   const router = useRouter();
-  const isFocused = useIsFocused();
   const { user } = useUser();
   const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -108,10 +106,9 @@ export default function PlanScreen() {
   const recalculate = useMutation(api.notifications.recalculateForHousehold);
   const { error: decisionError, hiddenProductIds, makeDecision } =
     useRestockDecisionActions({
+      activeListId: review?.activeList?._id,
       candidateProductIds,
-      hasActiveList: Boolean(review?.activeList),
       householdId: household?._id,
-      isActive: isFocused,
       marketCountryCode: review?.household.marketCountryCode,
       source: "plan",
       userId: user?.id,

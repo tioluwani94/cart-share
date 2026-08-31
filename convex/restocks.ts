@@ -557,6 +557,7 @@ export const decide = mutation({
       v.literal("stop_tracking"),
     ),
     operationId: v.string(),
+    expectedActiveListId: v.optional(v.id("lists")),
   },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
@@ -572,13 +573,11 @@ export const decide = mutation({
     const activeList = activeListRecord?.isArchived ? null : activeListRecord;
     const recentOperationIds = product.recentOperationIds ?? [];
 
-    const findLinkedItem = async () => {
-      if (!household.activeListId) return null;
+    const findLinkedItem = async (listId?: Id<"lists">) => {
+      if (!listId) return null;
       const items = await ctx.db
         .query("items")
-        .withIndex("by_list", (query) =>
-          query.eq("listId", household.activeListId!),
-        )
+        .withIndex("by_list", (query) => query.eq("listId", listId))
         .collect();
       return (
         items.find(
@@ -593,10 +592,25 @@ export const decide = mutation({
 
     if (recentOperationIds.includes(args.operationId)) {
       const existingItem =
-        args.decision === "add" ? await findLinkedItem() : null;
+        args.decision === "add"
+          ? await findLinkedItem(
+              args.expectedActiveListId ?? activeList?._id,
+            )
+          : null;
       return {
         applied: false as const,
         itemId: existingItem?._id,
+      };
+    }
+
+    if (
+      args.decision === "add" &&
+      args.expectedActiveListId !== undefined &&
+      args.expectedActiveListId !== activeList?._id
+    ) {
+      return {
+        applied: false as const,
+        conflict: "active_list_changed" as const,
       };
     }
 
@@ -618,11 +632,11 @@ export const decide = mutation({
 
     let itemId: Id<"items"> | undefined;
     if (result.addToShop) {
-      if (!household.activeListId) {
+      if (!activeList) {
         throw new Error("Choose a Next shop before adding restocks");
       }
 
-      const existingItem = await findLinkedItem();
+      const existingItem = await findLinkedItem(activeList._id);
       if (existingItem && !existingItem.householdProductId) {
         await ctx.db.patch(existingItem._id, {
           householdProductId: product._id,
@@ -632,7 +646,7 @@ export const decide = mutation({
       itemId =
         existingItem?._id ??
         (await ctx.db.insert("items", {
-          listId: household.activeListId,
+          listId: activeList._id,
           clientId: `restock:${product._id}:${args.operationId}`,
           householdProductId: product._id,
           name: product.displayName,

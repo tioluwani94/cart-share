@@ -30,6 +30,38 @@ type RestockDecision =
   | "not_this_time"
   | "stop_tracking";
 
+type RestockDecisionArgs = {
+  householdProductId: Id<"householdProducts">;
+  operationId: string;
+} & (
+  | {
+      decision: "add";
+      expectedActiveListId: Id<"lists">;
+    }
+  | {
+      decision: Exclude<RestockDecision, "add">;
+      expectedActiveListId?: never;
+    }
+);
+
+export interface OfflineConflict {
+  id: string;
+  scope: OfflineScope;
+  occurredAt: number;
+  type: "restocks.active_list_changed";
+  householdProductId: Id<"householdProducts">;
+  intendedListId?: Id<"lists">;
+}
+
+export class OfflineTerminalConflictError extends Error {
+  constructor(
+    readonly conflictType: OfflineConflict["type"],
+  ) {
+    super(conflictType);
+    this.name = "OfflineTerminalConflictError";
+  }
+}
+
 export interface ShopCompletionItemSnapshot {
   itemId?: Id<"items">;
   clientId?: string;
@@ -87,11 +119,7 @@ export type OfflineOperation =
       queuedAt: number;
       retryCount?: number;
       type: "restocks.decide";
-      args: {
-        householdProductId: Id<"householdProducts">;
-        decision: RestockDecision;
-        operationId: string;
-      };
+      args: RestockDecisionArgs;
     }
   | {
       id: string;
@@ -119,11 +147,7 @@ export type NewOfflineOperation =
   | { type: "items.remove"; args: ItemReference }
   | {
       type: "restocks.decide";
-      args: {
-        householdProductId: Id<"householdProducts">;
-        decision: RestockDecision;
-        operationId: string;
-      };
+      args: RestockDecisionArgs;
     }
   | {
       type: "sessions.complete";
@@ -163,6 +187,16 @@ export async function executeOfflineOperation(
       await adapter.removeItem(operation.args);
       return;
     case "restocks.decide":
+      if (
+        operation.args.decision === "add" &&
+        !operation.args.expectedActiveListId
+      ) {
+        // Legacy queued Adds did not record which list the household approved.
+        // Dropping them into today's Next shop would be an unsafe guess.
+        throw new OfflineTerminalConflictError(
+          "restocks.active_list_changed",
+        );
+      }
       await adapter.decideRestock(operation.args);
       await adapter.recalculateReminders();
       return;
@@ -180,6 +214,10 @@ export function scopesMatch(a: OfflineScope, b: OfflineScope): boolean {
 
 export function getOfflineQueueStorageKey(scope: OfflineScope): string {
   return `offline:queue:${encodeURIComponent(scope.clerkUserId)}:${scope.householdId}`;
+}
+
+export function getOfflineConflictStorageKey(scope: OfflineScope): string {
+  return `offline:conflicts:${encodeURIComponent(scope.clerkUserId)}:${scope.householdId}`;
 }
 
 export function appendOfflineOperation(
@@ -238,9 +276,11 @@ export async function replayOfflineOperations(
 ): Promise<{
   success: number;
   failed: number;
+  conflicts: OfflineConflict[];
   remaining: OfflineOperation[];
 }> {
   let success = 0;
+  const conflicts: OfflineConflict[] = [];
 
   for (let index = 0; index < operations.length; index += 1) {
     const operation = operations[index];
@@ -248,6 +288,7 @@ export async function replayOfflineOperations(
       return {
         success,
         failed: 0,
+        conflicts,
         remaining: operations.slice(index),
       };
     }
@@ -255,10 +296,26 @@ export async function replayOfflineOperations(
     try {
       await execute(operation);
       success += 1;
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof OfflineTerminalConflictError &&
+        operation.type === "restocks.decide" &&
+        operation.args.decision === "add"
+      ) {
+        conflicts.push({
+          id: operation.id,
+          scope: operation.scope,
+          occurredAt: Date.now(),
+          type: error.conflictType,
+          householdProductId: operation.args.householdProductId,
+          intendedListId: operation.args.expectedActiveListId,
+        });
+        continue;
+      }
       return {
         success,
         failed: 1,
+        conflicts,
         remaining: [
           {
             ...operation,
@@ -270,7 +327,7 @@ export async function replayOfflineOperations(
     }
   }
 
-  return { success, failed: 0, remaining: [] };
+  return { success, failed: 0, conflicts, remaining: [] };
 }
 
 export function removeScopeOperations(

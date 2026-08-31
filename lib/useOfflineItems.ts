@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useIsOnline } from "./useNetworkStatus";
 import { createOfflineId, type OfflineScope } from "./offlineQueue";
 import {
   createShopCompletionSnapshot,
@@ -66,22 +65,21 @@ export interface OptimisticItem extends ItemWithUser {
 export function useOfflineItems(
   listId: Id<"lists">,
   householdId?: Id<"households">,
-  ownsQueue = true,
 ) {
   const { userId } = useAuth();
   const scope = useMemo<OfflineScope | null>(
     () =>
-      ownsQueue && userId && householdId
+      userId && householdId
         ? { clerkUserId: userId, householdId }
         : null,
-    [householdId, ownsQueue, userId],
+    [householdId, userId],
   );
-  const isOnline = useIsOnline();
   const {
     addToQueue,
     queue,
     isProcessing,
     hasSyncError,
+    isOnline,
     processQueue,
   } = useScopedOfflineQueue(scope);
 

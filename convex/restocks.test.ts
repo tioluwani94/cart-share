@@ -7,6 +7,7 @@ type DecideHandler = (
     householdProductId: Id<"householdProducts">;
     decision: "add";
     operationId: string;
+    expectedActiveListId?: Id<"lists">;
   },
 ) => Promise<unknown>;
 
@@ -184,6 +185,68 @@ describe("restocks.decide", () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
+  it("does not add to a different Next shop during offline replay", async () => {
+    const householdProductId = "product_1" as Id<"householdProducts">;
+    const householdId = "household_1" as Id<"households">;
+    const intendedListId = "list_1" as Id<"lists">;
+    const currentListId = "list_2" as Id<"lists">;
+    const userId = "user_1" as Id<"users">;
+    const insert = jest.fn();
+    const patch = jest.fn();
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: async (id: string) => {
+          if (id === householdProductId) {
+            return {
+              _id: householdProductId,
+              householdId,
+              displayName: "Milk",
+              normalizedName: "milk",
+              status: "active",
+              cadenceDays: 7,
+              purchaseObservationCount: 1,
+              recentOperationIds: [],
+              createdAt: 1,
+              updatedAt: 1,
+            };
+          }
+          if (id === householdId) {
+            return { _id: householdId, activeListId: currentListId };
+          }
+          if (id === currentListId) {
+            return { _id: currentListId, householdId, isArchived: false };
+          }
+          return null;
+        },
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users"
+                ? { _id: userId }
+                : { householdId, userId },
+          }),
+        }),
+        insert,
+        patch,
+      },
+    };
+
+    await expect(
+      decideRestock(ctx, {
+        householdProductId,
+        decision: "add",
+        operationId: "operation_1",
+        expectedActiveListId: intendedListId,
+      }),
+    ).resolves.toEqual({
+      applied: false,
+      conflict: "active_list_changed",
+    });
+    expect(insert).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it("replays an add decision without duplicating the active-list item", async () => {
     const householdProductId = "product_1" as Id<"householdProducts">;
     const householdId = "household_1" as Id<"households">;
@@ -226,6 +289,9 @@ describe("restocks.decide", () => {
         get: async (id: string) => {
           if (id === householdProductId) return product;
           if (id === householdId) return household;
+          if (id === listId) {
+            return { _id: listId, householdId, isArchived: false };
+          }
           return null;
         },
         query: (table: string) => ({
@@ -248,6 +314,7 @@ describe("restocks.decide", () => {
       householdProductId,
       decision: "add" as const,
       operationId: "operation_1",
+      expectedActiveListId: listId,
     };
 
     await expect(decideRestock(ctx, args)).resolves.toEqual(

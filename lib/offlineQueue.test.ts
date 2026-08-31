@@ -2,8 +2,10 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   appendOfflineOperation,
   executeOfflineOperation,
+  getOfflineConflictStorageKey,
   getOfflineQueueStorageKey,
   getReplayOperations,
+  OfflineTerminalConflictError,
   removeScopeOperations,
   replayOfflineOperations,
   type OfflineOperation,
@@ -173,6 +175,9 @@ describe("offline queue", () => {
     expect(getOfflineQueueStorageKey(scope)).not.toBe(
       getOfflineQueueStorageKey(otherScope),
     );
+    expect(getOfflineConflictStorageKey(scope)).not.toBe(
+      getOfflineConflictStorageKey(otherScope),
+    );
     expect(getReplayOperations(queue, scope)).toEqual([first]);
     expect(removeScopeOperations(queue, scope)).toEqual([second]);
   });
@@ -211,19 +216,22 @@ describe("offline queue", () => {
     expect(result).toEqual({
       success: 0,
       failed: 1,
+      conflicts: [],
       remaining: [{ ...first, retryCount: 1 }, second],
     });
   });
 
-  it("keeps an absolute restock decision and stable operation ID in scope", () => {
+  it("keeps a restock Add bound to its intended list", () => {
+    const expectedActiveListId = "list_1" as Id<"lists">;
     const decision = operation(
       {
         type: "restocks.decide",
         args: {
           householdProductId:
             "household_product_1" as Id<"householdProducts">,
-          decision: "still_have_some",
+          decision: "add",
           operationId: "restock_operation_1",
+          expectedActiveListId,
         },
       },
       1,
@@ -232,10 +240,104 @@ describe("offline queue", () => {
     expect(getReplayOperations([decision], scope)).toEqual([decision]);
     expect(decision.args).toEqual(
       expect.objectContaining({
-        decision: "still_have_some",
+        decision: "add",
+        expectedActiveListId,
         operationId: "restock_operation_1",
       }),
     );
+  });
+
+  it("turns a legacy unbound restock Add into a visible conflict", async () => {
+    const householdProductId =
+      "household_product_legacy" as Id<"householdProducts">;
+    const legacyOperation = {
+      id: "operation_legacy",
+      scope,
+      queuedAt: 1,
+      type: "restocks.decide",
+      args: {
+        householdProductId,
+        decision: "add",
+        operationId: "restock_operation_legacy",
+      },
+    } as OfflineOperation;
+    const adapter = {
+      addItem: jest.fn(),
+      setCompleted: jest.fn(),
+      updateItem: jest.fn(),
+      removeItem: jest.fn(),
+      decideRestock: jest.fn(),
+      completeShop: jest.fn(),
+      recalculateReminders: jest.fn(),
+    };
+
+    const result = await replayOfflineOperations(
+      [legacyOperation],
+      (entry) => executeOfflineOperation(entry, adapter),
+    );
+
+    expect(adapter.decideRestock).not.toHaveBeenCalled();
+    expect(result.remaining).toEqual([]);
+    expect(result.conflicts).toEqual([
+      expect.objectContaining({
+        householdProductId,
+        type: "restocks.active_list_changed",
+      }),
+    ]);
+  });
+
+  it("records an intended-list conflict and continues unrelated FIFO work", async () => {
+    const listId = "list_1" as Id<"lists">;
+    const householdProductId =
+      "household_product_1" as Id<"householdProducts">;
+    const conflictedAdd = operation(
+      {
+        type: "restocks.decide",
+        args: {
+          householdProductId,
+          decision: "add",
+          operationId: "restock_operation_1",
+          expectedActiveListId: listId,
+        },
+      },
+      1,
+    );
+    const laterItem = operation(
+      {
+        type: "items.add",
+        args: {
+          listId: "list_2" as Id<"lists">,
+          clientId: "client_item_1",
+          name: "Tea",
+        },
+      },
+      2,
+    );
+    const execute = jest.fn(async (entry: OfflineOperation) => {
+      if (entry.id === conflictedAdd.id) {
+        throw new OfflineTerminalConflictError("restocks.active_list_changed");
+      }
+    });
+
+    const result = await replayOfflineOperations(
+      [conflictedAdd, laterItem],
+      execute,
+    );
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      success: 1,
+      failed: 0,
+      remaining: [],
+      conflicts: [
+        expect.objectContaining({
+          id: conflictedAdd.id,
+          householdProductId,
+          intendedListId: listId,
+          type: "restocks.active_list_changed",
+        }),
+      ],
+    });
   });
 
   it("keeps an offline shop completion snapshot and stable operation ID in scope", () => {
@@ -321,7 +423,12 @@ describe("offline queue", () => {
     });
 
     expect(executed).toEqual(["items.add", "sessions.complete"]);
-    expect(result).toEqual({ success: 2, failed: 0, remaining: [] });
+    expect(result).toEqual({
+      success: 2,
+      failed: 0,
+      conflicts: [],
+      remaining: [],
+    });
   });
 
   it("dispatches item writes before completion through the production executor", async () => {

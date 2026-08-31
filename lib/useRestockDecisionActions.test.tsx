@@ -15,10 +15,16 @@ const mockRecalculate = jest.fn(
   async (_args?: Record<string, never>): Promise<void> => undefined,
 );
 const mockAddToQueue = jest.fn();
+const mockDismissConflict = jest.fn();
 const mockTrack = jest.fn();
 const mockQueueState = {
   isOnline: true,
   queue: [] as { type: string; args: { householdProductId: string } }[],
+  conflicts: [] as {
+    id: string;
+    householdProductId: string;
+    type: "restocks.active_list_changed";
+  }[],
 };
 
 jest.mock("@/convex/_generated/api", () => ({
@@ -40,6 +46,8 @@ jest.mock("./AnalyticsContext", () => ({
 jest.mock("./useScopedOfflineQueue", () => ({
   useScopedOfflineQueue: () => ({
     addToQueue: mockAddToQueue,
+    conflicts: mockQueueState.conflicts,
+    dismissConflict: mockDismissConflict,
     isOnline: mockQueueState.isOnline,
     queue: mockQueueState.queue,
   }),
@@ -58,9 +66,10 @@ describe("useRestockDecisionActions", () => {
   }) {
     actions = useRestockDecisionActions({
       candidateProductIds,
-      hasActiveList,
+      activeListId: hasActiveList
+        ? ("list_1" as Id<"lists">)
+        : undefined,
       householdId: "household_1" as Id<"households">,
-      isActive: true,
       marketCountryCode: "GB",
       source: "plan",
       userId: "clerk_1",
@@ -72,11 +81,13 @@ describe("useRestockDecisionActions", () => {
     mockDecide.mockClear();
     mockRecalculate.mockClear();
     mockAddToQueue.mockClear();
+    mockDismissConflict.mockClear();
     mockTrack.mockClear();
     mockDecide.mockResolvedValue(undefined);
     mockRecalculate.mockResolvedValue(undefined);
     mockQueueState.isOnline = true;
     mockQueueState.queue = [];
+    mockQueueState.conflicts = [];
   });
 
   it("applies and recalculates an online decision", async () => {
@@ -91,6 +102,7 @@ describe("useRestockDecisionActions", () => {
     expect(mockDecide).toHaveBeenCalledWith({
       householdProductId,
       decision: "add",
+      expectedActiveListId: "list_1",
       operationId: expect.stringMatching(/^restock_/),
     });
     expect(mockRecalculate).toHaveBeenCalledWith({});
@@ -123,6 +135,27 @@ describe("useRestockDecisionActions", () => {
     });
     expect(mockDecide).not.toHaveBeenCalled();
     expect(mockRecalculate).not.toHaveBeenCalled();
+  });
+
+  it("binds an offline Add to the current Next shop", async () => {
+    mockQueueState.isOnline = false;
+    act(() => {
+      TestRenderer.create(<Harness />);
+    });
+
+    await act(async () => {
+      await actions.makeDecision(householdProductId, "add");
+    });
+
+    expect(mockAddToQueue).toHaveBeenCalledWith({
+      type: "restocks.decide",
+      args: {
+        householdProductId,
+        decision: "add",
+        expectedActiveListId: "list_1",
+        operationId: expect.stringMatching(/^restock_/),
+      },
+    });
   });
 
   it("does not queue an Add that cannot succeed without a Next shop", async () => {
@@ -158,6 +191,29 @@ describe("useRestockDecisionActions", () => {
     expect(actions.hiddenProductIds.has(householdProductId)).toBe(true);
     expect(mockTrack).toHaveBeenCalledTimes(1);
     consoleError.mockRestore();
+  });
+
+  it("surfaces and clears an intended-list conflict before retrying", async () => {
+    mockQueueState.conflicts = [
+      {
+        id: "operation_1",
+        householdProductId,
+        type: "restocks.active_list_changed",
+      },
+    ];
+    act(() => {
+      TestRenderer.create(<Harness />);
+    });
+
+    expect(actions.error).toBe(
+      "Your Next shop changed before that item was added. Review it again.",
+    );
+
+    await act(async () => {
+      await actions.makeDecision(householdProductId, "add");
+    });
+
+    expect(mockDismissConflict).toHaveBeenCalledWith("operation_1");
   });
 
   it("allows a product to reappear in a later review cycle", async () => {
