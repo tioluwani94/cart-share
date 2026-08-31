@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui";
+import { themeColors } from "@/lib/theme";
 import { CheckCircle2, PoundSterling } from "lucide-react-native";
 import { Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -12,6 +13,7 @@ interface ManualEntryProps {
   /** Setter for updating the manual amount input value */
   setManualAmount: (value: string) => void;
   handleSkip: () => void;
+  errorMessage?: string;
 }
 
 export const ManualEntry = (props: ManualEntryProps) => {
@@ -21,6 +23,7 @@ export const ManualEntry = (props: ManualEntryProps) => {
     handleSkip,
     manualAmount,
     setManualAmount,
+    errorMessage,
   } = props;
 
   return (
@@ -38,7 +41,7 @@ export const ManualEntry = (props: ManualEntryProps) => {
       </Text>
 
       <Text className="mt-2 mb-6 text-center text-sm text-warm-gray-500">
-        Type the total from your receipt
+        Type what you spent. You can add the store and payment source next.
       </Text>
 
       {/* Manual input */}
@@ -53,13 +56,19 @@ export const ManualEntry = (props: ManualEntryProps) => {
             onChangeText={setManualAmount}
             keyboardType="decimal-pad"
             placeholder="0.00"
-            placeholderTextColor="#A9A69E"
+            placeholderTextColor={themeColors.muted}
             className="h-16 w-full rounded-2xl border-2 border-warm-gray-200 bg-white pl-12 pr-4 text-3xl font-bold text-warm-gray-900 text-center"
             maxLength={10}
             accessibilityLabel="Enter total amount"
           />
         </View>
       </View>
+
+      {errorMessage ? (
+        <Text className="mt-3 px-4 text-center text-sm text-red-600">
+          {errorMessage}
+        </Text>
+      ) : null}
 
       {/* Submit button */}
       <Button

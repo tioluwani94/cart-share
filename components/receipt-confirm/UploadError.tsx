@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui";
-import { router } from "expo-router";
 import { Receipt, RotateCcw } from "lucide-react-native";
 import { Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -9,11 +8,13 @@ interface UploadErrorProps {
   errorMessage?: string;
   /** Handler for retrying the upload */
   handleTryAgain: () => void;
+  handleSkip: () => void;
 }
 
 export const UploadError = ({
   errorMessage,
   handleTryAgain,
+  handleSkip,
 }: UploadErrorProps) => {
   return (
     <Animated.View entering={FadeInDown.duration(400)} className="items-center">
@@ -49,7 +50,7 @@ export const UploadError = ({
       <Button
         variant="ghost"
         size="md"
-        onPress={() => router.replace("/(tabs)")}
+        onPress={handleSkip}
         className="mt-4"
       >
         Skip for now

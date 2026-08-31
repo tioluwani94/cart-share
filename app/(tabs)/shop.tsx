@@ -7,8 +7,12 @@ import {
 } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
+import { getItemCountBucket } from "@/lib/analytics";
 import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
-import { getReceiptCaptureRoute } from "@/lib/receiptFlow";
+import {
+  getManualReceiptEntryRoute,
+  getReceiptCaptureRoute,
+} from "@/lib/receiptFlow";
 import {
   buildShoppingListHandoff,
   canFinishShoppingList,
@@ -28,6 +32,7 @@ import {
   Check,
   CloudOff,
   Copy,
+  PoundSterling,
   Receipt,
   Share2,
   ShoppingBasket,
@@ -156,6 +161,7 @@ function ActiveShop({
   });
   const canScanReceipt =
     canFinish && isOnline && queueLength === 0 && !hasQueuedCompletion;
+  const canAddSpend = canScanReceipt;
   const syncMessage = hasQueuedCompletion
     ? isOnline
       ? "Finishing this shop now that you're connected."
@@ -237,8 +243,7 @@ function ActiveShop({
       const result = await completeShop(items ?? []);
       analytics.track("shop completed", {
         household_id: householdId,
-        item_count_bucket:
-          totalCount === 0 ? "0" : totalCount <= 10 ? "1-10" : "11+",
+        item_count_bucket: getItemCountBucket(totalCount),
         total_present: false,
         receipt_present: false,
       });
@@ -472,7 +477,7 @@ function ActiveShop({
 
       <GlassBottomSheet
         ref={finishSheetRef}
-        snapPoints={["52%"]}
+        snapPoints={["72%"]}
         dismissible={!isFinishing}
       >
         <GlassBottomSheetView className="px-6 pb-10 pt-2">
@@ -491,9 +496,29 @@ function ActiveShop({
           </View>
           <Text className="mt-2 text-base leading-6 text-ink-secondary">
             {canScanReceipt
-              ? "A receipt helps track actual spend. You can also finish without one."
-              : "Receipt scanning needs a connection. You can finish without one and sync later."}
+              ? "Add what you spent, or skip it for now. Your list stays available until the trip saves."
+              : "Adding spend needs a connection. You can finish without it and sync later."}
           </Text>
+
+          <View className="mt-4 flex-row rounded-2xl bg-warm-gray-100 px-4 py-3">
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-ink">{completedCount}</Text>
+              <Text className="text-sm text-ink-secondary">
+                {completedCount === 1 ? "product purchased" : "products purchased"}
+              </Text>
+            </View>
+            <View className="w-px bg-separator" />
+            <View className="flex-1 pl-4">
+              <Text className="text-lg font-bold text-ink">
+                {Math.max(0, totalCount - completedCount)}
+              </Text>
+              <Text className="text-sm text-ink-secondary">
+                {totalCount - completedCount === 1
+                  ? "product left"
+                  : "products left"}
+              </Text>
+            </View>
+          </View>
 
           <Pressable
             onPress={() => {
@@ -519,6 +544,28 @@ function ActiveShop({
           </Pressable>
 
           <Pressable
+            onPress={() => {
+              finishSheetRef.current?.dismiss();
+              router.push(getManualReceiptEntryRoute(list._id));
+            }}
+            disabled={!canAddSpend}
+            className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator bg-white/60 p-4 disabled:opacity-50"
+            accessibilityLabel="Enter shopping total"
+            accessibilityHint="Opens a form to add the total, store, and payment source"
+            accessibilityRole="button"
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-teal-soft">
+              <PoundSterling size={22} color={themeColors.teal} />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-bold text-ink">Enter total</Text>
+              <Text className="mt-0.5 text-sm text-ink-secondary">
+                Add spend without taking a photo
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
             onPress={() => void finishWithoutReceipt()}
             disabled={!canFinish}
             className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator p-4 disabled:opacity-50"
@@ -534,13 +581,17 @@ function ActiveShop({
             </View>
             <View className="ml-3 flex-1">
               <Text className="text-base font-bold text-ink">
-                Finish without receipt
+                Skip for now
               </Text>
               <Text className="mt-0.5 text-sm text-ink-secondary">
-                Save the trip without an actual total
+                Save the trip without financial details
               </Text>
             </View>
           </Pressable>
+
+          <Text className="mt-4 text-sm leading-5 text-ink-secondary">
+            We'll use purchased recurring products to prepare the next shop.
+          </Text>
 
           {finishUnavailableMessage && (
             <Text className="mt-3 text-sm text-yellow-800">

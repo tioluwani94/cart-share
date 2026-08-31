@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui";
 import { formatAmount } from "@/lib/formatAmount";
 import { cn } from "@/lib/cn";
+import { themeColors } from "@/lib/theme";
 import { CheckCircle2, Edit3 } from "lucide-react-native";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 import Animated, { FadeInUp, useReducedMotion } from "react-native-reanimated";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -21,6 +22,9 @@ interface ScanSuccessProps {
     value: "joint" | Id<"users">;
     label: string;
   }[];
+  storeName: string;
+  onStoreNameChange: (value: string) => void;
+  errorMessage?: string;
 }
 
 export const ScanSuccess = (props: ScanSuccessProps) => {
@@ -32,6 +36,9 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
     onPaidByChange,
     paidBy,
     paymentOptions,
+    storeName,
+    onStoreNameChange,
+    errorMessage,
   } = props;
 
   const reduceMotion = useReducedMotion();
@@ -71,6 +78,24 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
       )}
 
       <View className="mb-5 w-full">
+        <Text className="mb-2 text-sm font-medium text-warm-gray-600">
+          Store (optional)
+        </Text>
+        <TextInput
+          value={storeName}
+          onChangeText={onStoreNameChange}
+          placeholder="e.g. Tesco"
+          placeholderTextColor={themeColors.muted}
+          autoCapitalize="words"
+          autoCorrect={false}
+          returnKeyType="done"
+          maxLength={80}
+          className="min-h-12 rounded-2xl border border-warm-gray-200 bg-white px-4 text-base text-warm-gray-900"
+          accessibilityLabel="Store name, optional"
+        />
+      </View>
+
+      <View className="mb-5 w-full">
         <Text className="mb-2 text-center text-sm font-medium text-warm-gray-600">
           Paid from
         </Text>
@@ -102,6 +127,12 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
           })}
         </View>
       </View>
+
+      {errorMessage ? (
+        <Text className="mb-4 w-full text-center text-sm text-red-600">
+          {errorMessage}
+        </Text>
+      ) : null}
 
       {/* Confirm button */}
       <Button

@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui";
 import { ScreenState } from "@/types";
-import { router } from "expo-router";
 import { Edit3, Receipt, RotateCcw } from "lucide-react-native";
 import { Image, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -14,10 +13,19 @@ interface OcrErrorProps {
   setScreenState: (state: ScreenState) => void;
   /** Ref for the manual amount input */
   inputRef: React.RefObject<TextInput | null>;
+  handleRetake: () => void;
+  handleSkip: () => void;
 }
 
 export const OcrError = (props: OcrErrorProps) => {
-  const { photoUri, errorMessage, setScreenState, inputRef } = props;
+  const {
+    photoUri,
+    errorMessage,
+    setScreenState,
+    inputRef,
+    handleRetake,
+    handleSkip,
+  } = props;
 
   return (
     <Animated.View entering={FadeInDown.duration(400)} className="items-center">
@@ -67,7 +75,7 @@ export const OcrError = (props: OcrErrorProps) => {
       <Button
         variant="ghost"
         size="md"
-        onPress={() => router.back()}
+        onPress={handleRetake}
         className="mt-4"
       >
         <View className="flex-row items-center">
@@ -82,7 +90,7 @@ export const OcrError = (props: OcrErrorProps) => {
       <Button
         variant="ghost"
         size="md"
-        onPress={() => router.replace("/(tabs)")}
+        onPress={handleSkip}
         className="mt-2"
       >
         Skip for now

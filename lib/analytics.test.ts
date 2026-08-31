@@ -1,6 +1,13 @@
-import { createAnalytics } from "./analytics";
+import { createAnalytics, getItemCountBucket } from "./analytics";
 
 describe("analytics", () => {
+  it("groups shopping-list sizes without exposing an exact count", () => {
+    expect(getItemCountBucket(0)).toBe("0");
+    expect(getItemCountBucket(1)).toBe("1-10");
+    expect(getItemCountBucket(10)).toBe("1-10");
+    expect(getItemCountBucket(11)).toBe("11+");
+  });
+
   it("does not identify or capture product events before explicit consent", () => {
     const adapter = {
       capture: jest.fn(),

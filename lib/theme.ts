@@ -8,6 +8,7 @@ export const themeColors = {
   surface: "#FFFFFF",
   ink: "#1A1917",
   secondaryInk: "#5C5A54",
+  muted: "#A9A69E",
   separator: "#E8E6E1",
   disabled: "#D3D0C9",
   warningInk: "#713F12",

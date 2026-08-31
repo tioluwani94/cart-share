@@ -7,6 +7,8 @@ type CreateSessionHandler = (
     householdId: Id<"households">;
     listId?: Id<"lists">;
     totalAmount?: number;
+    storeName?: string;
+    paidBy?: "joint" | Id<"users">;
     sessionDate?: number;
   },
 ) => Promise<{ sessionId: Id<"shoppingSessions"> }>;
@@ -83,12 +85,20 @@ describe("sessions.create", () => {
       householdId,
       listId,
       totalAmount: 4567,
+      storeName: "  Tesco Extra  ",
+      paidBy: "joint",
     });
 
     expect(result).toEqual({ sessionId });
     expect(insert).toHaveBeenCalledWith(
       "shoppingSessions",
-      expect.objectContaining({ householdId, listId, totalAmount: 4567 }),
+      expect.objectContaining({
+        householdId,
+        listId,
+        totalAmount: 4567,
+        storeName: "Tesco Extra",
+        paidBy: "joint",
+      }),
     );
     expect(patch).toHaveBeenCalledWith(
       listId,
@@ -101,6 +111,38 @@ describe("sessions.create", () => {
     expect(insert.mock.invocationCallOrder[0]).toBeLessThan(
       patch.mock.invocationCallOrder[0],
     );
+  });
+
+  it("does not create another session for an already completed list", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const insert = jest.fn(async () => "session_2" as Id<"shoppingSessions">);
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users"
+                ? { _id: userId, clerkId: "clerk_1" }
+                : { householdId, userId },
+            collect: async () => [],
+          }),
+        }),
+        get: async (id: string) =>
+          id === listId
+            ? { _id: listId, householdId, isArchived: true }
+            : null,
+        insert,
+        patch: jest.fn(),
+      },
+    };
+
+    await expect(
+      createSession(ctx, { householdId, listId }),
+    ).rejects.toThrow("List has already been completed");
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("learns only from completed tracked products after the session is saved", async () => {
@@ -454,6 +496,49 @@ describe("sessions.completeOffline", () => {
       ["listId", listId],
       ["completionOperationId", "shop_completion_1"],
     ]);
+    expect(insert).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a different completion operation after the list is archived", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const insert = jest.fn();
+    const patch = jest.fn();
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users"
+                ? { _id: userId, clerkId: "clerk_1" }
+                : table === "householdMembers"
+                  ? { householdId, userId }
+                  : null,
+            collect: async () => [],
+          }),
+        }),
+        get: async (id: string) =>
+          id === listId
+            ? { _id: listId, householdId, isArchived: true }
+            : null,
+        insert,
+        patch,
+      },
+    };
+
+    await expect(
+      completeOfflineShop(ctx, {
+        householdId,
+        listId,
+        operationId: "shop_completion_2",
+        sessionDate: Date.UTC(2026, 8, 7, 12),
+        items: [],
+      }),
+    ).rejects.toThrow("List has already been completed");
+
     expect(insert).not.toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
   });

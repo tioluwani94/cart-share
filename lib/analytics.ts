@@ -1,5 +1,10 @@
 export type AnalyticsConsent = "granted" | "denied" | undefined;
 
+export function getItemCountBucket(itemCount: number): "0" | "1-10" | "11+" {
+  if (itemCount <= 0) return "0";
+  return itemCount <= 10 ? "1-10" : "11+";
+}
+
 type CommonProperties = {
   household_id?: string;
   market?: string;

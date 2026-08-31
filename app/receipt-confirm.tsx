@@ -10,6 +10,13 @@ import { UploadError } from "@/components/receipt-confirm/UploadError";
 import { UploadingReceipt } from "@/components/receipt-confirm/UploadingReceipt";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useAnalytics } from "@/lib/AnalyticsContext";
+import { getItemCountBucket } from "@/lib/analytics";
+import {
+  buildReceiptSessionInput,
+  getInitialReceiptScreenState,
+} from "@/lib/receiptFlow";
+import { themeColors } from "@/lib/theme";
 import { ScreenState } from "@/types";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
@@ -17,6 +24,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Keyboard,
   Pressable,
   ScrollView,
@@ -41,12 +49,16 @@ const CONFETTI_EMOJIS = ["🎉", "✨", "🎊", "💫", "🌟", "⭐", "🥳", "
  * Receipt confirmation screen with upload, OCR processing, and celebratory UI.
  */
 export default function ReceiptConfirmScreen() {
-  const { photoUri, listId } = useLocalSearchParams<{
+  const { photoUri, listId, entry } = useLocalSearchParams<{
     photoUri?: string;
     listId?: string;
+    entry?: string;
   }>();
 
-  const [screenState, setScreenState] = useState<ScreenState>("uploading");
+  const analytics = useAnalytics();
+  const [screenState, setScreenState] = useState<ScreenState>(() =>
+    getInitialReceiptScreenState(entry),
+  );
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [receiptUploadId, setReceiptUploadId] =
@@ -56,6 +68,8 @@ export default function ReceiptConfirmScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [monthlySessionCount, setMonthlySessionCount] = useState(0);
   const [paidBy, setPaidBy] = useState<"joint" | Id<"users">>("joint");
+  const [storeName, setStoreName] = useState("");
+  const originatingListId = listId ? (listId as Id<"lists">) : undefined;
 
   // Queries and mutations
   const household = useQuery(api.households.getCurrentHousehold);
@@ -68,6 +82,10 @@ export default function ReceiptConfirmScreen() {
     api.sessions.getMonthlySessionCount,
     household?._id ? { householdId: household._id } : "skip",
   );
+  const sessionItems = useQuery(
+    api.items.getByList,
+    originatingListId ? { listId: originatingListId } : "skip",
+  );
 
   const inputRef = useRef<TextInput>(null);
 
@@ -76,9 +94,6 @@ export default function ReceiptConfirmScreen() {
   const scanOpacity = useSharedValue(0);
   const successScale = useSharedValue(0);
   const totalScale = useSharedValue(0);
-  const checkmarkScale = useSharedValue(0);
-  const checkmarkRotation = useSharedValue(0);
-  const statsOpacity = useSharedValue(0);
 
   // Start scanning animation
   const startScanningAnimation = useCallback(() => {
@@ -248,65 +263,119 @@ export default function ReceiptConfirmScreen() {
     }
   }, [household?._id, photoUri, screenState, uploadReceipt]);
 
-  // Handle confirm button - create session and show celebration
-  const handleConfirm = async () => {
-    const totalPence = extractedTotal;
-    if (!totalPence || !household?._id) return;
+  const saveShoppingSession = async ({
+    fallbackState,
+    paymentSource,
+    receiptForSession,
+    storeForSession,
+    totalPence,
+  }: {
+    fallbackState: ScreenState;
+    paymentSource?: "joint" | Id<"users">;
+    receiptForSession?: Id<"receiptUploads">;
+    storeForSession?: string;
+    totalPence?: number;
+  }) => {
+    if (!originatingListId) {
+      setErrorMessage(
+        "We couldn't find the shopping list for this trip. Go back and try again.",
+      );
+      setScreenState(fallbackState);
+      return;
+    }
+    if (household === undefined || sessionItems === undefined) {
+      setErrorMessage("We're still loading this trip. Please try again in a moment.");
+      setScreenState(fallbackState);
+      return;
+    }
+    if (!household) {
+      setErrorMessage("We couldn't find your household. Your list is still available.");
+      setScreenState(fallbackState);
+      return;
+    }
 
+    setErrorMessage("");
     setScreenState("saving_session");
 
     try {
-      // Create the shopping session
-      await createSession({
+      await createSession(buildReceiptSessionInput({
         householdId: household._id,
-        totalAmount: totalPence,
-        listId: listId ? (listId as Id<"lists">) : undefined,
-        receiptUploadId: receiptUploadId ?? undefined,
-        paidBy,
-      });
+        totalPence,
+        listId: originatingListId,
+        receiptUploadId: receiptForSession,
+        paidBy: paymentSource,
+        storeName: storeForSession ?? "",
+      }));
 
-      // Update monthly count for display (current count + 1 for the new session)
-      const currentCount = monthlyCount?.count ?? 0;
-      setMonthlySessionCount(currentCount + 1);
+      try {
+        if (receiptForSession) {
+          analytics.track("receipt attached", {
+            household_id: household._id,
+            source: "camera",
+          });
+        }
+        analytics.track("shop completed", {
+          household_id: household._id,
+          item_count_bucket: getItemCountBucket(sessionItems?.length ?? 0),
+          total_present: totalPence !== undefined,
+          receipt_present: Boolean(receiptForSession),
+        });
+      } catch (analyticsError) {
+        console.error("Couldn't record completion analytics:", analyticsError);
+      }
 
-      // Transition to session saved state
+      setMonthlySessionCount((monthlyCount?.count ?? 0) + 1);
+      setExtractedTotal(totalPence ?? null);
       setScreenState("session_saved");
       setShowConfetti(true);
 
-      // Animate checkmark
-      checkmarkScale.value = withSequence(
-        withSpring(1.3, { damping: 6, stiffness: 120 }),
-        withSpring(1, { damping: 8, stiffness: 150 }),
-      );
-      checkmarkRotation.value = withSequence(
-        withTiming(-15, { duration: 100 }),
-        withSpring(0, { damping: 10, stiffness: 200 }),
-      );
-
-      // Fade in stats after checkmark
-      setTimeout(() => {
-        statsOpacity.value = withTiming(1, { duration: 500 });
-      }, 400);
-
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Auto-navigate to home after 2 seconds
-      setTimeout(() => {
-        router.replace("/(tabs)");
-      }, 2500);
-
-      // Hide confetti after 3 seconds
+      setTimeout(() => router.replace("/(tabs)"), 2500);
       setTimeout(() => setShowConfetti(false), 3000);
     } catch (error) {
       console.error("Error creating session:", error);
+      setErrorMessage(
+        "We couldn't save this trip. Your shopping list is still available.",
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // On error, go back to success state so user can try again
-      setScreenState("success");
+      setScreenState(fallbackState);
     }
+  };
+
+  // Handle confirm button - create session and show celebration
+  const handleConfirm = async () => {
+    const totalPence = extractedTotal;
+    if (!totalPence) return;
+    await saveShoppingSession({
+      fallbackState: "success",
+      paymentSource: paidBy,
+      receiptForSession: receiptUploadId ?? undefined,
+      storeForSession: storeName,
+      totalPence,
+    });
+  };
+
+  const handleSkipFinancialDetails = async () => {
+    if (receiptUploadId) {
+      try {
+        await deleteReceipt({ receiptUploadId });
+        setReceiptUploadId(null);
+      } catch (error) {
+        console.error("Failed to remove skipped receipt:", error);
+        setErrorMessage(
+          "We couldn't remove this receipt yet. Your list is still available.",
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+    }
+
+    await saveShoppingSession({ fallbackState: "manual_entry" });
   };
 
   // Handle manual entry submission
   const handleManualSubmit = () => {
+    setErrorMessage("");
     const amount = parseFloat(manualAmount.replace(/[^0-9.]/g, ""));
     if (isNaN(amount) || amount <= 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -400,6 +469,38 @@ export default function ReceiptConfirmScreen() {
 
   // Render content based on state
   const renderContent = () => {
+    if (!originatingListId) {
+      return (
+        <View className="w-full items-center px-4">
+          <Text className="text-center text-xl font-bold text-warm-gray-900">
+            Trip details missing
+          </Text>
+          <Text className="mt-2 text-center text-base leading-6 text-warm-gray-600">
+            Go back to your shopping list and choose Finish again.
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            className="mt-6 min-h-12 justify-center rounded-full bg-coral px-6"
+            accessibilityRole="button"
+            accessibilityLabel="Back to shopping list"
+          >
+            <Text className="font-semibold text-white">Back to shop</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (household === undefined || sessionItems === undefined) {
+      return (
+        <View className="items-center">
+          <ActivityIndicator color={themeColors.coral} />
+          <Text className="mt-3 text-sm text-warm-gray-600">
+            Loading trip details...
+          </Text>
+        </View>
+      );
+    }
+
     switch (screenState) {
       case "uploading":
         return (
@@ -438,6 +539,9 @@ export default function ReceiptConfirmScreen() {
                   : [],
               ) ?? []),
             ]}
+            storeName={storeName}
+            onStoreNameChange={setStoreName}
+            errorMessage={errorMessage}
           />
         );
 
@@ -448,7 +552,8 @@ export default function ReceiptConfirmScreen() {
             manualAmount={manualAmount}
             setManualAmount={setManualAmount}
             handleManualSubmit={handleManualSubmit}
-            handleSkip={handleCancel}
+            handleSkip={handleSkipFinancialDetails}
+            errorMessage={errorMessage}
           />
         );
 
@@ -459,6 +564,8 @@ export default function ReceiptConfirmScreen() {
             errorMessage={errorMessage}
             inputRef={inputRef}
             setScreenState={setScreenState}
+            handleRetake={handleCancel}
+            handleSkip={handleSkipFinancialDetails}
           />
         );
 
@@ -467,6 +574,7 @@ export default function ReceiptConfirmScreen() {
           <UploadError
             errorMessage={errorMessage}
             handleTryAgain={handleTryAgain}
+            handleSkip={handleSkipFinancialDetails}
           />
         );
 

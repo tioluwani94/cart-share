@@ -84,6 +84,9 @@ export const create = mutation({
       if (list.householdId !== args.householdId) {
         throw new Error("List does not belong to this household");
       }
+      if (list.isArchived) {
+        throw new Error("List has already been completed");
+      }
     }
 
     if (args.paidBy && args.paidBy !== "joint") {
@@ -148,8 +151,8 @@ export const create = mutation({
  *
  * The captured item states are applied before session creation so learning,
  * archival, and Next shop clearing observe the same snapshot. Convex runs the
- * entire mutation transactionally. Retries are keyed by list and operation ID,
- * so reusing a list can still produce a later, distinct shopping session.
+ * entire mutation transactionally. Retries are keyed by list and operation ID.
+ * A different operation may complete a list only while that list is active.
  */
 export const completeOffline = mutation({
   args: {
@@ -211,6 +214,9 @@ export const completeOffline = mutation({
         sessionId: existingSession._id,
         alreadyCompleted: true as const,
       };
+    }
+    if (list.isArchived) {
+      throw new Error("List has already been completed");
     }
 
     const now = Date.now();

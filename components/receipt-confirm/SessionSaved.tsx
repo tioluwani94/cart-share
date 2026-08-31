@@ -1,11 +1,7 @@
 import { formatAmount } from "@/lib/formatAmount";
 import { Check } from "lucide-react-native";
 import { Text, View } from "react-native";
-import Animated, {
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-} from "react-native-reanimated";
+import Animated, { FadeInUp, useReducedMotion } from "react-native-reanimated";
 
 interface SessionSavedProps {
   /** Extracted total amount in pence */
@@ -18,32 +14,17 @@ export const SessionSaved = ({
   extractedTotal,
   monthlySessionCount,
 }: SessionSavedProps) => {
-  const statsOpacity = useSharedValue(0);
-  const checkmarkScale = useSharedValue(0);
-  const checkmarkRotation = useSharedValue(0);
-  const checkmarkAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: checkmarkScale.value },
-      { rotate: `${checkmarkRotation.value}deg` },
-    ],
-  }));
-
-  const statsAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: statsOpacity.value,
-  }));
+  const reduceMotion = useReducedMotion();
 
   return (
     <Animated.View
-      entering={FadeInUp.springify().damping(90)}
+      entering={reduceMotion ? undefined : FadeInUp.springify().damping(90)}
       className="items-center"
     >
       {/* Big animated checkmark */}
-      <Animated.View
-        style={checkmarkAnimatedStyle}
-        className="mb-6 h-28 w-28 items-center justify-center rounded-full bg-teal"
-      >
+      <View className="mb-6 h-28 w-28 items-center justify-center rounded-full bg-teal">
         <Check size={64} color="white" strokeWidth={3} />
-      </Animated.View>
+      </View>
 
       {/* Trip saved message */}
       <Text className="text-center text-3xl font-bold text-warm-gray-900">
@@ -58,7 +39,7 @@ export const SessionSaved = ({
       )}
 
       {/* Fun stat - shopping count this month */}
-      <Animated.View style={statsAnimatedStyle} className="mt-8">
+      <View className="mt-8">
         <View className="rounded-2xl bg-teal/10 px-6 py-4">
           <Text className="text-center text-lg text-warm-gray-700">
             You've shopped{" "}
@@ -74,7 +55,7 @@ export const SessionSaved = ({
             </Text>
           )}
         </View>
-      </Animated.View>
+      </View>
 
       {/* Auto-redirect message */}
       <Text className="mt-6 text-center text-sm text-warm-gray-400">
