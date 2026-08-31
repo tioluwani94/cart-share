@@ -36,6 +36,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -81,6 +82,8 @@ export default function SettingsScreen() {
   const [showBudgetToast, setShowBudgetToast] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
+  const [showNotificationSettingsLink, setShowNotificationSettingsLink] =
+    useState(false);
   const [notificationTimeMinutes, setNotificationTimeMinutes] = useState(
     18 * 60,
   );
@@ -188,6 +191,7 @@ export default function SettingsScreen() {
     async (enabled: boolean) => {
       setIsSavingPreferences(true);
       setPreferenceError(null);
+      setShowNotificationSettingsLink(false);
       try {
         if (!enabled) {
           await updatePreferences({ restockNotificationsEnabled: false });
@@ -203,6 +207,7 @@ export default function SettingsScreen() {
             registration.reason ??
               "Notifications are turned off for Our Pantry in device settings.",
           );
+          setShowNotificationSettingsLink(registration.status === "denied");
           return;
         }
         await registerDevice({
@@ -231,6 +236,18 @@ export default function SettingsScreen() {
       updatePreferences,
     ],
   );
+
+  const openNotificationSettings = useCallback(async () => {
+    try {
+      await Linking.openSettings();
+    } catch (error) {
+      console.error("Couldn't open notification settings:", error);
+      setShowNotificationSettingsLink(false);
+      setPreferenceError(
+        "Open your device Settings and allow notifications for Our Pantry.",
+      );
+    }
+  }, []);
 
   const handleAnalyticsChange = useCallback(
     async (enabled: boolean) => {
@@ -525,12 +542,27 @@ export default function SettingsScreen() {
           </View>
 
           {preferenceError && (
-            <Text
-              className="border-t border-separator px-4 py-3 text-sm leading-5 text-red-700"
-              accessibilityRole="alert"
-            >
-              {preferenceError}
-            </Text>
+            <View className="border-t border-separator px-4 py-3">
+              <Text
+                className="text-sm leading-5 text-red-700"
+                accessibilityRole="alert"
+              >
+                {preferenceError}
+              </Text>
+              {showNotificationSettingsLink && (
+                <Pressable
+                  onPress={() => void openNotificationSettings()}
+                  className="mt-2 min-h-11 self-start justify-center rounded-full bg-coral-soft px-4 active:opacity-70"
+                  accessibilityLabel="Open device notification settings"
+                  accessibilityHint="Opens this app's notification permissions in device settings"
+                  accessibilityRole="button"
+                >
+                  <Text className="text-sm font-semibold text-coral">
+                    Open device settings
+                  </Text>
+                </Pressable>
+              )}
+            </View>
           )}
         </View>
 

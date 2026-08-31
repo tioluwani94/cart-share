@@ -1,10 +1,13 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
+import { Linking } from "react-native";
 
 import SettingsScreen from "../app/settings";
 
 const mockUpdatePreferences = jest.fn();
 const mockRecalculateReminders = jest.fn();
+const mockRegisterForPushNotifications = jest.fn();
+let mockPreferences;
 
 jest.mock("@/convex/_generated/api", () => ({
   api: {
@@ -38,12 +41,7 @@ jest.mock("convex/react", () => ({
       };
     }
     if (query === "getPreferences") {
-      return {
-        analyticsConsent: "denied",
-        restockNotificationsEnabled: true,
-        notificationTimeMinutesLocal: 18 * 60,
-        notificationTimeZone: "Europe/London",
-      };
+      return mockPreferences;
     }
     if (query === "getArchivedByHousehold") return [];
     return undefined;
@@ -71,7 +69,8 @@ jest.mock("@/lib/AnalyticsContext", () => ({
 
 jest.mock("@/lib/pushNotifications", () => ({
   getCurrentDeviceId: jest.fn(),
-  registerForPushNotifications: jest.fn(),
+  registerForPushNotifications: (...args) =>
+    mockRegisterForPushNotifications(...args),
 }));
 
 jest.mock("expo-router", () => ({
@@ -128,8 +127,15 @@ jest.mock("lucide-react-native", () => {
 describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPreferences = {
+      analyticsConsent: "denied",
+      restockNotificationsEnabled: true,
+      notificationTimeMinutesLocal: 18 * 60,
+      notificationTimeZone: "Europe/London",
+    };
     mockUpdatePreferences.mockResolvedValue({ success: true });
     mockRecalculateReminders.mockResolvedValue({ success: true });
+    jest.spyOn(Linking, "openSettings").mockResolvedValue();
   });
 
   it("lets this member choose an earlier reminder time", async () => {
@@ -150,5 +156,37 @@ describe("SettingsScreen", () => {
       notificationTimeMinutesLocal: 9 * 60,
     });
     expect(mockRecalculateReminders).toHaveBeenCalledWith({});
+  });
+
+  it("offers device settings after notification permission is denied", async () => {
+    mockPreferences = {
+      ...mockPreferences,
+      restockNotificationsEnabled: false,
+    };
+    mockRegisterForPushNotifications.mockResolvedValue({ status: "denied" });
+
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const reminders = renderer.root.findByProps({
+      accessibilityLabel: "Restock reminders",
+    });
+    await act(async () => {
+      await reminders.props.onValueChange(true);
+    });
+
+    const openSettings = renderer.root.findByProps({
+      accessibilityLabel: "Open device notification settings",
+    });
+    await act(async () => {
+      await openSettings.props.onPress();
+    });
+
+    expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+    expect(mockUpdatePreferences).not.toHaveBeenCalledWith({
+      restockNotificationsEnabled: true,
+    });
   });
 });
