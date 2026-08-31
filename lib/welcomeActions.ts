@@ -1,6 +1,6 @@
 export type WelcomeActionId =
-  | "yazio.continue-google"
-  | "yazio.continue-apple";
+  | "ourpantry.continue-google"
+  | "ourpantry.continue-apple";
 
 export type WelcomeActionPressHandler = (actionId: WelcomeActionId) => void;
 

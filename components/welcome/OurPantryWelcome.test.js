@@ -1,7 +1,7 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 
-import { YazioWelcome } from "./YazioWelcome";
+import { OurPantryWelcome } from "./OurPantryWelcome";
 
 const mockReducedMotion = { current: false };
 
@@ -43,7 +43,7 @@ jest.mock("react-native-reanimated", () => {
   };
 });
 
-describe("YazioWelcome", () => {
+describe("OurPantryWelcome", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockReducedMotion.current = false;
@@ -59,7 +59,7 @@ describe("YazioWelcome", () => {
 
     act(() => {
       renderer = TestRenderer.create(
-        <YazioWelcome autoplay={false} onActionPress={onActionPress} />,
+        <OurPantryWelcome autoplay={false} onActionPress={onActionPress} />,
       );
     });
 
@@ -89,8 +89,8 @@ describe("YazioWelcome", () => {
     act(() => apple.props.onPress());
 
     expect(onActionPress.mock.calls).toEqual([
-      ["yazio.continue-google"],
-      ["yazio.continue-apple"],
+      ["ourpantry.continue-google"],
+      ["ourpantry.continue-apple"],
     ]);
   });
 
@@ -98,7 +98,7 @@ describe("YazioWelcome", () => {
     let renderer;
 
     act(() => {
-      renderer = TestRenderer.create(<YazioWelcome replayKey="first" />);
+      renderer = TestRenderer.create(<OurPantryWelcome replayKey="first" />);
     });
 
     expect(
@@ -118,7 +118,7 @@ describe("YazioWelcome", () => {
     ).toBeDefined();
 
     act(() => {
-      renderer.update(<YazioWelcome replayKey="second" />);
+      renderer.update(<OurPantryWelcome replayKey="second" />);
     });
     expect(
       renderer.root.findByProps({ testID: "ourpantry-welcome-animated" }),
@@ -131,7 +131,7 @@ describe("YazioWelcome", () => {
 
     act(() => {
       renderer = TestRenderer.create(
-        <YazioWelcome onActionPress={jest.fn()} />,
+        <OurPantryWelcome onActionPress={jest.fn()} />,
       );
     });
 
@@ -154,14 +154,14 @@ describe("YazioWelcome", () => {
 
     act(() => {
       loadingRenderer = TestRenderer.create(
-        <YazioWelcome
+        <OurPantryWelcome
           autoplay={false}
-          loadingActionId="yazio.continue-google"
+          loadingActionId="ourpantry.continue-google"
           onActionPress={jest.fn()}
         />,
       );
       errorRenderer = TestRenderer.create(
-        <YazioWelcome
+        <OurPantryWelcome
           autoplay={false}
           error="Something went wrong. Please try again."
           onActionPress={jest.fn()}

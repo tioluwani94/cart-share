@@ -35,20 +35,20 @@ jest.mock("react-native-reanimated", () => {
   };
 });
 
-jest.mock("@/components/welcome/YazioWelcome", () => {
+jest.mock("@/components/welcome/OurPantryWelcome", () => {
   const React = require("react");
   const { Pressable, Text, View } = require("react-native");
 
   return {
-    YazioWelcome: ({ error, onActionPress }) => (
+    OurPantryWelcome: ({ error, onActionPress }) => (
       <View>
         <Pressable
           accessibilityLabel="Continue with Google"
-          onPress={() => onActionPress("yazio.continue-google")}
+          onPress={() => onActionPress("ourpantry.continue-google")}
         />
         <Pressable
           accessibilityLabel="Continue with Apple"
-          onPress={() => onActionPress("yazio.continue-apple")}
+          onPress={() => onActionPress("ourpantry.continue-apple")}
         />
         {error ? <Text accessibilityRole="alert">{error}</Text> : null}
       </View>

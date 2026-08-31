@@ -1,5 +1,5 @@
 import { OfflineIndicator } from "@/components/layout";
-import { WELCOME_IMAGE_ASSETS } from "@/components/welcome/YazioWelcome";
+import { WELCOME_IMAGE_ASSETS } from "@/components/welcome/OurPantryWelcome";
 import { api } from "@/convex/_generated/api";
 import {
   AnalyticsProvider,

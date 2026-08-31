@@ -1,7 +1,9 @@
 import { resolveWelcomeActionPress } from "./welcomeActions";
 
 describe("OurPantry welcome actions", () => {
-  it.each(["yazio.continue-google", "yazio.continue-apple"] as const)(
+  it.each(
+    ["ourpantry.continue-google", "ourpantry.continue-apple"] as const,
+  )(
     "routes the semantic action %s through the public callback",
     (actionId) => {
       const onActionPress = jest.fn();
@@ -18,7 +20,7 @@ describe("OurPantry welcome actions", () => {
     const onLegacyPress = jest.fn();
 
     resolveWelcomeActionPress(
-      "yazio.continue-google",
+      "ourpantry.continue-google",
       undefined,
       onLegacyPress,
     )?.();

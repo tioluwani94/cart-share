@@ -3,7 +3,7 @@ import { useOAuth } from "@clerk/clerk-expo";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 
-import { YazioWelcome } from "@/components/welcome/YazioWelcome";
+import { OurPantryWelcome } from "@/components/welcome/OurPantryWelcome";
 import type { WelcomeActionId } from "@/lib/welcomeActions";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -50,7 +50,7 @@ export default function WelcomeScreen() {
   const handleWelcomeAction = useCallback(
     (actionId: WelcomeActionId) => {
       const startOAuthFlow =
-        actionId === "yazio.continue-google"
+        actionId === "ourpantry.continue-google"
           ? startGoogleOAuth
           : startAppleOAuth;
       void completeOAuth(actionId, startOAuthFlow);
@@ -59,7 +59,7 @@ export default function WelcomeScreen() {
   );
 
   return (
-    <YazioWelcome
+    <OurPantryWelcome
       onActionPress={handleWelcomeAction}
       loadingActionId={loadingActionId}
       error={error}

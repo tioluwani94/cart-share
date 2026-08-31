@@ -39,11 +39,11 @@ export const WELCOME_IMAGE_ASSETS = [
   check,
 ];
 
-export const YAZIO_WELCOME_SCREEN_ID = "yazio";
+export const OUR_PANTRY_WELCOME_SCREEN_ID = "ourpantry";
 
 const CROSSFADE_EASING = Easing.bezier(0.23, 1, 0.32, 1);
 
-export interface YazioWelcomeProps {
+export interface OurPantryWelcomeProps {
   autoplay?: boolean;
   replayKey?: number | string;
   onActionPress?: WelcomeActionPressHandler;
@@ -189,7 +189,7 @@ function WelcomeShell({
 }: {
   interactive: boolean;
 } & Pick<
-  YazioWelcomeProps,
+  OurPantryWelcomeProps,
   | "onActionPress"
   | "onPrimary"
   | "onSecondary"
@@ -271,13 +271,13 @@ function WelcomeShell({
           accessibilityLabel="Continue with Google"
           disabled={!interactive || isBusy}
           loading={
-            interactive && loadingActionId === "yazio.continue-google"
+            interactive && loadingActionId === "ourpantry.continue-google"
           }
           placeholder={!interactive}
           onPress={
             interactive
               ? resolveWelcomeActionPress(
-                  "yazio.continue-google",
+                  "ourpantry.continue-google",
                   onActionPress,
                   onPrimary,
                 )
@@ -297,13 +297,13 @@ function WelcomeShell({
           accessibilityLabel="Continue with Apple"
           disabled={!interactive || isBusy}
           loading={
-            interactive && loadingActionId === "yazio.continue-apple"
+            interactive && loadingActionId === "ourpantry.continue-apple"
           }
           placeholder={!interactive}
           onPress={
             interactive
               ? resolveWelcomeActionPress(
-                  "yazio.continue-apple",
+                  "ourpantry.continue-apple",
                   onActionPress,
                   onSecondary,
                 )
@@ -438,7 +438,7 @@ function StaticFinalArtwork({
   loadingActionId,
   error,
 }: Pick<
-  YazioWelcomeProps,
+  OurPantryWelcomeProps,
   | "onActionPress"
   | "onPrimary"
   | "onSecondary"
@@ -475,7 +475,7 @@ function StaticFinalArtwork({
   );
 }
 
-export function YazioWelcome({
+export function OurPantryWelcome({
   autoplay = true,
   replayKey = 0,
   onActionPress,
@@ -483,7 +483,7 @@ export function YazioWelcome({
   onSecondary,
   loadingActionId = null,
   error = null,
-}: YazioWelcomeProps) {
+}: OurPantryWelcomeProps) {
   const reduceMotion = useReducedMotion();
   const shouldAnimate = autoplay && !reduceMotion;
   const [showFinalState, setShowFinalState] = useState(!shouldAnimate);
