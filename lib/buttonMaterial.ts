@@ -56,7 +56,7 @@ export function getButtonMaterial({
         nativeGlass: null,
         blurIntensity: 0,
         blurTint: "systemThinMaterialLight",
-        containerClassName: "border border-white/30 bg-coral",
+        containerClassName: "bg-coral",
         textClassName: "text-white",
         spinnerColor: themeColors.surface,
         highlightColor: "rgba(255, 255, 255, 0.12)",

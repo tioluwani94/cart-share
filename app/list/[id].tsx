@@ -243,7 +243,7 @@ export default function ListDetailScreen() {
       estimatedPricePence?: number;
     }) => {
       setEditingItem(item);
-      editSheetRef.current?.snapToIndex(0);
+      editSheetRef.current?.present();
     },
     [],
   );
@@ -283,7 +283,7 @@ export default function ListDetailScreen() {
         : (list.tripBudgetPence / 100).toFixed(2),
     );
     setTripBudgetError("");
-    requestAnimationFrame(() => budgetSheetRef.current?.expand());
+    requestAnimationFrame(() => budgetSheetRef.current?.present());
   }, [list?.tripBudgetPence]);
 
   const handleSaveTripBudget = useCallback(async () => {
@@ -299,7 +299,7 @@ export default function ListDetailScreen() {
     setIsSavingTripBudget(true);
     try {
       await updateList({ listId, tripBudgetPence: budgetPence });
-      budgetSheetRef.current?.close();
+      budgetSheetRef.current?.dismiss();
     } catch (error) {
       console.error("Failed to update trip budget:", error);
       setTripBudgetError("Couldn't save the budget. Please try again.");
@@ -583,7 +583,6 @@ export default function ListDetailScreen() {
 
       <GlassBottomSheet
         ref={budgetSheetRef}
-        index={-1}
         snapPoints={["44%"]}
         dismissible={!isSavingTripBudget}
       >
@@ -609,7 +608,7 @@ export default function ListDetailScreen() {
             <Button
               variant="secondary"
               className="flex-1"
-              onPress={() => budgetSheetRef.current?.close()}
+              onPress={() => budgetSheetRef.current?.dismiss()}
             >
               Cancel
             </Button>

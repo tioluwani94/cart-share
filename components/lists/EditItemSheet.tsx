@@ -315,7 +315,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
 
         // Close the sheet
         if (ref && "current" in ref && ref.current) {
-          ref.current.close();
+          ref.current.dismiss();
         }
       } catch (err) {
         console.error("Failed to update item:", err);
@@ -343,7 +343,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
 
         // Close the sheet
         if (ref && "current" in ref && ref.current) {
-          ref.current.close();
+          ref.current.dismiss();
         }
       } catch (err) {
         console.error("Failed to delete item:", err);
@@ -356,9 +356,8 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
     return (
       <GlassBottomSheet
         ref={ref}
-        index={-1}
         snapPoints={snapPoints}
-        onChange={handleSheetChange}
+        onDismiss={() => handleSheetChange(-1)}
         dismissible={!isSaving && !isDeleting}
       >
         <GlassBottomSheetScrollView

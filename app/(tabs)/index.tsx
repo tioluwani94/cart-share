@@ -318,7 +318,7 @@ export default function PlanScreen() {
               Create a list and we'll keep likely restocks together for you.
             </Text>
             <Button
-              onPress={() => bottomSheetRef.current?.expand()}
+              onPress={() => bottomSheetRef.current?.present()}
               className="mt-5 w-full"
             >
               Create Next shop
@@ -454,7 +454,7 @@ export default function PlanScreen() {
         )}
 
         <Pressable
-          onPress={() => bottomSheetRef.current?.expand()}
+          onPress={() => bottomSheetRef.current?.present()}
           className="mt-7 min-h-12 flex-row items-center justify-center rounded-full border border-separator bg-surface px-4"
           accessibilityLabel="Create another list"
           accessibilityRole="button"
@@ -463,10 +463,7 @@ export default function PlanScreen() {
           <Text className="ml-2 font-semibold text-ink-secondary">New list</Text>
         </Pressable>
       </ScrollView>
-      <CreateListSheet
-        ref={bottomSheetRef}
-        onClose={() => bottomSheetRef.current?.close()}
-      />
+      <CreateListSheet ref={bottomSheetRef} />
     </SafeAreaView>
   );
 }

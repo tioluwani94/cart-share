@@ -7,6 +7,7 @@ import { listenForNotificationResponses } from "@/lib/pushNotifications";
 import { useScopedOfflineQueue } from "@/lib/useScopedOfflineQueue";
 import type { OfflineScope } from "@/lib/offlineQueue";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import {
@@ -193,12 +194,14 @@ function ConvexClerkLayout() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="dark" />
-      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <ClerkLoaded>
-          <ConvexClerkLayout />
-        </ClerkLoaded>
-      </ClerkProvider>
+      <BottomSheetModalProvider>
+        <StatusBar style="dark" />
+        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+          <ClerkLoaded>
+            <ConvexClerkLayout />
+          </ClerkLoaded>
+        </ClerkProvider>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }

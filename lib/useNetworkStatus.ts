@@ -1,5 +1,34 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
+
+const OFFLINE_REFRESH_INTERVAL_MS = 1000;
+const offlineRefreshConsumers = new Set<symbol>();
+let offlineRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+function refreshNetworkState(): void {
+  // A failed refresh is expected while a device is offline. The next bounded
+  // attempt will try again without surfacing a noisy user-facing error.
+  void NetInfo.refresh().catch(() => undefined);
+}
+
+function addOfflineRefreshConsumer(consumerId: symbol): void {
+  offlineRefreshConsumers.add(consumerId);
+  if (offlineRefreshTimer) return;
+
+  refreshNetworkState();
+  offlineRefreshTimer = setInterval(
+    refreshNetworkState,
+    OFFLINE_REFRESH_INTERVAL_MS,
+  );
+}
+
+function removeOfflineRefreshConsumer(consumerId: symbol): void {
+  offlineRefreshConsumers.delete(consumerId);
+  if (offlineRefreshConsumers.size > 0 || !offlineRefreshTimer) return;
+
+  clearInterval(offlineRefreshTimer);
+  offlineRefreshTimer = null;
+}
 
 export interface NetworkStatus {
   isConnected: boolean;
@@ -21,7 +50,13 @@ export function useNetworkStatus(): NetworkStatus {
     justCameOnline: false,
   });
 
-  const [wasOffline, setWasOffline] = useState(false);
+  const wasOfflineRef = useRef(false);
+  const offlineRefreshConsumerRef = useRef(
+    Symbol("offline-refresh-consumer"),
+  );
+  const resetOnlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const handleNetworkChange = useCallback(
     (state: NetInfoState) => {
@@ -29,7 +64,7 @@ export function useNetworkStatus(): NetworkStatus {
       const isInternetReachable = state.isInternetReachable;
 
       // Detect if we just came back online
-      const justCameOnline = wasOffline && isConnected;
+      const justCameOnline = wasOfflineRef.current && isConnected;
 
       setStatus({
         isConnected,
@@ -40,29 +75,47 @@ export function useNetworkStatus(): NetworkStatus {
 
       // Update wasOffline for next comparison
       if (!isConnected) {
-        setWasOffline(true);
+        wasOfflineRef.current = true;
+        if (resetOnlineTimerRef.current) {
+          clearTimeout(resetOnlineTimerRef.current);
+          resetOnlineTimerRef.current = null;
+        }
       } else if (justCameOnline) {
         // Reset justCameOnline after a short delay
-        setTimeout(() => {
+        if (resetOnlineTimerRef.current) {
+          clearTimeout(resetOnlineTimerRef.current);
+        }
+        resetOnlineTimerRef.current = setTimeout(() => {
           setStatus((prev) => ({ ...prev, justCameOnline: false }));
-          setWasOffline(false);
+          wasOfflineRef.current = false;
+          resetOnlineTimerRef.current = null;
         }, 3000);
       }
     },
-    [wasOffline]
+    [],
   );
 
   useEffect(() => {
-    // Fetch initial state
-    NetInfo.fetch().then(handleNetworkChange);
-
-    // Subscribe to network state changes
+    // NetInfo invokes new listeners with the current state, then publishes
+    // subsequent changes. Keeping one stable subscription avoids a gap where
+    // a fast reconnect event could be lost between effect clean-up and setup.
     const unsubscribe = NetInfo.addEventListener(handleNetworkChange);
 
     return () => {
       unsubscribe();
+      if (resetOnlineTimerRef.current) {
+        clearTimeout(resetOnlineTimerRef.current);
+      }
     };
   }, [handleNetworkChange]);
+
+  useEffect(() => {
+    if (status.isConnected) return;
+
+    const consumerId = offlineRefreshConsumerRef.current;
+    addOfflineRefreshConsumer(consumerId);
+    return () => removeOfflineRefreshConsumer(consumerId);
+  }, [status.isConnected]);
 
   return status;
 }

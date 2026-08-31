@@ -9,6 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { cn } from "@/lib/cn";
 import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNetworkStatus } from "../../lib/useNetworkStatus";
 import { useSyncStatusSafe, SyncStatus } from "../../lib/SyncStatusContext";
 
@@ -69,6 +70,7 @@ type BannerState = "hidden" | "offline" | "syncing" | "synced" | "online";
  */
 export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
   const { isConnected, justCameOnline } = useNetworkStatus();
+  const insets = useSafeAreaInsets();
   const syncStatusContext = useSyncStatusSafe();
   const reduceMotion = useReducedMotion();
   const syncStatus = syncStatusContext?.status ?? "idle";
@@ -218,7 +220,7 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
 
   return (
     <Animated.View
-      style={animatedStyle}
+      style={[animatedStyle, { paddingTop: insets.top }]}
       className={cn(
         "absolute inset-x-0 top-0 z-50 shadow-lg",
         config.bgClass,

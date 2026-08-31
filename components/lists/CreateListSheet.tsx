@@ -1,7 +1,7 @@
 import {
   Button,
   GlassBottomSheet,
-  GlassBottomSheetView,
+  GlassBottomSheetScrollView,
   type GlassBottomSheetRef,
   Input,
 } from "@/components/ui";
@@ -9,24 +9,22 @@ import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { ListPlus, X } from "lucide-react-native";
 import { forwardRef, useCallback, useMemo, useState } from "react";
-import { Keyboard, Text, View } from "react-native";
+import { Keyboard, Pressable, Text, View } from "react-native";
 import { SuccessCelebration } from "./SuccessCelebration";
 import { CATEGORIES, CategoryChip } from "./CategoryChip";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
-
-interface CreateListSheetProps {
-  onClose: () => void;
-}
+import { themeColors } from "@/lib/theme";
 
 /**
  * Bottom sheet for creating a new shopping list.
  */
 export const CreateListSheet = forwardRef<
   GlassBottomSheetRef,
-  CreateListSheetProps
+  Record<never, never>
 >(
-  function CreateListSheet({ onClose }, ref) {
+  function CreateListSheet(_props, ref) {
     const router = useRouter();
     const [listName, setListName] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string | null>(
@@ -43,7 +41,7 @@ export const CreateListSheet = forwardRef<
     const createList = useMutation(api.lists.create);
 
     // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ["85%"], []);
+    const snapPoints = useMemo(() => ["72%"], []);
 
     // Reset form state when sheet closes
     const resetForm = useCallback(() => {
@@ -56,15 +54,11 @@ export const CreateListSheet = forwardRef<
       setTripBudgetError("");
     }, []);
 
-    const handleSheetChange = useCallback(
-      (index: number) => {
-        if (index === -1) {
-          resetForm();
-          onClose();
-        }
-      },
-      [onClose, resetForm],
-    );
+    const dismissSheet = useCallback(() => {
+      if (ref && typeof ref !== "function") {
+        ref.current?.dismiss();
+      }
+    }, [ref]);
 
     const handleCreate = async () => {
       Keyboard.dismiss();
@@ -109,7 +103,7 @@ export const CreateListSheet = forwardRef<
         // Navigate to the new list after celebration
         setTimeout(() => {
           resetForm();
-          onClose();
+          dismissSheet();
           router.push(`/list/${result.listId}`);
         }, 1800);
       } catch (err) {
@@ -123,25 +117,42 @@ export const CreateListSheet = forwardRef<
     return (
       <GlassBottomSheet
         ref={ref}
-        index={-1}
         snapPoints={snapPoints}
-        onChange={handleSheetChange}
+        onDismiss={resetForm}
         dismissible={!isCreating}
       >
-        <GlassBottomSheetView className="flex-1 px-6">
+        <GlassBottomSheetScrollView
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 36 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {showSuccess ? (
             <SuccessCelebration listName={listName.trim()} />
           ) : (
             <>
-              {/* Header */}
-              <View className="mb-6 flex-row items-center justify-center">
-                <Text className="mr-2 text-xl">📝</Text>
-                <Text className="text-lg font-semibold text-warm-gray-900">
-                  New Shopping List
-                </Text>
+              <View className="mb-7 flex-row items-start">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-coral-soft">
+                  <ListPlus size={23} color={themeColors.coral} strokeWidth={2} />
+                </View>
+                <View className="ml-3 flex-1 pr-3">
+                  <Text className="text-2xl font-bold tracking-tight text-ink">
+                    New shopping list
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+                    Name the shop, then add a budget or category if useful.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={dismissSheet}
+                  disabled={isCreating}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100 active:opacity-70 disabled:opacity-40"
+                  accessibilityLabel="Close new shopping list"
+                  accessibilityRole="button"
+                >
+                  <X size={20} color={themeColors.secondaryInk} />
+                </Pressable>
               </View>
 
-              {/* List name input */}
               <Input
                 label="List name"
                 value={listName}
@@ -150,7 +161,7 @@ export const CreateListSheet = forwardRef<
                   if (error) setError("");
                 }}
                 error={error}
-                placeholder="e.g., Weekly Groceries"
+                placeholder="e.g. Weekly groceries"
                 autoCapitalize="words"
                 returnKeyType="done"
                 onSubmitEditing={handleCreate}
@@ -164,18 +175,17 @@ export const CreateListSheet = forwardRef<
                   setTripBudgetError("");
                 }}
                 error={tripBudgetError}
-                placeholder="e.g. £60"
+                placeholder="£0.00"
                 keyboardType="decimal-pad"
                 returnKeyType="done"
               />
 
-              {/* Category selection */}
-              <View className="mt-2">
-                <Text className="mb-3 text-base font-medium text-warm-gray-700">
+              <View className="mt-1">
+                <Text className="mb-3 text-sm font-semibold text-ink">
                   Category (optional)
                 </Text>
-                <View className="flex-row flex-wrap">
-                  {CATEGORIES.map((category, index) => (
+                <View className="flex-row flex-wrap gap-2">
+                  {CATEGORIES.map((category) => (
                     <CategoryChip
                       key={category.id}
                       {...category}
@@ -185,27 +195,28 @@ export const CreateListSheet = forwardRef<
                           selectedCategory === category.id ? null : category.id,
                         )
                       }
-                      index={index}
                     />
                   ))}
                 </View>
               </View>
-              {/* Create button */}
-              <View className="mt-2 pb-8">
+
+              <View className="mt-6">
                 <Button
                   onPress={handleCreate}
                   variant="primary"
-                  size="lg"
+                  size="md"
                   loading={isCreating}
                   disabled={!listName.trim()}
                   accessibilityLabel="Create shopping list"
+                  accessibilityHint="Creates the list and opens it"
+                  className="w-full"
                 >
-                  Create List
+                  Create list
                 </Button>
               </View>
             </>
           )}
-        </GlassBottomSheetView>
+        </GlassBottomSheetScrollView>
       </GlassBottomSheet>
     );
   },

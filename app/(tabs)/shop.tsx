@@ -246,7 +246,7 @@ function ActiveShop({
         router.replace("/(tabs)" as Href);
       } else {
         setCompletionQueued(true);
-        finishSheetRef.current?.close();
+        finishSheetRef.current?.dismiss();
       }
     } catch (error) {
       console.error("Couldn't finish shop:", error);
@@ -335,7 +335,7 @@ function ActiveShop({
           <Button
             onPress={() => {
               setFinishError(null);
-              finishSheetRef.current?.expand();
+              finishSheetRef.current?.present();
             }}
             disabled={!canFinish}
             variant="tonal"
@@ -472,7 +472,6 @@ function ActiveShop({
 
       <GlassBottomSheet
         ref={finishSheetRef}
-        index={-1}
         snapPoints={["52%"]}
         dismissible={!isFinishing}
       >
@@ -482,7 +481,7 @@ function ActiveShop({
               Finish this shop
             </Text>
             <Pressable
-              onPress={() => finishSheetRef.current?.close()}
+              onPress={() => finishSheetRef.current?.dismiss()}
               className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
               accessibilityLabel="Close finish shop options"
               accessibilityRole="button"
@@ -498,7 +497,7 @@ function ActiveShop({
 
           <Pressable
             onPress={() => {
-              finishSheetRef.current?.close();
+              finishSheetRef.current?.dismiss();
               router.push(getReceiptCaptureRoute(list._id));
             }}
             disabled={!canScanReceipt}

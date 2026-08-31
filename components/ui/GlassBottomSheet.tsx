@@ -1,10 +1,11 @@
-import BottomSheet, {
+import {
   BottomSheetBackdrop,
+  BottomSheetModal,
   BottomSheetScrollView,
   BottomSheetView,
   type BottomSheetBackdropProps,
   type BottomSheetBackgroundProps,
-  type BottomSheetProps,
+  type BottomSheetModalProps,
   useBottomSheetSpringConfigs,
 } from "@gorhom/bottom-sheet";
 import { BlurView } from "expo-blur";
@@ -19,20 +20,22 @@ import { getGlassSheetMaterial } from "@/lib/bottomSheet";
 import { GlassSurfaceProvider } from "./GlassSurfaceContext";
 import { useReduceTransparency } from "./useReduceTransparency";
 
-export type GlassBottomSheetRef = React.ElementRef<typeof BottomSheet>;
+export type GlassBottomSheetRef = React.ElementRef<typeof BottomSheetModal>;
 
 export interface GlassBottomSheetProps
   extends Omit<
-    BottomSheetProps,
+    BottomSheetModalProps,
     | "animationConfigs"
     | "backdropComponent"
     | "backgroundComponent"
     | "backgroundStyle"
+    | "children"
     | "handleIndicatorStyle"
     | "overrideReduceMotion"
   > {
   /** Prevent gesture and backdrop dismissal while a sheet action is in flight. */
   dismissible?: boolean;
+  children: React.ReactNode;
 }
 
 /**
@@ -138,7 +141,7 @@ export const GlassBottomSheet = forwardRef<
   );
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={ref}
       {...props}
       animationConfigs={animationConfigs}
@@ -150,6 +153,7 @@ export const GlassBottomSheet = forwardRef<
       keyboardBlurBehavior={keyboardBlurBehavior}
       enableBlurKeyboardOnGesture={enableBlurKeyboardOnGesture}
       android_keyboardInputMode={android_keyboardInputMode}
+      enableDismissOnClose
       overrideReduceMotion={ReduceMotion.System}
       handleIndicatorStyle={{
         width: 40,
@@ -158,7 +162,7 @@ export const GlassBottomSheet = forwardRef<
       }}
     >
       <GlassSurfaceProvider value>{children}</GlassSurfaceProvider>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 });
 

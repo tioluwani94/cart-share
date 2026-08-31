@@ -89,12 +89,12 @@ export default function TrackedProductsScreen() {
     setUnit(product.defaultUnit ?? "");
     setCategory(product.category ?? "");
     setFormError(null);
-    requestAnimationFrame(() => editorSheetRef.current?.expand());
+    requestAnimationFrame(() => editorSheetRef.current?.present());
   }, []);
 
   const closeEditor = useCallback(() => {
     if (isSaving) return;
-    editorSheetRef.current?.close();
+    editorSheetRef.current?.dismiss();
   }, [isSaving]);
 
   const handleEditorClosed = useCallback(() => {
@@ -146,7 +146,7 @@ export default function TrackedProductsScreen() {
         }),
       );
 
-      editorSheetRef.current?.close();
+      editorSheetRef.current?.dismiss();
       setShowSavedToast(true);
     } catch (error) {
       console.error("Couldn't update the tracked product:", error);
@@ -183,7 +183,7 @@ export default function TrackedProductsScreen() {
         market: household?.marketCountryCode,
         field: "status",
       });
-      editorSheetRef.current?.close();
+      editorSheetRef.current?.dismiss();
       setShowSavedToast(true);
     } catch (error) {
       console.error("Couldn't change product tracking:", error);
@@ -259,10 +259,9 @@ export default function TrackedProductsScreen() {
 
       <GlassBottomSheet
         ref={editorSheetRef}
-        index={-1}
         snapPoints={["88%"]}
         dismissible={!isSaving}
-        onClose={handleEditorClosed}
+        onDismiss={handleEditorClosed}
       >
         <GlassBottomSheetScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}

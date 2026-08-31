@@ -31,7 +31,7 @@ describe("button material", () => {
     ).toEqual(
       expect.objectContaining({
         blurIntensity: 0,
-        containerClassName: "border border-white/30 bg-coral",
+        containerClassName: "bg-coral",
         textClassName: "text-white",
         spinnerColor: "#FFFFFF",
       }),
