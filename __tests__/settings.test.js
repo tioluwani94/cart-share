@@ -1,7 +1,7 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 
-import SettingsScreen from "./settings";
+import SettingsScreen from "../app/settings";
 
 const mockUpdatePreferences = jest.fn();
 const mockRecalculateReminders = jest.fn();

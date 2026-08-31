@@ -4,6 +4,7 @@ import TestRenderer, { act } from "react-test-renderer";
 import { GlassSegmentedControl } from "./GlassSegmentedControl";
 
 const mockSelectionAsync = jest.fn();
+const mockWithTiming = jest.fn((value) => value);
 
 jest.mock("expo-haptics", () => ({
   selectionAsync: (...args) => mockSelectionAsync(...args),
@@ -28,7 +29,11 @@ jest.mock("react-native-reanimated", () => {
 
   return {
     __esModule: true,
-    default: { View },
+    default: {
+      View,
+      createAnimatedComponent: (Component) => Component,
+    },
+    cubicBezier: () => jest.fn(),
     Easing: { bezier: () => jest.fn() },
     useAnimatedStyle: (factory) => factory(),
     useReducedMotion: () => false,
@@ -41,7 +46,7 @@ jest.mock("react-native-reanimated", () => {
         this.current = nextValue;
       },
     }),
-    withTiming: (value) => value,
+    withTiming: (...args) => mockWithTiming(...args),
   };
 });
 
@@ -50,9 +55,16 @@ const options = [
   { label: "Online", value: "online" },
 ];
 
+function findSegment(renderer, accessibilityLabel) {
+  return renderer.root
+    .findAllByProps({ accessibilityLabel })
+    .find((node) => node.props.accessibilityRole === "radio");
+}
+
 describe("GlassSegmentedControl", () => {
   beforeEach(() => {
     mockSelectionAsync.mockClear();
+    mockWithTiming.mockClear();
   });
 
   it("exposes the selected segment and announces a changed selection", () => {
@@ -70,10 +82,8 @@ describe("GlassSegmentedControl", () => {
       );
     });
 
-    const inStore = renderer.root.findByProps({
-      accessibilityLabel: "In store",
-    });
-    const online = renderer.root.findByProps({ accessibilityLabel: "Online" });
+    const inStore = findSegment(renderer, "In store");
+    const online = findSegment(renderer, "Online");
 
     expect(inStore.props.accessibilityState).toEqual({
       disabled: false,
@@ -104,10 +114,78 @@ describe("GlassSegmentedControl", () => {
       );
     });
 
-    const online = renderer.root.findByProps({ accessibilityLabel: "Online" });
+    const online = findSegment(renderer, "Online");
     act(() => online.props.onPress());
 
     expect(onValueChange).not.toHaveBeenCalled();
     expect(mockSelectionAsync).not.toHaveBeenCalled();
+  });
+
+  it("provides immediate press feedback before committing the selection", () => {
+    const onValueChange = jest.fn();
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <GlassSegmentedControl
+          value="in_store"
+          options={options}
+          onValueChange={onValueChange}
+        />,
+      );
+    });
+
+    const online = findSegment(renderer, "Online");
+
+    expect(online.props.onPressIn).toEqual(expect.any(Function));
+    expect(online.props.onPressOut).toEqual(expect.any(Function));
+
+    act(() => online.props.onPressIn());
+    expect(onValueChange).not.toHaveBeenCalled();
+
+    act(() => online.props.onPressOut());
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it("moves the selection pill with the shared ease-in-out timing", () => {
+    const onValueChange = jest.fn();
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <GlassSegmentedControl
+          value="in_store"
+          options={options}
+          onValueChange={onValueChange}
+          accessibilityLabel="Shopping method"
+        />,
+      );
+    });
+
+    const control = renderer.root
+      .findAllByProps({ accessibilityLabel: "Shopping method" })
+      .find((node) => typeof node.props.onLayout === "function");
+    act(() =>
+      control.props.onLayout({
+        nativeEvent: { layout: { width: 200 } },
+      }),
+    );
+
+    mockWithTiming.mockClear();
+    act(() => {
+      renderer.update(
+        <GlassSegmentedControl
+          value="online"
+          options={options}
+          onValueChange={onValueChange}
+          accessibilityLabel="Shopping method"
+        />,
+      );
+    });
+
+    expect(mockWithTiming).toHaveBeenCalledWith(96, {
+      duration: 180,
+      easing: expect.any(Function),
+    });
   });
 });

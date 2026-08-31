@@ -1,7 +1,7 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 
-import RestockSetupScreen from "./restock-setup";
+import RestockSetupScreen from "../app/restock-setup";
 
 const mockReplace = jest.fn();
 const mockCompleteSetup = jest.fn();

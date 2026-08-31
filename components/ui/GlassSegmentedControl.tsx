@@ -14,6 +14,7 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 import Animated, {
+  cubicBezier,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
@@ -26,6 +27,9 @@ import { useReduceTransparency } from "./useReduceTransparency";
 const CONTROL_INSET = 4;
 const SELECTION_DURATION_MS = 180;
 const SELECTION_EASING = Easing.bezier(0.77, 0, 0.175, 1);
+const PRESS_DURATION_MS = "120ms";
+const PRESS_EASING = cubicBezier(0.23, 1, 0.32, 1);
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export interface GlassSegmentedControlOption<Value extends string> {
   label: string;
@@ -40,6 +44,61 @@ export interface GlassSegmentedControlProps<Value extends string> {
   accessibilityLabel?: string;
   disabled?: boolean;
   className?: string;
+}
+
+interface SegmentButtonProps {
+  label: string;
+  accessibilityLabel: string;
+  selected: boolean;
+  disabled: boolean;
+  reduceMotion: boolean;
+  onPress: () => void;
+}
+
+function SegmentButton({
+  label,
+  accessibilityLabel,
+  selected,
+  disabled,
+  reduceMotion,
+  onPress,
+}: SegmentButtonProps) {
+  const [pressed, setPressed] = useState(false);
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      disabled={disabled}
+      pressRetentionOffset={16}
+      className="min-h-11 flex-1 items-center justify-center rounded-full px-3"
+      style={{
+        opacity: pressed ? 0.68 : 1,
+        transform: [
+          { scale: pressed && !reduceMotion ? 0.97 : 1 },
+        ],
+        transitionProperty: reduceMotion
+          ? "opacity"
+          : ["opacity", "transform"],
+        transitionDuration: PRESS_DURATION_MS,
+        transitionTimingFunction: PRESS_EASING,
+      }}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled }}
+    >
+      <Text
+        className={cn(
+          "text-center font-semibold",
+          selected ? "text-ink" : "text-ink-secondary",
+        )}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </AnimatedPressable>
+  );
 }
 
 /**
@@ -185,25 +244,15 @@ export function GlassSegmentedControl<Value extends string>({
         {options.map((option) => {
           const selected = option.value === value;
           return (
-            <Pressable
+            <SegmentButton
               key={option.value}
-              onPress={() => select(option.value)}
-              disabled={disabled}
-              className="min-h-11 flex-1 items-center justify-center rounded-full px-3 active:opacity-60"
+              label={option.label}
               accessibilityLabel={option.accessibilityLabel ?? option.label}
-              accessibilityRole="radio"
-              accessibilityState={{ selected, disabled }}
-            >
-              <Text
-                className={cn(
-                  "text-center font-semibold",
-                  selected ? "text-ink" : "text-ink-secondary",
-                )}
-                numberOfLines={1}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
+              selected={selected}
+              disabled={disabled}
+              reduceMotion={reduceMotion}
+              onPress={() => select(option.value)}
+            />
           );
         })}
       </View>
