@@ -4,12 +4,13 @@ import { useCallback, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Animated, {
   useAnimatedKeyboard,
+  useReducedMotion,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { themeColors } from "@/lib/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -19,6 +20,7 @@ interface AddItemInputProps {
 }
 
 export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
+  const reduceMotion = useReducedMotion();
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,10 +54,12 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
     setIsSubmitting(true);
 
     // Press animation for button
-    buttonScale.value = withSequence(
-      withSpring(0.85, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 10, stiffness: 400 }),
-    );
+    buttonScale.value = reduceMotion
+      ? 1
+      : withSequence(
+          withTiming(0.96, { duration: 80 }),
+          withTiming(1, { duration: 120 }),
+        );
 
     try {
       await onAdd(trimmedValue);
@@ -81,16 +85,26 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [value, isSubmitting, disabled, onAdd, buttonScale, inputOpacity]);
+  }, [
+    value,
+    isSubmitting,
+    disabled,
+    onAdd,
+    buttonScale,
+    inputOpacity,
+    reduceMotion,
+  ]);
 
   const handleButtonPressIn = () => {
     if (!disabled && value.trim()) {
-      buttonScale.value = withSpring(0.9, { damping: 10, stiffness: 400 });
+      buttonScale.value = reduceMotion
+        ? 1
+        : withTiming(0.97, { duration: 100 });
     }
   };
 
   const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 400 });
+    buttonScale.value = reduceMotion ? 1 : withTiming(1, { duration: 140 });
   };
 
   const handleKeyboardSubmit = () => {
@@ -101,7 +115,7 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
 
   return (
     <Animated.View
-      className="absolute bottom-0 left-0 right-0 border-t border-warm-gray-100 bg-white px-4 pb-8 pt-3"
+      className="absolute bottom-0 left-0 right-0 border-t border-separator bg-surface px-4 pb-8 pt-3"
       style={[
         {
           shadowColor: "#000",
@@ -121,15 +135,15 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
             value={value}
             onChangeText={setValue}
             placeholder="Add an item..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={themeColors.secondaryInk}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onSubmitEditing={handleKeyboardSubmit}
             returnKeyType="done"
             blurOnSubmit={false}
             editable={!disabled}
-            className={`h-12 rounded-2xl bg-warm-gray-50 px-4 text-base text-warm-gray-800 ${
-              isFocused ? "border-2 border-teal" : "border border-warm-gray-200"
+            className={`h-12 rounded-xl bg-surface px-4 text-base text-ink ${
+              isFocused ? "border-2 border-coral" : "border border-separator"
             }`}
             accessibilityLabel="Add item input"
             accessibilityHint="Enter the name of an item to add to your list"
@@ -152,7 +166,9 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
         >
           <Plus
             size={24}
-            color={isAddDisabled ? "#78716C" : "#FFFFFF"}
+            color={
+              isAddDisabled ? themeColors.secondaryInk : themeColors.surface
+            }
             strokeWidth={2.5}
           />
         </AnimatedPressable>

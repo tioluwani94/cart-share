@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Camera } from "lucide-react-native";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, {
   FadeIn,
@@ -29,10 +29,14 @@ function ConfettiParticle({ emoji, index, total }: ConfettiParticleProps) {
   const opacity = useSharedValue(0);
 
   // Calculate position around a circle
-  const angle = (index / total) * Math.PI * 2;
-  const radius = 120 + Math.random() * 60;
-  const targetX = Math.cos(angle) * radius;
-  const targetY = Math.sin(angle) * radius - 50; // Bias upward
+  const { targetX, targetY } = useMemo(() => {
+    const angle = (index / total) * Math.PI * 2;
+    const radius = 120 + Math.random() * 60;
+    return {
+      targetX: Math.cos(angle) * radius,
+      targetY: Math.sin(angle) * radius - 50,
+    };
+  }, [index, total]);
 
   useEffect(() => {
     const delay = index * 30;
@@ -60,7 +64,16 @@ function ConfettiParticle({ emoji, index, total }: ConfettiParticleProps) {
 
     // Fade out after burst
     opacity.value = withDelay(delay + 800, withTiming(0, { duration: 400 }));
-  }, []);
+  }, [
+    index,
+    opacity,
+    rotate,
+    scale,
+    targetX,
+    targetY,
+    translateX,
+    translateY,
+  ]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -133,7 +146,14 @@ export function CompletionCelebration({
       checkOpacity.value = 0;
       buttonOpacity.value = 0;
     }
-  }, [visible]);
+  }, [
+    buttonOpacity,
+    checkOpacity,
+    checkScale,
+    onDismiss,
+    onScanReceipt,
+    visible,
+  ]);
 
   const checkStyle = useAnimatedStyle(() => ({
     opacity: checkOpacity.value,
@@ -205,7 +225,7 @@ export function CompletionCelebration({
                 onDismiss();
                 onScanReceipt();
               }}
-              className="flex-row items-center rounded-2xl bg-coral px-6 py-4"
+              className="flex-row items-center rounded-full bg-coral px-6 py-4"
               accessibilityLabel="Scan receipt"
               accessibilityRole="button"
             >

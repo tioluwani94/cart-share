@@ -4,13 +4,16 @@ import Svg, { Rect, Line, G } from "react-native-svg";
 import Animated, {
   useSharedValue,
   useAnimatedProps,
-  withDelay,
-  withSpring,
   withTiming,
-  Easing,
   FadeIn,
+  useReducedMotion,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import {
+  formatChartCurrencyFromPence,
+  formatCurrencyFromPence,
+} from "@/lib/formatters";
+import { themeColors } from "@/lib/theme";
 
 // Create animated version of Rect
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
@@ -19,8 +22,8 @@ interface MonthData {
   month: number;
   year: number;
   label: string;
-  totalCents: number;
-  totalDollars: number;
+  totalPence: number;
+  totalPounds: number;
   sessionCount: number;
 }
 
@@ -39,52 +42,33 @@ const PADDING_TOP = 20;
 const CORNER_RADIUS = 6;
 
 /**
- * Format cents to dollar string.
- */
-function formatDollars(cents: number): string {
-  if (cents === 0) return "$0";
-  if (cents >= 100000) {
-    // $1000+ - show as $1.2k
-    return `$${(cents / 100000).toFixed(1)}k`;
-  }
-  return `$${Math.round(cents / 100)}`;
-}
-
-/**
  * Individual animated bar component with tooltip.
  */
 function AnimatedBar({
   x,
   maxHeight,
   barHeight,
-  index,
   data,
   onPress,
   isSelected,
+  reduceMotion,
 }: {
   x: number;
   maxHeight: number;
   barHeight: number;
-  index: number;
   data: MonthData;
   onPress: () => void;
   isSelected: boolean;
+  reduceMotion: boolean;
 }) {
   // Animated height value - starts at 0 and animates to target height
   const animatedHeight = useSharedValue(0);
-  const y = PADDING_TOP + maxHeight - barHeight;
-
   // Animate bar height on mount with sequential delay
   useEffect(() => {
-    animatedHeight.value = withDelay(
-      index * 100, // Stagger each bar by 100ms
-      withSpring(barHeight, {
-        damping: 12,
-        stiffness: 80,
-        mass: 1,
-      })
-    );
-  }, [barHeight, index]);
+    animatedHeight.value = reduceMotion
+      ? barHeight
+      : withTiming(barHeight, { duration: 220 });
+  }, [animatedHeight, barHeight, reduceMotion]);
 
   const animatedProps = useAnimatedProps(() => {
     return {
@@ -93,16 +77,13 @@ function AnimatedBar({
     };
   });
 
-  // Coral color with lighter variant for hover/selected state
-  const fillColor = isSelected ? "#FF8585" : "#FF6B6B";
-
   return (
     <G>
       {/* Pressable overlay for touch detection */}
       <Rect
-        x={x}
+        x={x - 6}
         y={PADDING_TOP}
-        width={BAR_WIDTH}
+        width={48}
         height={maxHeight}
         fill="transparent"
         onPress={onPress}
@@ -114,7 +95,8 @@ function AnimatedBar({
         width={BAR_WIDTH}
         rx={CORNER_RADIUS}
         ry={CORNER_RADIUS}
-        fill={fillColor}
+        fill={themeColors.coral}
+        opacity={isSelected ? 1 : 0.72}
       />
     </G>
   );
@@ -132,11 +114,7 @@ function Tooltip({
   x: number;
   onClose: () => void;
 }) {
-  const formattedAmount = (data.totalCents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  });
+  const formattedAmount = formatCurrencyFromPence(data.totalPence);
 
   return (
     <Animated.View
@@ -165,9 +143,10 @@ function Tooltip({
  */
 export function SpendingChart({ data }: SpendingChartProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const reduceMotion = useReducedMotion();
 
   // Calculate max value for scaling
-  const maxValue = Math.max(...data.map((d) => d.totalCents), 100); // Minimum 100 cents to avoid division by 0
+  const maxValue = Math.max(...data.map((d) => d.totalPence), 100); // Minimum £1 to avoid division by 0
   const maxBarHeight = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
   // Calculate Y-axis labels (0, mid, max)
@@ -188,9 +167,9 @@ export function SpendingChart({ data }: SpendingChartProps) {
       className="relative"
       accessibilityRole="image"
       accessibilityLabel={`Spending chart showing ${data.length} months. ${
-        data.filter((d) => d.totalCents > 0).length > 0
-          ? `Highest spending was ${formatDollars(maxValue)} in ${
-              data.find((d) => d.totalCents === maxValue)?.label ?? ""
+        data.filter((d) => d.totalPence > 0).length > 0
+          ? `Highest spending was ${formatChartCurrencyFromPence(maxValue)} in ${
+              data.find((d) => d.totalPence === maxValue)?.label ?? ""
             }.`
           : "No spending data available."
       }`}
@@ -227,22 +206,9 @@ export function SpendingChart({ data }: SpendingChartProps) {
           );
         })}
 
-        {/* Y-axis labels */}
-        {yLabels.map((value, i) => {
-          const y =
-            PADDING_TOP +
-            maxBarHeight -
-            (value / maxValue) * maxBarHeight;
-          return (
-            <G key={`label-y-${i}`}>
-              {/* Use a foreign object for text with NativeWind styling isn't possible in SVG */}
-            </G>
-          );
-        })}
-
         {/* Bars */}
         {data.map((item, index) => {
-          const barHeight = (item.totalCents / maxValue) * maxBarHeight;
+          const barHeight = (item.totalPence / maxValue) * maxBarHeight;
           const x = startX + index * (BAR_WIDTH + BAR_GAP);
 
           return (
@@ -251,10 +217,10 @@ export function SpendingChart({ data }: SpendingChartProps) {
               x={x}
               maxHeight={maxBarHeight}
               barHeight={Math.max(barHeight, 4)} // Minimum 4px height for visibility
-              index={index}
               data={item}
               onPress={() => handleBarPress(index)}
               isSelected={selectedIndex === index}
+              reduceMotion={reduceMotion}
             />
           );
         })}
@@ -277,7 +243,7 @@ export function SpendingChart({ data }: SpendingChartProps) {
                 top: i * (maxBarHeight / 2) - 6,
               }}
             >
-              {formatDollars(value)}
+              {formatChartCurrencyFromPence(value)}
             </Text>
           ))}
       </View>

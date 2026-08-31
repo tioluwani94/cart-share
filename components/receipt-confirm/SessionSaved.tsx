@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 interface SessionSavedProps {
-  /** Extracted total amount in cents */
+  /** Extracted total amount in pence */
   extractedTotal: number | null;
   /** Number of shopping sessions this month */
   monthlySessionCount: number;

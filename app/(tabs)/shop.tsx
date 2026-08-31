@@ -1,0 +1,376 @@
+import { AddItemInput, ListItem } from "@/components/lists";
+import { Button } from "@/components/ui";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { useAnalytics } from "@/lib/AnalyticsContext";
+import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
+import { getReceiptCaptureRoute } from "@/lib/receiptFlow";
+import { canFinishShoppingList } from "@/lib/shoppingList";
+import { themeColors } from "@/lib/theme";
+import { useCachedHousehold } from "@/lib/useCachedQuery";
+import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
+import { useShoppingList } from "@/lib/useShoppingList";
+import { useUser } from "@clerk/clerk-expo";
+import { FlashList } from "@shopify/flash-list";
+import { useMutation } from "convex/react";
+import { type Href, useRouter } from "expo-router";
+import { Camera, CloudOff, Receipt, ShoppingBasket, X } from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+function ShopLoadingState() {
+  return (
+    <SafeAreaView className="flex-1 bg-background-light px-6 pt-5">
+      <View className="h-10 w-28 rounded-xl bg-warm-gray-200" />
+      <View className="mt-3 h-5 w-48 rounded-lg bg-warm-gray-100" />
+      <View className="mt-8 h-2 rounded-full bg-warm-gray-200" />
+      <View className="mt-4 h-16 border-b border-separator" />
+      <View className="h-16 border-b border-separator" />
+      <View className="h-16 border-b border-separator" />
+    </SafeAreaView>
+  );
+}
+
+export default function ShopScreen() {
+  const router = useRouter();
+  const { user } = useUser();
+  const { data: household } = useCachedHousehold(user?.id);
+  const { data: review } = useCachedRestockReview(user?.id, household?._id);
+
+  if (household === undefined || review === undefined) {
+    return <ShopLoadingState />;
+  }
+
+  if (!household || !review.activeList) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-background-light px-8">
+        <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
+          <ShoppingBasket size={30} color={themeColors.coral} />
+        </View>
+        <Text className="mt-5 text-center text-2xl font-bold text-ink">
+          No shop is planned yet
+        </Text>
+        <Text className="mt-2 text-center text-base leading-6 text-ink-secondary">
+          Choose a Next shop on Plan, then come back when you're ready to shop.
+        </Text>
+        <Button onPress={() => router.replace("/(tabs)" as Href)} className="mt-6">
+          Go to Plan
+        </Button>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <ActiveShop
+      householdId={household._id}
+      list={review.activeList}
+      locale={review.household.locale}
+      planningTimeZone={review.household.planningTimeZone}
+    />
+  );
+}
+
+interface ActiveShopProps {
+  householdId: Id<"households">;
+  locale: string;
+  planningTimeZone: string;
+  list: {
+    _id: Id<"lists">;
+    name: string;
+    plannedFor?: number;
+    tripBudgetPence?: number;
+    shoppingMode?: "in_store" | "online";
+  };
+}
+
+function ActiveShop({
+  householdId,
+  list,
+  locale,
+  planningTimeZone,
+}: ActiveShopProps) {
+  const router = useRouter();
+  const analytics = useAnalytics();
+  const {
+    items,
+    isFromCache,
+    isLoading,
+    addItem,
+    toggleComplete,
+    removeItem,
+    isPendingSync,
+    isOnline,
+    queueLength,
+    completedCount,
+    totalItems: totalCount,
+    progress,
+    plannedTotalPence,
+  } = useShoppingList(list._id, householdId);
+  const createSession = useMutation(api.sessions.create);
+  const [finishOpen, setFinishOpen] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+
+  const canFinish = canFinishShoppingList({
+    totalItems: totalCount,
+    isOnline,
+    queueLength,
+    isFinishing,
+  });
+  const syncMessage = !isOnline
+    ? "Offline changes are saved on this device. Reconnect before finishing."
+    : queueLength > 0
+      ? `${queueLength} ${queueLength === 1 ? "change is" : "changes are"} syncing before you can finish.`
+      : "Showing saved items while the latest version loads.";
+  const finishUnavailableMessage =
+    totalCount === 0
+      ? "Add at least one item before finishing this shop."
+      : !isOnline
+        ? "Reconnect before finishing this shop."
+        : queueLength > 0
+          ? "Wait for pending changes to finish syncing."
+          : null;
+
+  useEffect(() => {
+    analytics.track("shop started", {
+      household_id: householdId,
+      mode: list.shoppingMode === "online" ? "online" : "physical",
+    });
+  }, [analytics, householdId, list.shoppingMode]);
+
+  const handleAdd = useCallback(
+    async (name: string) => {
+      await addItem(name);
+      analytics.track("shopping item added", {
+        household_id: householdId,
+        source: "manual",
+      });
+    },
+    [addItem, analytics, householdId],
+  );
+
+  const finishWithoutReceipt = useCallback(async () => {
+    if (!canFinish) return;
+    setIsFinishing(true);
+    setFinishError(null);
+    try {
+      await createSession({ householdId, listId: list._id });
+      analytics.track("shop completed", {
+        household_id: householdId,
+        item_count_bucket:
+          totalCount === 0 ? "0" : totalCount <= 10 ? "1-10" : "11+",
+        total_present: false,
+        receipt_present: false,
+      });
+      router.replace("/(tabs)" as Href);
+    } catch (error) {
+      console.error("Couldn't finish shop:", error);
+      setFinishError("We couldn't save this shop. Your list is still available.");
+    } finally {
+      setIsFinishing(false);
+    }
+  }, [
+    analytics,
+    canFinish,
+    createSession,
+    householdId,
+    list._id,
+    router,
+    totalCount,
+  ]);
+
+  if (isLoading) {
+    return <ShopLoadingState />;
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
+      <View className="border-b border-separator px-6 pb-4 pt-4">
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="text-4xl font-bold tracking-tight text-ink">
+              Shop
+            </Text>
+            <Text className="mt-2 text-lg font-semibold text-ink">
+              {list.name}
+            </Text>
+            <Text className="mt-0.5 text-sm text-ink-secondary">
+              {list.plannedFor
+                ? formatDateWithWeekday(list.plannedFor, {
+                    locale,
+                    timeZone: planningTimeZone,
+                  })
+                : "Your focused shopping list"}
+            </Text>
+          </View>
+          <Button
+            onPress={() => setFinishOpen(true)}
+            disabled={!canFinish}
+            variant="tonal"
+            size="sm"
+          >
+            Finish
+          </Button>
+        </View>
+
+        <View className="mt-5 h-2 overflow-hidden rounded-full bg-warm-gray-200">
+          <View
+            className="h-full rounded-full bg-teal"
+            style={{ width: `${progress * 100}%` }}
+          />
+        </View>
+        <View className="mt-2 flex-row items-center justify-between">
+          <Text className="text-sm font-medium text-ink-secondary">
+            {completedCount} of {totalCount} picked up
+          </Text>
+          <Text className="text-sm font-semibold text-ink-secondary">
+            {plannedTotalPence > 0
+              ? `${formatCurrencyFromPence(plannedTotalPence)} planned`
+              : list.tripBudgetPence !== undefined
+                ? `${formatCurrencyFromPence(list.tripBudgetPence)} budget`
+                : "Prices optional"}
+          </Text>
+        </View>
+
+        {(isFromCache || !isOnline || queueLength > 0) && (
+          <View className="mt-3 flex-row items-start rounded-xl border border-yellow/50 bg-yellow/20 px-3 py-2.5">
+            <CloudOff size={17} color={themeColors.warningInk} />
+            <Text className="ml-2 flex-1 text-sm leading-5 text-yellow-900">
+              {syncMessage}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View className="flex-1 px-6 pb-20">
+        {totalCount === 0 ? (
+          <View className="flex-1 items-center justify-center px-8 pb-20">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
+              <ShoppingBasket size={28} color={themeColors.coral} />
+            </View>
+            <Text className="mt-4 text-center text-2xl font-bold text-ink">
+              Add the first thing you need
+            </Text>
+            <Text className="mt-2 text-center text-base leading-6 text-ink-secondary">
+              Type below. Everyone in the household will see it.
+            </Text>
+          </View>
+        ) : (
+          <FlashList
+            data={items ?? []}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => (
+              <ListItem
+                id={item._id}
+                name={item.name}
+                quantity={item.quantity}
+                unit={item.unit}
+                notes={item.notes}
+                category={item.category}
+                estimatedPricePence={item.estimatedPricePence}
+                isCompleted={item.isCompleted}
+                addedByUser={item.addedByUser}
+                isPendingSync={item.isPendingSync || isPendingSync(item._id)}
+                onToggle={(itemId) => void toggleComplete(itemId)}
+                onDelete={(itemId) => void removeItem(itemId)}
+              />
+            )}
+            contentContainerStyle={{ paddingTop: 8, paddingBottom: 80 }}
+          />
+        )}
+      </View>
+      <AddItemInput onAdd={handleAdd} />
+
+      <Modal
+        visible={finishOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFinishOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/40">
+          <View className="rounded-t-2xl bg-surface px-6 pb-10 pt-5">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-2xl font-bold text-ink">
+                Finish this shop
+              </Text>
+              <Pressable
+                onPress={() => setFinishOpen(false)}
+                className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
+                accessibilityLabel="Close finish shop options"
+                accessibilityRole="button"
+              >
+                <X size={20} color={themeColors.secondaryInk} />
+              </Pressable>
+            </View>
+            <Text className="mt-2 text-base leading-6 text-ink-secondary">
+              A receipt helps track actual spend. You can also finish without one.
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                setFinishOpen(false);
+                router.push(getReceiptCaptureRoute(list._id));
+              }}
+              disabled={!canFinish}
+              className="mt-5 min-h-16 flex-row items-center rounded-xl bg-coral p-4 disabled:opacity-50"
+              accessibilityLabel="Scan a receipt"
+              accessibilityRole="button"
+            >
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-white/20">
+                <Camera size={22} color={themeColors.surface} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-bold text-white">
+                  Scan receipt
+                </Text>
+                <Text className="mt-0.5 text-sm text-white/80">
+                  Check the total before saving
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              onPress={() => void finishWithoutReceipt()}
+              disabled={!canFinish}
+              className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator p-4 disabled:opacity-50"
+              accessibilityLabel="Finish without a receipt"
+              accessibilityRole="button"
+            >
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
+                {isFinishing ? (
+                  <ActivityIndicator color={themeColors.secondaryInk} />
+                ) : (
+                  <Receipt size={22} color={themeColors.secondaryInk} />
+                )}
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-bold text-ink">
+                  Finish without receipt
+                </Text>
+                <Text className="mt-0.5 text-sm text-ink-secondary">
+                  Save the trip without an actual total
+                </Text>
+              </View>
+            </Pressable>
+
+            {finishUnavailableMessage && (
+              <Text className="mt-3 text-sm text-yellow-800">
+                {finishUnavailableMessage}
+              </Text>
+            )}
+            {finishError && (
+              <Text className="mt-3 text-sm text-red-600">{finishError}</Text>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}

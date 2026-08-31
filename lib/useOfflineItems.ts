@@ -1,9 +1,11 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useAuth } from "@clerk/clerk-expo";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useIsOnline } from "./useNetworkStatus";
-import { useOfflineQueue } from "./useOfflineQueue";
+import { createOfflineId, type OfflineScope } from "./offlineQueue";
+import { useScopedOfflineQueue } from "./useScopedOfflineQueue";
 import {
   getItemsCacheKey,
   getItem,
@@ -18,11 +20,13 @@ interface ItemWithUser {
   _id: Id<"items">;
   _creationTime: number;
   listId: Id<"lists">;
+  clientId?: string;
   name: string;
   quantity?: number;
   unit?: string;
   notes?: string;
   category?: string;
+  estimatedPricePence?: number;
   isCompleted: boolean;
   addedBy: Id<"users">;
   completedBy?: Id<"users">;
@@ -49,19 +53,27 @@ export interface OptimisticItem extends ItemWithUser {
 /**
  * Generate a temporary ID for optimistic items
  */
-function generateTempId(): string {
-  return `temp_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
-
 /**
  * Hook that provides offline-capable item operations with optimistic updates.
  * - When online: executes mutations directly
  * - When offline: queues mutations and updates cache optimistically
  * - Shows sync indicator for pending items
  */
-export function useOfflineItems(listId: Id<"lists">) {
+export function useOfflineItems(
+  listId: Id<"lists">,
+  householdId?: Id<"households">,
+) {
+  const { userId } = useAuth();
+  const scope = useMemo<OfflineScope | null>(
+    () =>
+      userId && householdId
+        ? { clerkUserId: userId, householdId }
+        : null,
+    [householdId, userId],
+  );
   const isOnline = useIsOnline();
-  const { addToQueue, queue, isProcessing } = useOfflineQueue();
+  const { addToQueue, queue, isProcessing } =
+    useScopedOfflineQueue(scope);
 
   // Track items that are pending sync (by their temp ID or mutation ID)
   const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(new Set());
@@ -71,17 +83,6 @@ export function useOfflineItems(listId: Id<"lists">) {
   const toggleCompleteMutation = useMutation(api.items.toggleComplete);
   const removeItemMutation = useMutation(api.items.remove);
   const updateItemMutation = useMutation(api.items.update);
-
-  // Track if we're in the process of syncing
-  const syncingRef = useRef(false);
-
-  /**
-   * Get items from cache
-   */
-  const getCachedItemsData = useCallback((): OptimisticItem[] | null => {
-    const cacheKey = getItemsCacheKey(listId);
-    return getItem<OptimisticItem[]>(cacheKey);
-  }, [listId]);
 
   /**
    * Update items in cache
@@ -98,11 +99,24 @@ export function useOfflineItems(listId: Id<"lists">) {
     [listId]
   );
 
+  const getItemReference = useCallback(
+    (itemId: Id<"items">) => {
+      const cachedItems =
+        getItem<OptimisticItem[]>(getItemsCacheKey(listId)) ?? [];
+      const item = cachedItems.find((candidate) => candidate._id === itemId);
+      if (item?.clientId) {
+        return { listId, clientId: item.clientId };
+      }
+      return { listId, itemId };
+    },
+    [listId],
+  );
+
   /**
    * Add an item - works both online and offline
    */
   const addItem = useCallback(
-    async (name: string, options?: { quantity?: number; unit?: string; notes?: string; category?: string }) => {
+    async (name: string, options?: { quantity?: number; unit?: string; notes?: string; category?: string; estimatedPricePence?: number }) => {
       const trimmedName = name.trim();
       if (!trimmedName) return;
 
@@ -115,7 +129,8 @@ export function useOfflineItems(listId: Id<"lists">) {
         });
       } else {
         // Offline: queue mutation and update cache optimistically
-        const tempId = generateTempId();
+        const clientId = createOfflineId("item");
+        const tempId = `temp_${clientId}`;
         const now = Date.now();
 
         // Create optimistic item
@@ -123,6 +138,7 @@ export function useOfflineItems(listId: Id<"lists">) {
           _id: tempId as Id<"items">,
           _creationTime: now,
           listId,
+          clientId,
           name: trimmedName,
           quantity: options?.quantity,
           unit: options?.unit,
@@ -136,10 +152,14 @@ export function useOfflineItems(listId: Id<"lists">) {
         };
 
         // Add to queue
-        const mutationId = addToQueue("items.add", {
-          listId,
-          name: trimmedName,
-          ...options,
+        const mutationId = addToQueue({
+          type: "items.add",
+          args: {
+            listId,
+            clientId,
+            name: trimmedName,
+            ...options,
+          },
         });
 
         optimisticItem.pendingMutationId = mutationId;
@@ -161,12 +181,20 @@ export function useOfflineItems(listId: Id<"lists">) {
    */
   const toggleComplete = useCallback(
     async (itemId: Id<"items">) => {
-      if (isOnline) {
+      const isLocalOnlyItem = String(itemId).startsWith("temp_");
+      if (isOnline && !isLocalOnlyItem) {
         // Online: execute mutation directly
         await toggleCompleteMutation({ itemId });
       } else {
-        // Offline: queue mutation and update cache optimistically
-        const mutationId = addToQueue("items.toggleComplete", { itemId });
+        const cachedItems =
+          getItem<OptimisticItem[]>(getItemsCacheKey(listId)) ?? [];
+        const currentItem = cachedItems.find((item) => item._id === itemId);
+        if (!currentItem) throw new Error("Item not found in offline cache");
+        const isCompleted = !currentItem.isCompleted;
+        const mutationId = addToQueue({
+          type: "items.setCompleted",
+          args: { ...getItemReference(itemId), isCompleted },
+        });
 
         // Update cache optimistically
         updateCachedItems((items) =>
@@ -174,8 +202,8 @@ export function useOfflineItems(listId: Id<"lists">) {
             if (item._id === itemId) {
               return {
                 ...item,
-                isCompleted: !item.isCompleted,
-                completedAt: !item.isCompleted ? Date.now() : undefined,
+                isCompleted,
+                completedAt: isCompleted ? Date.now() : undefined,
                 updatedAt: Date.now(),
                 isPendingSync: true,
                 pendingMutationId: mutationId,
@@ -191,7 +219,14 @@ export function useOfflineItems(listId: Id<"lists">) {
         console.log("[OfflineItems] Toggled item offline:", itemId);
       }
     },
-    [isOnline, toggleCompleteMutation, addToQueue, updateCachedItems]
+    [
+      addToQueue,
+      getItemReference,
+      isOnline,
+      listId,
+      toggleCompleteMutation,
+      updateCachedItems,
+    ],
   );
 
   /**
@@ -199,12 +234,16 @@ export function useOfflineItems(listId: Id<"lists">) {
    */
   const removeItem = useCallback(
     async (itemId: Id<"items">) => {
-      if (isOnline) {
+      const isLocalOnlyItem = String(itemId).startsWith("temp_");
+      if (isOnline && !isLocalOnlyItem) {
         // Online: execute mutation directly
         await removeItemMutation({ itemId });
       } else {
         // Offline: queue mutation and update cache optimistically
-        addToQueue("items.remove", { itemId });
+        addToQueue({
+          type: "items.remove",
+          args: getItemReference(itemId),
+        });
 
         // Update cache optimistically - remove the item
         updateCachedItems((items) => items.filter((item) => item._id !== itemId));
@@ -212,7 +251,13 @@ export function useOfflineItems(listId: Id<"lists">) {
         console.log("[OfflineItems] Removed item offline:", itemId);
       }
     },
-    [isOnline, removeItemMutation, addToQueue, updateCachedItems]
+    [
+      addToQueue,
+      getItemReference,
+      isOnline,
+      removeItemMutation,
+      updateCachedItems,
+    ],
   );
 
   /**
@@ -221,22 +266,33 @@ export function useOfflineItems(listId: Id<"lists">) {
   const updateItem = useCallback(
     async (
       itemId: Id<"items">,
-      updates: { name?: string; quantity?: number; unit?: string; notes?: string; category?: string }
+      updates: { name?: string; quantity?: number; unit?: string; notes?: string; category?: string; estimatedPricePence?: number | null }
     ) => {
-      if (isOnline) {
+      const isLocalOnlyItem = String(itemId).startsWith("temp_");
+      if (isOnline && !isLocalOnlyItem) {
         // Online: execute mutation directly
         await updateItemMutation({ itemId, ...updates });
       } else {
         // Offline: queue mutation and update cache optimistically
-        const mutationId = addToQueue("items.update", { itemId, ...updates });
+        const mutationId = addToQueue({
+          type: "items.update",
+          args: { ...getItemReference(itemId), ...updates },
+        });
 
         // Update cache optimistically
         updateCachedItems((items) =>
           items.map((item) => {
             if (item._id === itemId) {
+              const optimisticUpdates = {
+                ...updates,
+                estimatedPricePence:
+                  updates.estimatedPricePence === null
+                    ? undefined
+                    : updates.estimatedPricePence,
+              };
               return {
                 ...item,
-                ...updates,
+                ...optimisticUpdates,
                 updatedAt: Date.now(),
                 isPendingSync: true,
                 pendingMutationId: mutationId,
@@ -252,7 +308,13 @@ export function useOfflineItems(listId: Id<"lists">) {
         console.log("[OfflineItems] Updated item offline:", itemId);
       }
     },
-    [isOnline, updateItemMutation, addToQueue, updateCachedItems]
+    [
+      addToQueue,
+      getItemReference,
+      isOnline,
+      updateItemMutation,
+      updateCachedItems,
+    ],
   );
 
   /**
@@ -264,12 +326,23 @@ export function useOfflineItems(listId: Id<"lists">) {
       if (pendingItemIds.has(itemId)) return true;
 
       // Check if there's a queued mutation for this item
+      const reference = getItemReference(itemId);
       return queue.some((mutation) => {
-        const args = mutation.args as Record<string, unknown>;
-        return args.itemId === itemId;
+        if (reference.itemId) {
+          return (
+            "itemId" in mutation.args &&
+            mutation.args.itemId === reference.itemId
+          );
+        }
+        return (
+          "clientId" in mutation.args &&
+          "listId" in mutation.args &&
+          mutation.args.listId === reference.listId &&
+          mutation.args.clientId === reference.clientId
+        );
       });
     },
-    [pendingItemIds, queue]
+    [getItemReference, pendingItemIds, queue],
   );
 
   /**

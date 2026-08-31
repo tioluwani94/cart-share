@@ -16,8 +16,13 @@ import Animated, {
 } from "react-native-reanimated";
 import BottomSheet, {
   BottomSheetBackdrop,
+  type BottomSheetBackdropProps,
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
+import {
+  formatCurrencyFromPence,
+  parseCurrencyInputToPence,
+} from "@/lib/formatters";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedText = Animated.createAnimatedComponent(Text);
@@ -26,15 +31,15 @@ const AnimatedText = Animated.createAnimatedComponent(Text);
  * Common unit options for items.
  */
 const UNITS = [
-  { id: "ct", label: "ct" },
-  { id: "lbs", label: "lbs" },
-  { id: "oz", label: "oz" },
-  { id: "gal", label: "gal" },
-  { id: "kg", label: "kg" },
+  { id: "each", label: "each" },
   { id: "g", label: "g" },
-  { id: "L", label: "L" },
+  { id: "kg", label: "kg" },
   { id: "ml", label: "ml" },
-  { id: "pkg", label: "pkg" },
+  { id: "l", label: "l" },
+  { id: "pack", label: "pack" },
+  { id: "tin", label: "tin" },
+  { id: "bottle", label: "bottle" },
+  { id: "bag", label: "bag" },
   { id: "box", label: "box" },
 ];
 
@@ -138,7 +143,7 @@ function QuantityStepper({
       <Pressable
         onPress={handleDecrement}
         disabled={value <= 0}
-        className={`h-12 w-12 items-center justify-center rounded-2xl ${
+        className={`h-12 w-12 items-center justify-center rounded-full ${
           value <= 0 ? "bg-warm-gray-100" : "bg-warm-gray-200"
         }`}
         accessibilityLabel="Decrease quantity"
@@ -164,7 +169,7 @@ function QuantityStepper({
       {/* Increment button */}
       <Pressable
         onPress={handleIncrement}
-        className="h-12 w-12 items-center justify-center rounded-2xl bg-teal"
+        className="h-12 w-12 items-center justify-center rounded-full bg-teal"
         accessibilityLabel="Increase quantity"
         accessibilityRole="button"
       >
@@ -183,6 +188,7 @@ interface EditItemSheetProps {
     unit?: string;
     notes?: string;
     category?: string;
+    estimatedPricePence?: number;
   } | null;
   /** Callback to update item (supports offline mode) */
   onUpdate?: (
@@ -193,6 +199,7 @@ interface EditItemSheetProps {
       unit?: string;
       notes?: string;
       category?: string;
+      estimatedPricePence?: number | null;
     }
   ) => Promise<void>;
   /** Callback to delete item (supports offline mode) */
@@ -208,6 +215,8 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
     const [quantity, setQuantity] = useState(1);
     const [unit, setUnit] = useState<string | null>(null);
     const [notes, setNotes] = useState("");
+    const [estimatedPrice, setEstimatedPrice] = useState("");
+    const [estimatedPriceError, setEstimatedPriceError] = useState("");
     const [error, setError] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -226,7 +235,13 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
         setQuantity(item.quantity ?? 1);
         setUnit(item.unit ?? null);
         setNotes(item.notes ?? "");
+        setEstimatedPrice(
+          item.estimatedPricePence === undefined
+            ? ""
+            : formatCurrencyFromPence(item.estimatedPricePence).replace("£", ""),
+        );
         setError("");
+        setEstimatedPriceError("");
       }
     }, [item]);
 
@@ -236,7 +251,9 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
       setQuantity(1);
       setUnit(null);
       setNotes("");
+      setEstimatedPrice("");
       setError("");
+      setEstimatedPriceError("");
       setIsSaving(false);
       setIsDeleting(false);
     }, []);
@@ -252,7 +269,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
     );
 
     const renderBackdrop = useCallback(
-      (props: any) => (
+      (props: BottomSheetBackdropProps) => (
         <BottomSheetBackdrop
           {...props}
           disappearsOnIndex={-1}
@@ -275,7 +292,17 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
 
       if (!item) return;
 
+      const estimatedPricePence = estimatedPrice.trim()
+        ? parseCurrencyInputToPence(estimatedPrice)
+        : null;
+      if (estimatedPrice.trim() && estimatedPricePence === null) {
+        setEstimatedPriceError("Enter a valid amount");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+
       setError("");
+      setEstimatedPriceError("");
       setIsSaving(true);
 
       const updates = {
@@ -283,6 +310,7 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
         quantity: quantity > 0 ? quantity : undefined,
         unit: unit ?? undefined,
         notes: notes.trim() || undefined,
+        estimatedPricePence,
       };
 
       try {
@@ -400,6 +428,19 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
               ))}
             </View>
           </View>
+
+          {/* Notes textarea */}
+          <Input
+            label="Estimated price (optional)"
+            value={estimatedPrice}
+            onChangeText={(value) => {
+              setEstimatedPrice(value);
+              setEstimatedPriceError("");
+            }}
+            error={estimatedPriceError}
+            placeholder="e.g. £2.50"
+            keyboardType="decimal-pad"
+          />
 
           {/* Notes textarea */}
           <View className="mb-6">

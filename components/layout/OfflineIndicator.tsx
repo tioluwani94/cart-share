@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, ActivityIndicator } from "react-native";
 import Animated, {
+  useReducedMotion,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-  withRepeat,
-  Easing,
 } from "react-native-reanimated";
+import { cn } from "@/lib/cn";
 import * as Haptics from "expo-haptics";
 import { useNetworkStatus } from "../../lib/useNetworkStatus";
 import { useSyncStatusSafe, SyncStatus } from "../../lib/SyncStatusContext";
@@ -70,8 +70,8 @@ type BannerState = "hidden" | "offline" | "syncing" | "synced" | "online";
 export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
   const { isConnected, justCameOnline } = useNetworkStatus();
   const syncStatusContext = useSyncStatusSafe();
+  const reduceMotion = useReducedMotion();
   const syncStatus = syncStatusContext?.status ?? "idle";
-  const lastResult = syncStatusContext?.lastResult ?? null;
   const [bannerState, setBannerState] = useState<BannerState>("hidden");
   const [previousSyncStatus, setPreviousSyncStatus] = useState<SyncStatus>("idle");
 
@@ -85,16 +85,27 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
   }));
 
   // Show the banner with animation
-  const showBanner = () => {
+  const showBanner = useCallback(() => {
+    if (reduceMotion) {
+      translateY.value = 0;
+      opacity.value = 1;
+      return;
+    }
     translateY.value = withSpring(0, {
       damping: 15,
       stiffness: 150,
     });
     opacity.value = withTiming(1, { duration: 200 });
-  };
+  }, [opacity, reduceMotion, translateY]);
 
   // Hide the banner with animation
-  const hideBanner = () => {
+  const hideBanner = useCallback(() => {
+    if (reduceMotion) {
+      translateY.value = -100;
+      opacity.value = 0;
+      setBannerState("hidden");
+      return;
+    }
     translateY.value = withSpring(-100, {
       damping: 15,
       stiffness: 150,
@@ -104,7 +115,7 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
     setTimeout(() => {
       setBannerState("hidden");
     }, 300);
-  };
+  }, [opacity, reduceMotion, translateY]);
 
   // Handle offline state
   useEffect(() => {
@@ -116,7 +127,7 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
       showBanner();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
-  }, [isConnected]);
+  }, [isConnected, onStatusChange, showBanner]);
 
   // Handle sync status changes
   useEffect(() => {
@@ -153,7 +164,14 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
     }
 
     setPreviousSyncStatus(syncStatus);
-  }, [syncStatus, justCameOnline, bannerState, previousSyncStatus]);
+  }, [
+    bannerState,
+    hideBanner,
+    justCameOnline,
+    previousSyncStatus,
+    showBanner,
+    syncStatus,
+  ]);
 
   // Get banner content based on state
   const getBannerConfig = () => {
@@ -200,35 +218,23 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
 
   return (
     <Animated.View
-      style={[styles.container, animatedStyle]}
-      className={config.bgClass}
+      style={animatedStyle}
+      className={cn(
+        "absolute inset-x-0 top-0 z-50 shadow-lg",
+        config.bgClass,
+      )}
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       accessibilityLabel={config.message}
     >
       <View className="flex-row items-center justify-center px-4 py-3">
         {config.icon}
-        <Text className={`ml-2 text-sm font-medium ${config.textClass}`}>
+        <Text className={cn("ml-2 text-sm font-medium", config.textClass)}>
           {config.message}
         </Text>
       </View>
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-});
 
 export default OfflineIndicator;

@@ -119,6 +119,7 @@ export const create = mutation({
     householdId: v.id("households"),
     name: v.string(),
     category: v.optional(v.string()),
+    tripBudgetPence: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Validate authentication
@@ -153,6 +154,10 @@ export const create = mutation({
       householdId: args.householdId,
       name: args.name.trim(),
       category: args.category,
+      tripBudgetPence:
+        args.tripBudgetPence === undefined
+          ? undefined
+          : Math.max(0, Math.round(args.tripBudgetPence)),
       isArchived: false,
       createdBy: user._id,
       createdAt: now,
@@ -338,6 +343,7 @@ export const update = mutation({
     listId: v.id("lists"),
     name: v.optional(v.string()),
     category: v.optional(v.string()),
+    tripBudgetPence: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     // Validate authentication
@@ -372,7 +378,12 @@ export const update = mutation({
     }
 
     // Build update object
-    const updates: { name?: string; category?: string; updatedAt: number } = {
+    const updates: {
+      name?: string;
+      category?: string;
+      tripBudgetPence?: number;
+      updatedAt: number;
+    } = {
       updatedAt: now,
     };
 
@@ -382,6 +393,13 @@ export const update = mutation({
 
     if (args.category !== undefined) {
       updates.category = args.category;
+    }
+
+    if (args.tripBudgetPence !== undefined) {
+      updates.tripBudgetPence =
+        args.tripBudgetPence === null
+          ? undefined
+          : Math.max(0, Math.round(args.tripBudgetPence));
     }
 
     // Update the list

@@ -9,14 +9,22 @@ module.exports = {
     extend: {
       colors: {
         // Brand colors
-        coral: "#FF6B6B",
-        teal: "#4ECDC4",
+        coral: "#C94A4A",
+        "coral-soft": "#FBE9E9",
+        teal: "#297D76",
+        "teal-soft": "#E4F3F1",
         yellow: "#FFE66D",
 
         // Custom color tokens
-        primary: "#FF6B6B",
-        secondary: "#4ECDC4",
+        primary: "#C94A4A",
+        secondary: "#297D76",
         accent: "#FFE66D",
+
+        // Semantic surface and text roles
+        surface: "#FFFFFF",
+        ink: "#1A1917",
+        "ink-secondary": "#5C5A54",
+        separator: "#E8E6E1",
 
         // Background colors
         "background-light": "#FAFAFA",

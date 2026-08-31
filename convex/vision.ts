@@ -1,86 +1,15 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+import { extractReceiptTotalPence } from "./receiptTotal";
+import { internal } from "./_generated/api";
 
 /**
  * Result type for receipt processing
  */
 interface ProcessReceiptResult {
   success: boolean;
-  extractedTotal: number | null; // Total in cents
-  rawText: string | null;
+  extractedTotal: number | null; // Total in pence
   error?: string;
-}
-
-/**
- * Common regex patterns for extracting totals from receipt text.
- * Ordered by specificity - most specific patterns first.
- */
-const TOTAL_PATTERNS = [
-  // "TOTAL" followed by dollar amount (most common)
-  /(?:GRAND\s*)?TOTAL[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-  // "TOTAL DUE" pattern
-  /TOTAL\s*DUE[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-  // "AMOUNT DUE" pattern
-  /AMOUNT\s*DUE[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-  // "BALANCE DUE" pattern
-  /BALANCE\s*DUE[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-  // "SUBTOTAL" as fallback (some receipts only show this)
-  /SUB\s*TOTAL[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-  // Dollar amount at end of line after "TOTAL" keyword somewhere before
-  /TOTAL.*?\$?\s*(\d+[.,]\d{2})\s*$/im,
-  // Credit/debit card total
-  /(?:CREDIT|DEBIT|CARD)\s*(?:TOTAL)?[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-  // "AMOUNT" followed by dollar amount
-  /AMOUNT[:\s]*\$?\s*(\d+[.,]\d{2})/i,
-];
-
-/**
- * Convert a dollar string (e.g., "45.67") to cents (4567)
- */
-function dollarsToCents(dollarString: string): number {
-  // Replace comma with period for international formats
-  const normalized = dollarString.replace(",", ".");
-  const dollars = parseFloat(normalized);
-  return Math.round(dollars * 100);
-}
-
-/**
- * Extract the total amount from receipt text using regex patterns.
- * Returns the amount in cents, or null if no total found.
- */
-function extractTotalFromText(text: string): number | null {
-  // Try each pattern in order of specificity
-  for (const pattern of TOTAL_PATTERNS) {
-    const match = text.match(pattern);
-    if (match && match[1]) {
-      const cents = dollarsToCents(match[1]);
-      // Sanity check: receipt totals should be reasonable (between $0.01 and $10,000)
-      if (cents > 0 && cents <= 1000000) {
-        return cents;
-      }
-    }
-  }
-
-  // Fallback: look for the largest dollar amount on the receipt
-  // This is a heuristic - the total is usually the largest amount
-  const allAmounts = text.match(/\$?\s*(\d+[.,]\d{2})/g);
-  if (allAmounts && allAmounts.length > 0) {
-    let maxCents = 0;
-    for (const amount of allAmounts) {
-      const numMatch = amount.match(/(\d+[.,]\d{2})/);
-      if (numMatch) {
-        const cents = dollarsToCents(numMatch[1]);
-        if (cents > maxCents && cents <= 1000000) {
-          maxCents = cents;
-        }
-      }
-    }
-    if (maxCents > 0) {
-      return maxCents;
-    }
-  }
-
-  return null;
 }
 
 /**
@@ -89,9 +18,20 @@ function extractTotalFromText(text: string): number | null {
  */
 export const processReceipt = action({
   args: {
-    imageId: v.id("_storage"),
+    receiptUploadId: v.id("receiptUploads"),
   },
-  handler: async (ctx, { imageId }): Promise<ProcessReceiptResult> => {
+  handler: async (ctx, { receiptUploadId }): Promise<ProcessReceiptResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const receiptUpload = await ctx.runQuery(
+      internal.storage.getAuthorizedUploadForProcessing,
+      { receiptUploadId, clerkId: identity.subject },
+    );
+    if (!receiptUpload.storageId) {
+      throw new Error("Receipt upload is not complete");
+    }
+
     // Get the API key from environment variables
     const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
     if (!apiKey) {
@@ -99,19 +39,17 @@ export const processReceipt = action({
       return {
         success: false,
         extractedTotal: null,
-        rawText: null,
         error: "OCR service not configured",
       };
     }
 
     // Get the storage URL for the image
-    const imageUrl = await ctx.storage.getUrl(imageId);
+    const imageUrl = await ctx.storage.getUrl(receiptUpload.storageId);
     if (!imageUrl) {
-      console.error("Could not get URL for storage ID:", imageId);
+      console.error("Could not get URL for receipt upload:", receiptUploadId);
       return {
         success: false,
         extractedTotal: null,
-        rawText: null,
         error: "Could not retrieve image",
       };
     }
@@ -152,7 +90,6 @@ export const processReceipt = action({
         return {
           success: false,
           extractedTotal: null,
-          rawText: null,
           error: "OCR service error",
         };
       }
@@ -166,7 +103,6 @@ export const processReceipt = action({
         return {
           success: false,
           extractedTotal: null,
-          rawText: null,
           error: apiError.message || "OCR processing failed",
         };
       }
@@ -178,7 +114,6 @@ export const processReceipt = action({
         return {
           success: false,
           extractedTotal: null,
-          rawText: null,
           error: "No text found in image",
         };
       }
@@ -188,21 +123,19 @@ export const processReceipt = action({
       console.log("Extracted text length:", rawText.length);
 
       // Extract the total amount
-      const extractedTotal = extractTotalFromText(rawText);
+      const extractedTotal = extractReceiptTotalPence(rawText);
 
       if (extractedTotal !== null) {
-        console.log("Extracted total (cents):", extractedTotal);
+        console.log("Extracted total (pence):", extractedTotal);
         return {
           success: true,
           extractedTotal,
-          rawText,
         };
       } else {
         console.log("Could not extract total from text");
         return {
           success: true, // OCR worked, just couldn't find total
           extractedTotal: null,
-          rawText,
           error: "Could not identify total amount",
         };
       }
@@ -211,7 +144,6 @@ export const processReceipt = action({
       return {
         success: false,
         extractedTotal: null,
-        rawText: null,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }

@@ -10,7 +10,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { ChevronLeft, Camera, X, Check, RotateCcw } from "lucide-react-native";
+import { Camera, Check, RotateCcw } from "lucide-react-native";
+import { PageHeader } from "@/components/ui";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
@@ -30,7 +31,7 @@ const GUIDE_FRAME_WIDTH = SCREEN_WIDTH * 0.85;
 const GUIDE_FRAME_HEIGHT = SCREEN_HEIGHT * 0.5;
 
 /**
- * Receipt camera screen with playful UI and animations.
+ * Receipt camera screen.
  * Implements US-034.
  */
 export default function ScanReceiptScreen() {
@@ -64,7 +65,7 @@ export default function ScanReceiptScreen() {
       -1,
       true,
     );
-  }, []);
+  }, [guideFrameOpacity, guideFrameScale]);
 
   const guideFrameAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: guideFrameScale.value }],
@@ -136,6 +137,7 @@ export default function ScanReceiptScreen() {
   if (!permission) {
     return (
       <SafeAreaView className="flex-1 bg-background-light">
+        <PageHeader title="Scan receipt" onBack={() => router.back()} />
         <View className="flex-1 items-center justify-center">
           <Text className="text-warm-gray-600">Loading camera...</Text>
         </View>
@@ -147,19 +149,7 @@ export default function ScanReceiptScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView className="flex-1 bg-background-light">
-        {/* Header */}
-        <View className="flex-row items-center border-b border-warm-gray-100 bg-white px-4 py-3">
-          <Pressable
-            onPress={() => router.back()}
-            className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100"
-            accessibilityLabel="Go back"
-          >
-            <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
-          </Pressable>
-          <Text className="text-xl font-bold text-warm-gray-900">
-            Snap your receipt! 📸
-          </Text>
-        </View>
+        <PageHeader title="Scan receipt" onBack={() => router.back()} />
 
         <Animated.View
           entering={FadeInDown.duration(400)}
@@ -170,7 +160,7 @@ export default function ScanReceiptScreen() {
           </View>
 
           <Text className="mt-6 text-center text-2xl font-bold text-warm-gray-900">
-            Camera Access Needed
+            Camera access needed
           </Text>
 
           <Text className="mt-3 text-center text-base text-warm-gray-600">
@@ -180,11 +170,11 @@ export default function ScanReceiptScreen() {
 
           <Pressable
             onPress={requestPermission}
-            className="mt-8 rounded-2xl bg-coral px-8 py-4"
+            className="mt-8 rounded-full bg-coral px-8 py-4"
             accessibilityLabel="Grant camera access"
           >
             <Text className="text-base font-semibold text-white">
-              Enable Camera
+              Enable camera
             </Text>
           </Pressable>
 
@@ -193,7 +183,7 @@ export default function ScanReceiptScreen() {
             className="mt-4 px-8 py-3"
             accessibilityLabel="Go back without enabling camera"
           >
-            <Text className="text-base text-warm-gray-500">Maybe Later</Text>
+            <Text className="text-base text-warm-gray-500">Maybe later</Text>
           </Pressable>
         </Animated.View>
       </SafeAreaView>
@@ -204,23 +194,13 @@ export default function ScanReceiptScreen() {
   if (capturedPhoto) {
     return (
       <SafeAreaView className="flex-1 bg-warm-gray-900">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-3">
-          <Pressable
-            onPress={handleRetake}
-            className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
-            accessibilityLabel="Close preview"
-          >
-            <X size={24} color="#FFFFFF" strokeWidth={2} />
-          </Pressable>
-          <Animated.Text
-            entering={FadeIn.duration(300)}
-            className="text-xl font-bold text-white"
-          >
-            Looks good! 📋
-          </Animated.Text>
-          <View className="h-10 w-10" />
-        </View>
+        <PageHeader
+          title="Review photo"
+          onBack={handleRetake}
+          appearance="overlay"
+          leadingIcon="close"
+          backLabel="Retake photo"
+        />
 
         {/* Photo Preview */}
         <View className="flex-1 items-center justify-center px-4">
@@ -299,28 +279,11 @@ export default function ScanReceiptScreen() {
     <View className="flex-1 bg-black">
       <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back">
         <SafeAreaView className="flex-1">
-          {/* Header */}
-          <View className="flex-row items-center justify-between px-4 py-3">
-            <Pressable
-              onPress={() => router.back()}
-              className="h-10 w-10 items-center justify-center rounded-full bg-black/30"
-              accessibilityLabel="Go back"
-            >
-              <ChevronLeft size={24} color="#FFFFFF" strokeWidth={2} />
-            </Pressable>
-            <Animated.Text
-              entering={FadeIn.duration(400)}
-              className="text-xl font-bold text-white"
-              style={{
-                textShadowColor: "rgba(0, 0, 0, 0.5)",
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 4,
-              }}
-            >
-              Snap your receipt! 📸
-            </Animated.Text>
-            <View className="h-10 w-10" />
-          </View>
+          <PageHeader
+            title="Scan receipt"
+            onBack={() => router.back()}
+            appearance="overlay"
+          />
 
           {/* Guide Frame */}
           <View className="flex-1 items-center justify-center">

@@ -8,10 +8,14 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
 import type * as households from "../households.js";
 import type * as http from "../http.js";
 import type * as items from "../items.js";
 import type * as lists from "../lists.js";
+import type * as notifications from "../notifications.js";
+import type * as receiptTotal from "../receiptTotal.js";
+import type * as restocks from "../restocks.js";
 import type * as sessions from "../sessions.js";
 import type * as storage from "../storage.js";
 import type * as users from "../users.js";
@@ -24,10 +28,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
   households: typeof households;
   http: typeof http;
   items: typeof items;
   lists: typeof lists;
+  notifications: typeof notifications;
+  receiptTotal: typeof receiptTotal;
+  restocks: typeof restocks;
   sessions: typeof sessions;
   storage: typeof storage;
   users: typeof users;

@@ -2,8 +2,6 @@ import { View, Text, Pressable } from "react-native";
 import { Check, Trash2, Pencil, RefreshCw } from "lucide-react-native";
 import { UserAvatar } from "@/components/ui";
 import Animated, {
-  FadeIn,
-  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -15,11 +13,16 @@ import Animated, {
   runOnJS,
   interpolate,
   Extrapolation,
+  Easing,
+  useReducedMotion,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 import { Id } from "@/convex/_generated/dataModel";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { formatCurrencyFromPence } from "@/lib/formatters";
+import { cn } from "@/lib/cn";
+import { themeColors } from "@/lib/theme";
 
 interface ListItemProps {
   id: Id<"items">;
@@ -28,6 +31,7 @@ interface ListItemProps {
   unit?: string;
   notes?: string;
   category?: string;
+  estimatedPricePence?: number;
   isCompleted: boolean;
   addedByUser?: {
     name?: string;
@@ -44,72 +48,13 @@ interface ListItemProps {
     unit?: string;
     notes?: string;
     category?: string;
+    estimatedPricePence?: number;
   }) => void;
-  index: number;
 }
 
 const ACTION_BUTTON_WIDTH = 70;
 const SWIPE_THRESHOLD = -50;
 const SNAP_OPEN = -(ACTION_BUTTON_WIDTH * 2); // Two buttons
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// Confetti particle component
-function ConfettiParticle({
-  emoji,
-  delay,
-  startX,
-}: {
-  emoji: string;
-  delay: number;
-  startX: number;
-}) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const translateX = useSharedValue(startX);
-  const rotate = useSharedValue(0);
-  const scale = useSharedValue(0.5);
-
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 100 }));
-    translateY.value = withDelay(delay, withTiming(-40, { duration: 600 }));
-    translateX.value = withDelay(
-      delay,
-      withSpring(startX + (Math.random() - 0.5) * 30, { damping: 8 }),
-    );
-    rotate.value = withDelay(
-      delay,
-      withTiming(Math.random() * 360, { duration: 600 }),
-    );
-    scale.value = withDelay(
-      delay,
-      withSequence(
-        withTiming(1, { duration: 150 }),
-        withDelay(300, withTiming(0, { duration: 150 })),
-      ),
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${rotate.value}deg` },
-      { scale: scale.value },
-    ],
-  }));
-
-  return (
-    <Animated.Text
-      style={[{ position: "absolute", fontSize: 12, left: 8 }, animatedStyle]}
-    >
-      {emoji}
-    </Animated.Text>
-  );
-}
-
-const CONFETTI_EMOJIS = ["✨", "🎉", "⭐", "💫", "✨"];
 
 export function ListItem({
   id,
@@ -118,27 +63,25 @@ export function ListItem({
   unit,
   notes,
   category,
+  estimatedPricePence,
   isCompleted,
   addedByUser,
   isPendingSync = false,
   onToggle,
   onDelete,
   onEdit,
-  index,
 }: ListItemProps) {
+  const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const fillProgress = useSharedValue(isCompleted ? 1 : 0);
   const checkmarkProgress = useSharedValue(isCompleted ? 1 : 0);
-  const strikethroughProgress = useSharedValue(isCompleted ? 1 : 0);
   const textOpacity = useSharedValue(isCompleted ? 0.7 : 1);
-  const [showConfetti, setShowConfetti] = useState(false);
-
   // Sync indicator animation
   const syncRotation = useSharedValue(0);
 
   // Animate sync icon rotation when pending
   useEffect(() => {
-    if (isPendingSync) {
+    if (isPendingSync && !reduceMotion) {
       syncRotation.value = withRepeat(
         withTiming(360, { duration: 1500 }),
         -1, // Infinite repeat
@@ -147,7 +90,7 @@ export function ListItem({
     } else {
       syncRotation.value = 0;
     }
-  }, [isPendingSync, syncRotation]);
+  }, [isPendingSync, reduceMotion, syncRotation]);
 
   const syncIconStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${syncRotation.value}deg` }],
@@ -155,8 +98,6 @@ export function ListItem({
 
   // Swipe gesture values
   const translateX = useSharedValue(0);
-  const itemHeight = useSharedValue(60);
-  const marginBottom = useSharedValue(12);
   const opacity = useSharedValue(1);
   const hasTriggeredRevealHaptic = useSharedValue(false);
 
@@ -176,36 +117,46 @@ export function ListItem({
     }
   };
 
-  const triggerConfetti = () => {
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 800);
-  };
-
   const handleToggle = () => {
     const newCompleted = !isCompleted;
 
     if (newCompleted) {
-      // Checking animation: scale bounce 1.0 → 1.1 → 1.0
+      if (reduceMotion) {
+        scale.value = 1;
+        fillProgress.value = 1;
+        checkmarkProgress.value = 1;
+        textOpacity.value = 0.7;
+        triggerHaptic();
+        onToggle(id);
+        return;
+      }
+      // Checking animation: short scale pulse
       scale.value = withSequence(
-        withSpring(1.1, { damping: 10, stiffness: 400 }),
-        withSpring(1, { damping: 15, stiffness: 300 }),
+        withTiming(1.06, {
+          duration: 100,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(1, {
+          duration: 140,
+          easing: Easing.out(Easing.quad),
+        }),
       );
       fillProgress.value = withTiming(1, { duration: 200 });
       checkmarkProgress.value = withTiming(1, { duration: 250 });
-      // Animate strikethrough and text fade
-      strikethroughProgress.value = withDelay(
-        100,
-        withTiming(1, { duration: 200 }),
-      );
+      // The native text decoration stays aligned with every font size.
       textOpacity.value = withDelay(100, withTiming(0.7, { duration: 200 }));
       runOnJS(triggerHaptic)();
-      runOnJS(triggerConfetti)();
     } else {
       // Unchecking animation
-      fillProgress.value = withTiming(0, { duration: 150 });
-      checkmarkProgress.value = withTiming(0, { duration: 100 });
-      strikethroughProgress.value = withTiming(0, { duration: 150 });
-      textOpacity.value = withTiming(1, { duration: 150 });
+      fillProgress.value = reduceMotion
+        ? 0
+        : withTiming(0, { duration: 150 });
+      checkmarkProgress.value = reduceMotion
+        ? 0
+        : withTiming(0, { duration: 100 });
+      textOpacity.value = reduceMotion
+        ? 1
+        : withTiming(1, { duration: 150 });
     }
 
     onToggle(id);
@@ -219,12 +170,12 @@ export function ListItem({
     backgroundColor: interpolateColor(
       fillProgress.value,
       [0, 1],
-      ["transparent", "#FF6B6B"],
+      ["transparent", themeColors.teal],
     ),
     borderColor: interpolateColor(
       fillProgress.value,
       [0, 1],
-      ["#D3D0C9", "#FF6B6B"],
+      [themeColors.disabled, themeColors.teal],
     ),
   }));
 
@@ -240,11 +191,6 @@ export function ListItem({
     opacity: textOpacity.value,
   }));
 
-  const strikethroughStyle = useAnimatedStyle(() => ({
-    width: `${strikethroughProgress.value * 100}%`,
-    opacity: strikethroughProgress.value,
-  }));
-
   // Close swipe actions
   const closeSwipe = useCallback(() => {
     translateX.value = withSpring(0, { damping: 100, stiffness: 500 });
@@ -255,18 +201,34 @@ export function ListItem({
   const handleEditAction = useCallback(() => {
     closeSwipe();
     triggerHaptic();
-    onEdit?.({ id, name, quantity, unit, notes, category });
-  }, [closeSwipe, id, name, quantity, unit, notes, category, onEdit]);
+    onEdit?.({
+      id,
+      name,
+      quantity,
+      unit,
+      notes,
+      category,
+      estimatedPricePence,
+    });
+  }, [
+    category,
+    closeSwipe,
+    estimatedPricePence,
+    id,
+    name,
+    notes,
+    onEdit,
+    quantity,
+    unit,
+  ]);
 
   // Handle delete action from swipe button
   const handleDeleteAction = useCallback(() => {
     triggerMediumHaptic();
     translateX.value = withTiming(-400, { duration: 200 });
-    itemHeight.value = withDelay(100, withTiming(0, { duration: 200 }));
-    marginBottom.value = withDelay(100, withTiming(0, { duration: 200 }));
     opacity.value = withDelay(100, withTiming(0, { duration: 150 }));
     onDelete?.(id);
-  }, [translateX, itemHeight, marginBottom, opacity, id, onDelete]);
+  }, [translateX, opacity, id, onDelete]);
 
   // Swipe gesture to reveal action buttons
   const swipeGesture = Gesture.Pan()
@@ -320,8 +282,6 @@ export function ListItem({
   }));
 
   const containerAnimatedStyle = useAnimatedStyle(() => ({
-    height: itemHeight.value,
-    marginBottom: marginBottom.value,
     opacity: opacity.value,
     overflow: "hidden" as const,
   }));
@@ -345,12 +305,8 @@ export function ListItem({
       : null;
 
   return (
-    <Animated.View
-      entering={FadeIn.delay(index * 50).duration(300)}
-      exiting={FadeOut.duration(200)}
-      style={containerAnimatedStyle}
-    >
-      <View className="relative overflow-hidden rounded-2xl">
+    <Animated.View style={containerAnimatedStyle}>
+      <View className="relative overflow-hidden border-b border-separator">
         {/* Action buttons revealed on swipe */}
         <Animated.View
           style={[
@@ -361,7 +317,6 @@ export function ListItem({
               bottom: 0,
               right: 0,
               flexDirection: "row",
-              borderRadius: 16,
               overflow: "hidden",
             },
           ]}
@@ -369,12 +324,12 @@ export function ListItem({
           {/* Edit button */}
           <Pressable
             onPress={handleEditAction}
-            className="h-full items-center justify-center bg-teal"
+            className="h-full items-center justify-center bg-warm-gray-700"
             style={{ width: ACTION_BUTTON_WIDTH }}
             accessibilityLabel="Edit item"
             accessibilityRole="button"
           >
-            <Pencil size={20} color="#FFFFFF" strokeWidth={2} />
+            <Pencil size={20} color={themeColors.surface} strokeWidth={2} />
             <Text className="mt-1 text-xs font-medium text-white">Edit</Text>
           </Pressable>
 
@@ -386,7 +341,7 @@ export function ListItem({
             accessibilityLabel="Delete item"
             accessibilityRole="button"
           >
-            <Trash2 size={20} color="#FFFFFF" strokeWidth={2} />
+            <Trash2 size={20} color={themeColors.surface} strokeWidth={2} />
             <Text className="mt-1 text-xs font-medium text-white">Delete</Text>
           </Pressable>
         </Animated.View>
@@ -398,100 +353,91 @@ export function ListItem({
               onPress={handleToggle}
               onLongPress={handleEditAction}
               delayLongPress={400}
-              className="flex-row items-center rounded-2xl bg-white px-4 py-4"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
+              className="min-h-16 flex-row items-center bg-background-light px-1 py-3"
               accessibilityRole="checkbox"
               accessibilityState={{ checked: isCompleted }}
               accessibilityLabel={`${name}${isCompleted ? ", checked" : ", unchecked"}. Swipe left for edit and delete options.`}
               accessibilityActions={[
-                { name: "activate", label: "Edit item" },
+                ...(onEdit
+                  ? [{ name: "longpress" as const, label: "Edit item" }]
+                  : []),
                 { name: "delete", label: "Delete item" },
               ]}
               onAccessibilityAction={(event) => {
                 if (event.nativeEvent.actionName === "delete") {
                   handleDeleteAction();
-                } else if (event.nativeEvent.actionName === "activate") {
+                } else if (event.nativeEvent.actionName === "longpress") {
                   handleEditAction();
                 }
               }}
             >
-              {/* Checkbox with confetti */}
-              <View className="relative">
-                <AnimatedPressable
-                  onPress={handleToggle}
-                  style={checkboxContainerStyle}
-                  className="mr-4"
-                >
+              {/* The whole row is the checkbox target. */}
+              <View className="relative mr-4" pointerEvents="none">
+                <Animated.View style={checkboxContainerStyle}>
                   <Animated.View
                     style={checkboxFillStyle}
                     className="h-7 w-7 items-center justify-center rounded-full border-2"
                   >
                     <Animated.View style={checkmarkStyle}>
-                      <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                      <Check
+                        size={14}
+                        color={themeColors.surface}
+                        strokeWidth={3}
+                      />
                     </Animated.View>
                   </Animated.View>
-                </AnimatedPressable>
-
-                {/* Confetti particles - 5 tiny particles */}
-                {showConfetti &&
-                  CONFETTI_EMOJIS.map((emoji, i) => (
-                    <ConfettiParticle
-                      key={i}
-                      emoji={emoji}
-                      delay={i * 50}
-                      startX={(i - 2) * 8}
-                    />
-                  ))}
+                </Animated.View>
               </View>
 
               {/* Item name and quantity */}
               <View className="flex-1 flex-row items-center">
-                <View className="relative flex-1">
+                <View className="flex-1">
                   <Animated.Text
-                    style={textAnimatedStyle}
-                    className={`text-base font-medium ${
-                      isCompleted ? "text-warm-gray-400" : "text-warm-gray-800"
-                    }`}
+                    style={[
+                      textAnimatedStyle,
+                      isCompleted && {
+                        textDecorationLine: "line-through",
+                        textDecorationColor: themeColors.disabled,
+                        textDecorationStyle: "solid",
+                      },
+                    ]}
+                    className={cn(
+                      "text-base font-medium",
+                      isCompleted
+                        ? "text-warm-gray-400"
+                        : "text-warm-gray-800",
+                    )}
                     numberOfLines={2}
                   >
                     {name}
                   </Animated.Text>
-                  {/* Animated strikethrough line */}
-                  <Animated.View
-                    style={[
-                      strikethroughStyle,
-                      {
-                        position: "absolute",
-                        height: 1.5,
-                        backgroundColor: "#A3A096",
-                        top: "50%",
-                        left: 0,
-                      },
-                    ]}
-                  />
                 </View>
 
                 {/* Quantity badge */}
                 {quantityDisplay && (
                   <View
-                    className={`ml-3 rounded-full px-3 py-1 ${
-                      isCompleted ? "bg-warm-gray-200" : "bg-teal/20"
-                    }`}
+                    className={cn(
+                      "ml-3 rounded-full px-3 py-1",
+                      "bg-warm-gray-100",
+                    )}
                   >
                     <Text
-                      className={`text-sm font-medium ${
-                        isCompleted ? "text-warm-gray-400" : "text-teal"
-                      }`}
+                      className={cn(
+                        "text-sm font-medium",
+                        isCompleted
+                          ? "text-warm-gray-400"
+                          : "text-warm-gray-700",
+                      )}
                     >
                       {quantityDisplay}
                     </Text>
                   </View>
+                )}
+
+                {estimatedPricePence !== undefined && (
+                  <Text className="ml-2 text-sm font-medium text-warm-gray-500">
+                    {formatCurrencyFromPence(estimatedPricePence)}
+                  </Text>
                 )}
 
                 {/* Partner avatar */}
@@ -515,7 +461,11 @@ export function ListItem({
                     accessibilityLabel="Pending sync"
                     accessibilityHint="This item will sync when you're back online"
                   >
-                    <RefreshCw size={16} color="#CA8A04" strokeWidth={2} />
+                    <RefreshCw
+                      size={16}
+                      color={themeColors.warningInk}
+                      strokeWidth={2}
+                    />
                   </Animated.View>
                 )}
               </View>

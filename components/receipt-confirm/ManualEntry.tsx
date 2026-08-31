@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui";
-import { router } from "expo-router";
-import { CheckCircle2, DollarSign } from "lucide-react-native";
+import { CheckCircle2, PoundSterling } from "lucide-react-native";
 import { Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
@@ -12,10 +11,17 @@ interface ManualEntryProps {
   handleManualSubmit: () => void;
   /** Setter for updating the manual amount input value */
   setManualAmount: (value: string) => void;
+  handleSkip: () => void;
 }
 
 export const ManualEntry = (props: ManualEntryProps) => {
-  const { inputRef, handleManualSubmit, manualAmount, setManualAmount } = props;
+  const {
+    inputRef,
+    handleManualSubmit,
+    handleSkip,
+    manualAmount,
+    setManualAmount,
+  } = props;
 
   return (
     <Animated.View
@@ -24,7 +30,7 @@ export const ManualEntry = (props: ManualEntryProps) => {
     >
       {/* Icon */}
       <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-teal/20">
-        <DollarSign size={32} color="#4ECDC4" strokeWidth={2} />
+        <PoundSterling size={32} color="#4ECDC4" strokeWidth={2} />
       </View>
 
       <Text className="text-center text-xl font-bold text-warm-gray-900">
@@ -39,7 +45,7 @@ export const ManualEntry = (props: ManualEntryProps) => {
       <View className="w-full px-4">
         <View className="relative">
           <Text className="absolute left-4 top-1/2 -translate-y-1/2 text-3xl font-bold text-warm-gray-400 z-10">
-            $
+            £
           </Text>
           <TextInput
             ref={inputRef}
@@ -75,7 +81,7 @@ export const ManualEntry = (props: ManualEntryProps) => {
       <Button
         variant="ghost"
         size="md"
-        onPress={() => router.replace("/(tabs)")}
+        onPress={handleSkip}
         className="mt-4"
       >
         Skip for now

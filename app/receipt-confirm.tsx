@@ -16,7 +16,14 @@ import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Keyboard, Pressable, Text, TextInput, View } from "react-native";
+import {
+  Keyboard,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import {
   Easing,
   useSharedValue,
@@ -42,15 +49,19 @@ export default function ReceiptConfirmScreen() {
   const [screenState, setScreenState] = useState<ScreenState>("uploading");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
-  const [storageId, setStorageId] = useState<Id<"_storage"> | null>(null);
-  const [extractedTotal, setExtractedTotal] = useState<number | null>(null); // In cents
+  const [receiptUploadId, setReceiptUploadId] =
+    useState<Id<"receiptUploads"> | null>(null);
+  const [extractedTotal, setExtractedTotal] = useState<number | null>(null); // In pence
   const [manualAmount, setManualAmount] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const [monthlySessionCount, setMonthlySessionCount] = useState(0);
+  const [paidBy, setPaidBy] = useState<"joint" | Id<"users">>("joint");
 
   // Queries and mutations
   const household = useQuery(api.households.getCurrentHousehold);
   const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
+  const completeUpload = useMutation(api.storage.completeUpload);
+  const deleteReceipt = useMutation(api.storage.deleteFile);
   const processReceipt = useAction(api.vision.processReceipt);
   const createSession = useMutation(api.sessions.create);
   const monthlyCount = useQuery(
@@ -91,12 +102,14 @@ export default function ReceiptConfirmScreen() {
 
   // Process OCR
   const runOCR = useCallback(
-    async (imageStorageId: Id<"_storage">) => {
+    async (authorizedReceiptUploadId: Id<"receiptUploads">) => {
       setScreenState("processing");
       startScanningAnimation();
 
       try {
-        const result = await processReceipt({ imageId: imageStorageId });
+        const result = await processReceipt({
+          receiptUploadId: authorizedReceiptUploadId,
+        });
 
         stopScanningAnimation();
 
@@ -149,7 +162,7 @@ export default function ReceiptConfirmScreen() {
 
   // Upload the receipt image
   const uploadReceipt = useCallback(async () => {
-    if (!photoUri) return;
+    if (!photoUri || !household?._id) return;
 
     setScreenState("uploading");
     setUploadProgress(0);
@@ -158,7 +171,8 @@ export default function ReceiptConfirmScreen() {
     try {
       // Step 1: Generate upload URL (10%)
       setUploadProgress(10);
-      const uploadUrl = await generateUploadUrl();
+      const upload = await generateUploadUrl({ householdId: household._id });
+      setReceiptUploadId(upload.receiptUploadId);
 
       // Step 2: Read the image file (20%)
       setUploadProgress(20);
@@ -175,7 +189,7 @@ export default function ReceiptConfirmScreen() {
         });
       }, 200);
 
-      const uploadResponse = await fetch(uploadUrl, {
+      const uploadResponse = await fetch(upload.uploadUrl, {
         method: "POST",
         headers: {
           "Content-Type": blob.type || "image/jpeg",
@@ -193,15 +207,19 @@ export default function ReceiptConfirmScreen() {
       setUploadProgress(95);
       const { storageId: newStorageId } = await uploadResponse.json();
 
+      await completeUpload({
+        receiptUploadId: upload.receiptUploadId,
+        storageId: newStorageId,
+      });
+
       // Step 5: Complete (100%)
       setUploadProgress(100);
-      setStorageId(newStorageId);
 
       // Brief pause then start OCR
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Start OCR processing
-      runOCR(newStorageId);
+      runOCR(upload.receiptUploadId);
     } catch (error) {
       console.error("Upload error:", error);
       setScreenState("upload_error");
@@ -212,22 +230,28 @@ export default function ReceiptConfirmScreen() {
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  }, [photoUri, generateUploadUrl, runOCR]);
+  }, [
+    completeUpload,
+    generateUploadUrl,
+    household?._id,
+    photoUri,
+    runOCR,
+  ]);
 
   // Auto-start upload when screen loads
   useEffect(() => {
-    if (photoUri && screenState === "uploading") {
+    if (photoUri && household?._id && screenState === "uploading") {
       const timer = setTimeout(() => {
         uploadReceipt();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [photoUri, screenState, uploadReceipt]);
+  }, [household?._id, photoUri, screenState, uploadReceipt]);
 
   // Handle confirm button - create session and show celebration
   const handleConfirm = async () => {
-    const totalCents = extractedTotal;
-    if (!totalCents || !household?._id) return;
+    const totalPence = extractedTotal;
+    if (!totalPence || !household?._id) return;
 
     setScreenState("saving_session");
 
@@ -235,9 +259,10 @@ export default function ReceiptConfirmScreen() {
       // Create the shopping session
       await createSession({
         householdId: household._id,
-        totalAmount: totalCents,
+        totalAmount: totalPence,
         listId: listId ? (listId as Id<"lists">) : undefined,
-        receiptImageId: storageId ?? undefined,
+        receiptUploadId: receiptUploadId ?? undefined,
+        paidBy,
       });
 
       // Update monthly count for display (current count + 1 for the new session)
@@ -288,8 +313,8 @@ export default function ReceiptConfirmScreen() {
       return;
     }
 
-    const totalCents = Math.round(amount * 100);
-    setExtractedTotal(totalCents);
+    const totalPence = Math.round(amount * 100);
+    setExtractedTotal(totalPence);
     setScreenState("success");
     setShowConfetti(true);
 
@@ -320,11 +345,29 @@ export default function ReceiptConfirmScreen() {
     setTimeout(() => inputRef.current?.focus(), 300);
   };
 
-  const handleTryAgain = () => {
+  const handleTryAgain = async () => {
+    if (receiptUploadId) {
+      try {
+        await deleteReceipt({ receiptUploadId });
+      } catch (error) {
+        console.error("Failed to clean up failed receipt:", error);
+      }
+      setReceiptUploadId(null);
+    }
     setScreenState("uploading");
     setUploadProgress(0);
-    setTimeout(uploadReceipt, 100);
   };
+
+  const handleCancel = useCallback(async () => {
+    if (receiptUploadId && screenState !== "session_saved") {
+      try {
+        await deleteReceipt({ receiptUploadId });
+      } catch (error) {
+        console.error("Failed to clean up cancelled receipt:", error);
+      }
+    }
+    router.back();
+  }, [deleteReceipt, receiptUploadId, screenState]);
 
   // Render confetti particles
   const renderConfetti = () => {
@@ -380,6 +423,21 @@ export default function ReceiptConfirmScreen() {
             extractedTotal={extractedTotal}
             handleConfirm={handleConfirm}
             handleNotQuite={handleNotQuite}
+            paidBy={paidBy}
+            onPaidByChange={setPaidBy}
+            paymentOptions={[
+              { value: "joint", label: "Joint account" },
+              ...(household?.members.flatMap((member) =>
+                member.user
+                  ? [
+                      {
+                        value: member.user._id,
+                        label: member.user.name || "Household member",
+                      },
+                    ]
+                  : [],
+              ) ?? []),
+            ]}
           />
         );
 
@@ -390,6 +448,7 @@ export default function ReceiptConfirmScreen() {
             manualAmount={manualAmount}
             setManualAmount={setManualAmount}
             handleManualSubmit={handleManualSubmit}
+            handleSkip={handleCancel}
           />
         );
 
@@ -458,7 +517,7 @@ export default function ReceiptConfirmScreen() {
       {/* Header */}
       <View className="flex-row items-center border-b border-warm-gray-100 bg-white px-4 py-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleCancel}
           className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100"
           accessibilityLabel="Go back"
         >
@@ -470,9 +529,14 @@ export default function ReceiptConfirmScreen() {
       </View>
 
       {/* Content */}
-      <View className="flex-1 items-center justify-center px-8">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="min-h-full items-center justify-center px-8 py-6"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {renderContent()}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

@@ -7,19 +7,26 @@ import {
   ListItem,
   PartnerActivityToast,
 } from "@/components/lists";
-import { Toast } from "@/components/ui";
+import { Button, Input, Toast } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useCachedItems } from "@/lib/useCachedQuery";
-import { useOfflineItems } from "@/lib/useOfflineItems";
+import { useCachedList } from "@/lib/useCachedQuery";
+import { useShoppingList } from "@/lib/useShoppingList";
+import { getReceiptCaptureRoute } from "@/lib/receiptFlow";
+import {
+  formatCurrencyFromPence,
+  parseCurrencyInputToPence,
+} from "@/lib/formatters";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
+import { useAuth } from "@clerk/clerk-expo";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronLeft, CloudOff } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   Text,
@@ -45,6 +52,7 @@ interface PartnerActivity {
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const listId = id as Id<"lists">;
+  const { userId } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
@@ -55,11 +63,16 @@ export default function ListDetailScreen() {
     unit?: string;
     notes?: string;
     category?: string;
+    estimatedPricePence?: number;
   } | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showArchiveToast, setShowArchiveToast] = useState(false);
+  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+  const [tripBudgetInput, setTripBudgetInput] = useState("");
+  const [tripBudgetError, setTripBudgetError] = useState("");
+  const [isSavingTripBudget, setIsSavingTripBudget] = useState(false);
   const [partnerActivity, setPartnerActivity] =
     useState<PartnerActivity | null>(null);
   const previousProgressRef = useRef<number | null>(null);
@@ -71,24 +84,28 @@ export default function ListDetailScreen() {
   const editSheetRef = useRef<BottomSheet>(null);
 
   // Fetch list, items (with caching), and current user
-  const list = useQuery(api.lists.getById, { listId });
-  const {
-    data: items,
-    isFromCache,
-    isLoading: itemsLoading,
-  } = useCachedItems(listId);
+  const { data: list } = useCachedList(listId, userId);
   const currentUser = useQuery(api.users.getCurrentUser);
 
-  // Offline-aware item operations
   const {
+    items,
+    isFromCache,
+    isLoading: itemsLoading,
+    uncompletedItems,
+    completedItems,
+    totalItems,
+    completedCount,
+    progress,
+    plannedTotalPence,
     addItem: offlineAddItem,
     toggleComplete: offlineToggleComplete,
     removeItem: offlineRemoveItem,
     updateItem: offlineUpdateItem,
     isPendingSync,
-  } = useOfflineItems(listId);
+  } = useShoppingList(listId, list?.householdId);
 
   const archiveList = useMutation(api.lists.archive);
+  const updateList = useMutation(api.lists.update);
 
   // Animation for completed section
   const expandedRotation = useSharedValue(completedExpanded ? 0 : -90);
@@ -97,21 +114,7 @@ export default function ListDetailScreen() {
     transform: [{ rotate: `${expandedRotation.value}deg` }],
   }));
 
-  // Separate items into uncompleted and completed
-  const { uncompletedItems, completedItems } = useMemo(() => {
-    if (!items) return { uncompletedItems: [], completedItems: [] };
-
-    const uncompleted = items.filter((item) => !item.isCompleted);
-    const completed = items.filter((item) => item.isCompleted);
-
-    return { uncompletedItems: uncompleted, completedItems: completed };
-  }, [items]);
-
-  // Calculate progress
-  const totalItems = items?.length ?? 0;
-  const completedCount = completedItems.length;
-  const progressPercent =
-    totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
+  const progressPercent = progress * 100;
 
   // Detect when list becomes 100% complete
   useEffect(() => {
@@ -192,14 +195,8 @@ export default function ListDetailScreen() {
 
   const handleScanReceipt = useCallback(async () => {
     setShowCelebration(false);
-    // Auto-archive the list when user goes to scan receipt
-    try {
-      await archiveList({ listId });
-    } catch (error) {
-      console.error("Failed to archive list:", error);
-    }
-    router.push("/scan-receipt");
-  }, [archiveList, listId]);
+    router.push(getReceiptCaptureRoute(listId));
+  }, [listId]);
 
   const handleToggle = useCallback(
     async (itemId: Id<"items">) => {
@@ -238,6 +235,7 @@ export default function ListDetailScreen() {
       unit?: string;
       notes?: string;
       category?: string;
+      estimatedPricePence?: number;
     }) => {
       setEditingItem(item);
       editSheetRef.current?.snapToIndex(0);
@@ -272,6 +270,38 @@ export default function ListDetailScreen() {
   const handleArchiveCancel = useCallback(() => {
     setShowArchiveDialog(false);
   }, []);
+
+  const handleOpenBudgetEditor = useCallback(() => {
+    setTripBudgetInput(
+      list?.tripBudgetPence === undefined
+        ? ""
+        : (list.tripBudgetPence / 100).toFixed(2),
+    );
+    setTripBudgetError("");
+    setShowBudgetEditor(true);
+  }, [list?.tripBudgetPence]);
+
+  const handleSaveTripBudget = useCallback(async () => {
+    const budgetPence = tripBudgetInput.trim()
+      ? parseCurrencyInputToPence(tripBudgetInput)
+      : null;
+    if (tripBudgetInput.trim() && budgetPence === null) {
+      setTripBudgetError("Enter a valid amount");
+      return;
+    }
+
+    setTripBudgetError("");
+    setIsSavingTripBudget(true);
+    try {
+      await updateList({ listId, tripBudgetPence: budgetPence });
+      setShowBudgetEditor(false);
+    } catch (error) {
+      console.error("Failed to update trip budget:", error);
+      setTripBudgetError("Couldn't save the budget. Please try again.");
+    } finally {
+      setIsSavingTripBudget(false);
+    }
+  }, [listId, tripBudgetInput, updateList]);
 
   const handleToastDismiss = useCallback(() => {
     setShowArchiveToast(false);
@@ -319,7 +349,7 @@ export default function ListDetailScreen() {
           </Text>
           <Pressable
             onPress={() => router.back()}
-            className="mt-6 rounded-2xl bg-coral px-6 py-3"
+            className="mt-6 rounded-full bg-coral px-6 py-3"
           >
             <Text className="font-semibold text-white">Go Back</Text>
           </Pressable>
@@ -331,8 +361,8 @@ export default function ListDetailScreen() {
   // Category emoji mapping
   const categoryEmojis: Record<string, string> = {
     groceries: "🛒",
-    costco: "📦",
-    target: "🎯",
+    tesco: "🛍️",
+    sainsburys: "🧺",
     pharmacy: "💊",
     other: "📝",
   };
@@ -397,6 +427,32 @@ export default function ListDetailScreen() {
             />
           </View>
 
+          <View className="mt-3 flex-row flex-wrap gap-2">
+            {plannedTotalPence > 0 && (
+              <View className="rounded-full bg-teal/10 px-3 py-1.5">
+                <Text className="text-sm font-medium text-teal">
+                  Planned {formatCurrencyFromPence(plannedTotalPence)}
+                </Text>
+              </View>
+            )}
+            <Pressable
+              onPress={handleOpenBudgetEditor}
+              className="min-h-12 justify-center rounded-full bg-coral/10 px-3 py-1.5"
+              accessibilityRole="button"
+              accessibilityLabel={
+                list.tripBudgetPence === undefined
+                  ? "Set trip budget"
+                  : "Edit trip budget"
+              }
+            >
+              <Text className="text-sm font-medium text-coral">
+                {list.tripBudgetPence === undefined
+                  ? "Set trip budget"
+                  : `Budget ${formatCurrencyFromPence(list.tripBudgetPence)}`}
+              </Text>
+            </Pressable>
+          </View>
+
           {/* Cached data indicator */}
           {isFromCache && (
             <Animated.View
@@ -416,7 +472,7 @@ export default function ListDetailScreen() {
       <FlashList
         ref={flashListRef}
         data={uncompletedItems}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <ListItem
             id={item._id}
             name={item.name}
@@ -424,13 +480,13 @@ export default function ListDetailScreen() {
             unit={item.unit}
             notes={item.notes}
             category={item.category}
+            estimatedPricePence={item.estimatedPricePence}
             isCompleted={item.isCompleted}
             addedByUser={item.addedByUser}
             isPendingSync={item.isPendingSync || isPendingSync(item._id)}
             onToggle={handleToggle}
             onDelete={handleDelete}
             onEdit={handleEdit}
-            index={index}
           />
         )}
         keyExtractor={(item) => item._id}
@@ -481,7 +537,7 @@ export default function ListDetailScreen() {
               {/* Completed items */}
               {completedExpanded && (
                 <Animated.View entering={FadeIn.duration(200)}>
-                  {completedItems.map((item, index) => (
+                  {completedItems.map((item) => (
                     <ListItem
                       key={item._id}
                       id={item._id}
@@ -490,6 +546,7 @@ export default function ListDetailScreen() {
                       unit={item.unit}
                       notes={item.notes}
                       category={item.category}
+                      estimatedPricePence={item.estimatedPricePence}
                       isCompleted={item.isCompleted}
                       addedByUser={item.addedByUser}
                       isPendingSync={
@@ -498,7 +555,6 @@ export default function ListDetailScreen() {
                       onToggle={handleToggle}
                       onDelete={handleDelete}
                       onEdit={handleEdit}
-                      index={index}
                     />
                   ))}
                 </Animated.View>
@@ -519,6 +575,51 @@ export default function ListDetailScreen() {
         onUpdate={offlineUpdateItem}
         onDelete={offlineRemoveItem}
       />
+
+      <Modal
+        visible={showBudgetEditor}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBudgetEditor(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/30 px-6">
+          <View className="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg">
+            <Text className="text-xl font-bold text-warm-gray-900">
+              Trip budget
+            </Text>
+            <Text className="mb-5 mt-1 text-warm-gray-500">
+              Leave this empty to remove the budget.
+            </Text>
+            <Input
+              label="Budget in pounds"
+              value={tripBudgetInput}
+              onChangeText={(value) => {
+                setTripBudgetInput(value);
+                setTripBudgetError("");
+              }}
+              error={tripBudgetError}
+              placeholder="e.g. £60"
+              keyboardType="decimal-pad"
+            />
+            <View className="mt-2 flex-row gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onPress={() => setShowBudgetEditor(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onPress={handleSaveTripBudget}
+                loading={isSavingTripBudget}
+              >
+                Save
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Completion celebration overlay */}
       <CompletionCelebration

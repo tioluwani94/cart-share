@@ -11,6 +11,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { X, ZoomIn, ZoomOut, Receipt as ReceiptIcon } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import {
+  formatCurrencyFromPence,
+  formatDateWithWeekday,
+} from "@/lib/formatters";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -20,30 +24,6 @@ interface ReceiptImageViewerProps {
   sessionDate?: number;
   amount?: number;
   onClose: () => void;
-}
-
-/**
- * Format a timestamp to a friendly date string.
- */
-function formatDate(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-/**
- * Format cents to dollar string.
- */
-function formatDollars(cents: number): string {
-  return (cents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  });
 }
 
 /**
@@ -113,8 +93,10 @@ export function ReceiptImageViewer({
             <Text className="text-lg font-semibold text-white">Receipt</Text>
             {sessionDate && (
               <Text className="text-sm text-white/70">
-                {formatDate(sessionDate)}
-                {amount ? ` · ${formatDollars(amount)}` : ""}
+                {formatDateWithWeekday(sessionDate)}
+                {amount !== undefined
+                  ? ` · ${formatCurrencyFromPence(amount)}`
+                  : ""}
               </Text>
             )}
           </View>

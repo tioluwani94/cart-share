@@ -51,7 +51,7 @@ export function CodeInput({
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  }, [error]);
+  }, [error, shakeX]);
 
   const handleChange = (text: string, index: number) => {
     // Only allow alphanumeric characters
@@ -120,8 +120,6 @@ export function CodeInput({
       {Array.from({ length }).map((_, index) => {
         const char = value[index] || "";
         const isFilled = !!char;
-        const isFocused = false; // We'll track this in state if needed
-
         return (
           <Pressable
             key={index}

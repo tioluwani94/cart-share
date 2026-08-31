@@ -310,7 +310,7 @@ function ConfettiParticle({
 
     // Fade out at end
     opacity.value = withDelay(delay + 1500, withTiming(0, { duration: 500 }));
-  }, []);
+  }, [delay, initialY, opacity, rotate, scale, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [

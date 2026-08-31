@@ -46,7 +46,7 @@ export function Toast({ visible, message, onDismiss, duration = 2000 }: ToastPro
       translateY.value = -100;
       opacity.value = 0;
     }
-  }, [visible, duration, onDismiss]);
+  }, [duration, onDismiss, opacity, translateY, visible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

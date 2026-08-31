@@ -2,6 +2,7 @@ import { Button, Input } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import BottomSheet, {
   BottomSheetBackdrop,
+  type BottomSheetBackdropProps,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import { useMutation, useQuery } from "convex/react";
@@ -11,6 +12,7 @@ import { forwardRef, useCallback, useMemo, useState } from "react";
 import { Keyboard, Text, View } from "react-native";
 import { SuccessCelebration } from "./SuccessCelebration";
 import { CATEGORIES, CategoryChip } from "./CategoryChip";
+import { parseCurrencyInputToPence } from "@/lib/formatters";
 
 interface CreateListSheetProps {
   onClose: () => void;
@@ -29,13 +31,15 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
     const [error, setError] = useState("");
     const [isCreating, setIsCreating] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [tripBudget, setTripBudget] = useState("");
+    const [tripBudgetError, setTripBudgetError] = useState("");
 
     // Get current household
     const household = useQuery(api.households.getCurrentHousehold);
     const createList = useMutation(api.lists.create);
 
     // Snap points for the bottom sheet
-    const snapPoints = useMemo(() => ["75%"], []);
+    const snapPoints = useMemo(() => ["85%"], []);
 
     // Reset form state when sheet closes
     const resetForm = useCallback(() => {
@@ -44,6 +48,8 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
       setError("");
       setIsCreating(false);
       setShowSuccess(false);
+      setTripBudget("");
+      setTripBudgetError("");
     }, []);
 
     const handleSheetChange = useCallback(
@@ -57,7 +63,7 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
     );
 
     const renderBackdrop = useCallback(
-      (props: any) => (
+      (props: BottomSheetBackdropProps) => (
         <BottomSheetBackdrop
           {...props}
           disappearsOnIndex={-1}
@@ -83,7 +89,17 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
         return;
       }
 
+      const tripBudgetPence = tripBudget.trim()
+        ? parseCurrencyInputToPence(tripBudget)
+        : undefined;
+      if (tripBudget.trim() && tripBudgetPence === null) {
+        setTripBudgetError("Enter a valid amount");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+
       setError("");
+      setTripBudgetError("");
       setIsCreating(true);
 
       try {
@@ -91,6 +107,7 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
           householdId: household._id,
           name: listName.trim(),
           category: selectedCategory ?? undefined,
+          tripBudgetPence: tripBudgetPence ?? undefined,
         });
 
         // Success!
@@ -148,6 +165,19 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
                 autoCapitalize="words"
                 returnKeyType="done"
                 onSubmitEditing={handleCreate}
+              />
+
+              <Input
+                label="Trip budget (optional)"
+                value={tripBudget}
+                onChangeText={(value) => {
+                  setTripBudget(value);
+                  setTripBudgetError("");
+                }}
+                error={tripBudgetError}
+                placeholder="e.g. £60"
+                keyboardType="decimal-pad"
+                returnKeyType="done"
               />
 
               {/* Category selection */}

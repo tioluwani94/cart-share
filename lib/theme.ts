@@ -1,0 +1,15 @@
+export const themeColors = {
+  coral: "#C94A4A",
+  coralSoft: "#FBE9E9",
+  teal: "#297D76",
+  tealSoft: "#E4F3F1",
+  notice: "#FFE66D",
+  canvas: "#FAFAFA",
+  surface: "#FFFFFF",
+  ink: "#1A1917",
+  secondaryInk: "#5C5A54",
+  separator: "#E8E6E1",
+  disabled: "#D3D0C9",
+  warningInk: "#713F12",
+  error: "#B42318",
+} as const;

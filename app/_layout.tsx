@@ -1,11 +1,17 @@
 import { OfflineIndicator } from "@/components/layout";
 import { api } from "@/convex/_generated/api";
 import { SyncStatusProvider } from "@/lib/SyncStatusContext";
+import { AnalyticsProvider } from "@/lib/AnalyticsContext";
+import { getAuthRedirect } from "@/lib/authRouting";
+import { listenForNotificationResponses } from "@/lib/pushNotifications";
+import { useScopedOfflineQueue } from "@/lib/useScopedOfflineQueue";
+import type { OfflineScope } from "@/lib/offlineQueue";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import {
-  Slot,
+  type Href,
+  Stack,
   useRootNavigationState,
   useRouter,
   useSegments,
@@ -13,9 +19,10 @@ import {
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useReducedMotion } from "react-native-reanimated";
 import "../global.css";
 
 // Prevent the splash screen from auto-hiding
@@ -62,9 +69,6 @@ if (!publishableKey) {
   );
 }
 
-// Routes that don't require a household to access
-const HOUSEHOLD_EXEMPT_ROUTES = ["household-setup", "join-household"];
-
 /**
  * Initial layout component that handles auth-based route protection.
  * Redirects users based on authentication and household state:
@@ -73,8 +77,9 @@ const HOUSEHOLD_EXEMPT_ROUTES = ["household-setup", "join-household"];
  * - Authenticated users with a household to /(tabs)
  */
 function InitialLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+  const reduceMotion = useReducedMotion();
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
@@ -86,46 +91,77 @@ function InitialLayout() {
     isConvexAuthenticated ? {} : "skip",
   );
 
+  const rootSegment = segments[0] as string | undefined;
+  const childSegment = segments[1] as string | undefined;
+  const ownsForegroundQueue =
+    rootSegment === "list" ||
+    rootSegment === "restock-review" ||
+    (rootSegment === "(tabs)" && childSegment === "shop");
+  const backgroundSyncScope = useMemo<OfflineScope | null>(
+    () =>
+      isSignedIn && userId && household && !ownsForegroundQueue
+        ? { clerkUserId: userId, householdId: household._id }
+        : null,
+    [household, isSignedIn, ownsForegroundQueue, userId],
+  );
+  // List screens own their live queue state; everywhere else this keeps
+  // queued work replaying as soon as the connection is restored.
+  useScopedOfflineQueue(backgroundSyncScope);
+
   useEffect(() => {
-    // Wait for navigation and auth to be ready
-    if (!navigationState?.key || !isLoaded) return;
+    const subscription = listenForNotificationResponses(() => {
+      router.push("/restock-review?source=notification" as Href);
+    });
+    return () => subscription.remove();
+  }, [router]);
 
-    const inAuthGroup = segments[0] === "(auth)";
-    const inHouseholdExemptRoute = HOUSEHOLD_EXEMPT_ROUTES.includes(
-      segments[0] as string,
-    );
+  useEffect(() => {
+    const redirect = getAuthRedirect({
+      isNavigationReady: Boolean(navigationState?.key),
+      isClerkLoaded: isLoaded,
+      isSignedIn,
+      isConvexAuthenticated,
+      household,
+      rootSegment,
+    });
 
-    if (!isSignedIn) {
-      if (!inAuthGroup) {
-        router.replace("/(auth)/welcome");
-      }
+    if (redirect) {
+      router.replace(redirect as Href);
       SplashScreen.hideAsync();
       return;
     }
 
-    if (inAuthGroup) {
-      if (household) {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/household-setup");
-      }
-      SplashScreen.hideAsync();
-      return;
-    }
+    const authStateResolved =
+      isSignedIn === false ||
+      (isSignedIn === true &&
+        isConvexAuthenticated &&
+        household !== undefined);
 
-    if (household === null && !inHouseholdExemptRoute) {
-      router.replace("/household-setup");
+    if (navigationState?.key && isLoaded && authStateResolved) {
       SplashScreen.hideAsync();
-      return;
     }
-
-    SplashScreen.hideAsync();
-  }, [isLoaded, isSignedIn, segments, navigationState?.key, household, router]);
+  }, [
+    household,
+    isConvexAuthenticated,
+    isLoaded,
+    isSignedIn,
+    navigationState?.key,
+    rootSegment,
+    router,
+  ]);
 
   return (
     <View style={{ flex: 1 }}>
       <OfflineIndicator />
-      <Slot />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: reduceMotion ? "fade" : "default",
+          gestureEnabled: true,
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
+      </Stack>
     </View>
   );
 }
@@ -138,7 +174,9 @@ function ConvexClerkLayout() {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <SyncStatusProvider>
-        <InitialLayout />
+        <AnalyticsProvider>
+          <InitialLayout />
+        </AnalyticsProvider>
       </SyncStatusProvider>
     </ConvexProviderWithClerk>
   );

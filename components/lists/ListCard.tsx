@@ -54,10 +54,10 @@ function getCategoryEmoji(category?: string): string {
   switch (category?.toLowerCase()) {
     case "groceries":
       return "🛒";
-    case "costco":
-      return "📦";
-    case "target":
-      return "🎯";
+    case "tesco":
+      return "🛍️";
+    case "sainsburys":
+      return "🧺";
     case "produce":
       return "🥬";
     case "dairy":

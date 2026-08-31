@@ -132,7 +132,7 @@ Every empty state should be an opportunity for delight:
 | UC-4 | Check off items while in-store (offline-capable) | Mike | Must Have |
 | UC-5 | Scan receipt to capture spending | Mike | Must Have |
 | UC-6 | View spending analytics over time | Sarah | Should Have |
-| UC-7 | Create multiple lists (Costco, Trader Joe's, etc.) | Sarah | Should Have |
+| UC-7 | Create multiple lists (Tesco, Sainsbury's, etc.) | Sarah | Should Have |
 | UC-8 | Receive notification when partner adds items | Both | Could Have |
 
 ---
@@ -222,13 +222,13 @@ Users can create and manage multiple shopping lists within their household.
 | F2.1.2 | View all lists for household on home screen | Must Have |
 | F2.1.3 | Archive completed lists (soft delete) | Must Have |
 | F2.1.4 | Display item count and completion percentage per list | Must Have |
-| F2.1.5 | Assign optional category to list (Groceries, Costco, etc.) | Should Have |
+| F2.1.5 | Assign optional category to list (Groceries, Tesco, etc.) | Should Have |
 | F2.1.6 | Reorder lists via drag-and-drop | Could Have |
 
 **Acceptance Criteria for F2.1**:
 ```
 Given a user on the home screen
-When they tap the "+" button and enter "Costco Trip"
+When they tap the "+" button and enter "Tesco Trip"
 Then a new list is created in Convex
 And it appears immediately in both partners' list views
 And the list shows "0 items" initially
@@ -252,7 +252,7 @@ Items are the core unit of shopping lists with support for quantity, notes, and 
 | Requirement ID | Description | Priority |
 |----------------|-------------|----------|
 | F2.2.1 | Add item with name (required) | Must Have |
-| F2.2.2 | Add optional quantity and unit (e.g., "2 lbs") | Must Have |
+| F2.2.2 | Add optional quantity and unit (e.g., "2 kg") | Must Have |
 | F2.2.3 | Mark item as complete (checkbox) | Must Have |
 | F2.2.4 | Delete item with swipe gesture | Must Have |
 | F2.2.5 | Edit item name, quantity, notes | Must Have |
@@ -299,7 +299,7 @@ Both partners see updates in real-time without manual refresh.
 | F3.1.1 | All list/item changes sync to both users within 1 second | Must Have |
 | F3.1.2 | Show visual indicator when partner is viewing same list | Should Have |
 | F3.1.3 | Show "Partner added [item]" toast notification | Should Have |
-| F3.1.4 | Conflict resolution: last-write-wins with timestamp | Must Have |
+| F3.1.4 | Conflict resolution: deterministic server-arrival order | Must Have |
 
 **Acceptance Criteria for F3.1**:
 ```
@@ -315,7 +315,7 @@ And the completion is attributed to Mike
 
 Given both users edit the same item simultaneously
 When Sarah changes quantity to "2" and Mike changes to "3"
-Then the change with later timestamp wins
+Then the change Convex applies last wins for that field
 And both users see the final consistent state
 ```
 
@@ -347,8 +347,8 @@ And the extracted total is displayed within 5 seconds
 And user can confirm or edit the amount
 
 Given a receipt image is processed
-When Vision API extracts "Total: $87.43"
-Then the system displays "$87.43" as the extracted total
+When Vision API extracts "TOTAL £87.43"
+Then the system displays "£87.43" as the extracted total
 And creates a shopping session record with this amount
 
 Given Vision API fails to extract a clear total
@@ -369,6 +369,7 @@ Track when shopping trips occur and their associated costs.
 | F5.1.2 | Associate receipt total with session | Must Have |
 | F5.1.3 | Record session date, store (optional), shopper | Must Have |
 | F5.1.4 | View history of past shopping sessions | Should Have |
+| F5.1.5 | Record payment source as a household member or joint account | Must Have |
 
 **F5.2 Spending Analytics**
 
@@ -380,7 +381,8 @@ Visualize spending patterns over time.
 | F5.2.2 | Show spending trend chart (last 6 months) | Should Have |
 | F5.2.3 | Compare spending month-over-month | Should Have |
 | F5.2.4 | Break down spending by store (if tracked) | Could Have |
-| F5.2.5 | Set monthly spending budget with progress indicator | Could Have |
+| F5.2.5 | Set a shared monthly budget and show remaining spend | Must Have |
+| F5.2.6 | Set optional trip/item estimates and compare plan with actual | Must Have |
 
 **Acceptance Criteria for F5.2**:
 ```
@@ -390,9 +392,9 @@ Then a line chart displays spending over time
 And current month total is prominently displayed
 And chart is accessible via VoiceOver with data description
 
-Given a user with sessions in January ($400) and February ($350)
+Given a user with sessions in January (£400) and February (£350)
 When viewing month-over-month comparison
-Then display shows "-12.5%" or "$50 less than last month"
+Then display shows "-12.5%" or "£50 less than last month"
 ```
 
 ### Feature Area 6: Offline Capabilities
@@ -409,7 +411,7 @@ The app must function in low/no connectivity environments (common in stores).
 | F6.1.4 | Queue all mutations for sync when online | Must Have |
 | F6.1.5 | Display clear offline indicator in UI | Must Have |
 | F6.1.6 | Sync automatically when connectivity restored | Must Have |
-| F6.1.7 | Handle conflicts via last-write-wins with timestamps | Must Have |
+| F6.1.7 | Handle conflicts via FIFO replay and server-arrival ordering | Must Have |
 
 **Acceptance Criteria for F6.1**:
 ```
@@ -461,7 +463,7 @@ And partner sees the synced changes
 7. Mike adds "Ice Cream" (Sarah sees it appear)
 8. Mike completes all items, taps "Complete Shopping"
 9. App prompts "Scan receipt?"
-10. Mike photographs receipt → OCR extracts $87.43
+10. Mike photographs receipt → OCR extracts £87.43
 11. Mike confirms total → Shopping session recorded
 12. Sarah sees spending update in analytics
 ```
@@ -473,7 +475,7 @@ And partner sees the synced changes
 2. Camera interface opens with capture guide overlay
 3. User photographs receipt
 4. Loading indicator while image uploads and processes
-5. [Success] Extracted total displayed: "We found $87.43"
+5. [Success] Extracted total displayed: "We found £87.43"
    - User taps "Confirm" → Session saved
    - User taps "Edit" → Manual entry field
 6. [Failure] "Couldn't read receipt" message
@@ -497,7 +499,7 @@ Users (1) ←→ (1) HouseholdMembers (N) ←→ (1) Households
 
 Households (1) ←→ (N) ShoppingSessions
                               ↓
-                        Receipts (1)
+                      ReceiptUploads (0..1)
 ```
 
 ### Convex Schema Definition
@@ -525,6 +527,7 @@ export default defineSchema({
     name: v.string(),
     inviteCode: v.string(), // 6-character unique code
     ownerId: v.id("users"),
+    monthlyBudgetPence: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -546,7 +549,8 @@ export default defineSchema({
   lists: defineTable({
     householdId: v.id("households"),
     name: v.string(),
-    category: v.optional(v.string()), // "groceries", "costco", etc.
+    category: v.optional(v.string()), // "groceries", "tesco", etc.
+    tripBudgetPence: v.optional(v.number()),
     isArchived: v.boolean(),
     createdBy: v.id("users"),
     createdAt: v.number(),
@@ -558,11 +562,13 @@ export default defineSchema({
   // List Items
   items: defineTable({
     listId: v.id("lists"),
+    clientId: v.optional(v.string()),
     name: v.string(),
     quantity: v.optional(v.number()),
-    unit: v.optional(v.string()), // "lbs", "oz", "each", "gallon"
+    unit: v.optional(v.string()), // "g", "kg", "ml", "l", "each"
     notes: v.optional(v.string()),
     category: v.optional(v.string()), // "produce", "dairy", "meat"
+    estimatedPricePence: v.optional(v.number()),
     isCompleted: v.boolean(),
     addedBy: v.id("users"),
     completedBy: v.optional(v.id("users")),
@@ -571,15 +577,26 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_list", ["listId"])
+    .index("by_list_and_client_id", ["listId", "clientId"])
     .index("by_list_and_completed", ["listId", "isCompleted"]),
+
+  // Private receipt storage authorization record
+  receiptUploads: defineTable({
+    householdId: v.id("households"),
+    uploadedBy: v.id("users"),
+    storageId: v.optional(v.id("_storage")),
+    createdAt: v.number(),
+  }),
 
   // Shopping Sessions
   shoppingSessions: defineTable({
     householdId: v.id("households"),
     listId: v.optional(v.id("lists")),
-    totalAmount: v.number(), // In cents to avoid floating point
+    totalAmount: v.number(), // In pence to avoid floating point
     storeName: v.optional(v.string()),
     shopperId: v.id("users"),
+    paidBy: v.optional(v.union(v.literal("joint"), v.id("users"))),
+    // Internal storage linkage; omitted from public session responses.
     receiptImageId: v.optional(v.id("_storage")),
     sessionDate: v.number(),
     createdAt: v.number(),
@@ -597,7 +614,7 @@ export default defineSchema({
 - **List name**: 1-100 characters, required
 - **Item name**: 1-200 characters, required
 - **Quantity**: Positive number if provided
-- **Total amount**: Stored in cents (integer), must be non-negative
+- **Total amount**: Stored in pence (integer), must be non-negative
 
 ---
 
@@ -632,7 +649,7 @@ export default defineSchema({
 |-------------|-------------|
 | Cache strategy | Cache active lists and items in MMKV |
 | Offline mutations | Queue locally, sync when online |
-| Conflict resolution | Last-write-wins using client timestamps |
+| Conflict resolution | FIFO per account/household queue; last server-applied overlapping write wins |
 | Cache invalidation | Refresh on app foreground if stale > 5 minutes |
 | Storage limit | Cache up to 10MB of list data |
 
@@ -831,11 +848,11 @@ Expected Response Fields:
 ```
 
 **Total Extraction Logic:**
-Search extracted text for patterns:
-- "TOTAL" followed by dollar amount
-- "GRAND TOTAL" followed by dollar amount
-- "AMOUNT DUE" followed by dollar amount
-- Pattern: `/(?:TOTAL|GRAND TOTAL|AMOUNT DUE)[:\s]*\$?([\d,]+\.?\d*)/i`
+Search extracted text for trusted UK receipt labels such as:
+- "TOTAL" or "TOTAL TO PAY" followed by a sterling amount
+- "BALANCE" or "AMOUNT DUE" followed by a sterling amount
+- Completed debit/credit card payment totals as a lower-priority fallback
+- Ignore subtotals, discounts, VAT, reference numbers, and unrelated large amounts
 
 ### Convex Function Specifications
 
@@ -883,12 +900,12 @@ export const toggleComplete = mutation({
 ```typescript
 // vision.ts
 export const processReceipt = action({
-  args: { imageId: v.id("_storage") },
-  handler: async (ctx, { imageId }) => {
-    // 1. Get signed URL from Convex storage
-    // 2. Call Google Cloud Vision API
-    // 3. Extract total from response
-    // 4. Return { extractedTotal, rawText, confidence }
+  args: { receiptUploadId: v.id("receiptUploads") },
+  handler: async (ctx, { receiptUploadId }) => {
+    // 1. Authenticate the caller and verify household ownership internally
+    // 2. Read the private storage object
+    // 3. Call Google Cloud Vision API and extract the likely total
+    // 4. Return only { success, extractedTotal, error }; never raw OCR text
   }
 });
 ```
@@ -1047,9 +1064,10 @@ if (!identity) throw new Error("Not authenticated");
 ```typescript
 // On mutation attempt when offline:
 1. Execute optimistic update (update local UI immediately)
-2. Store mutation in MMKV queue: { fn, args, timestamp }
-3. On network restore, process queue in order
-4. Handle conflicts with last-write-wins using timestamp
+2. Store operation in an account-and-household scoped MMKV queue
+3. Use a stable client ID for items created offline
+4. On network restore, replay FIFO with absolute intended values
+5. Resolve overlapping writes by Convex server-arrival order
 ```
 
 ### iOS HIG Compliance Checklist

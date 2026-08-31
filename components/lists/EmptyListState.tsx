@@ -5,7 +5,6 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  withSpring,
   withDelay,
   Easing,
   FadeIn,
@@ -76,7 +75,7 @@ export function EmptyListState({ onCreateList }: EmptyListStateProps) {
       -1,
       true,
     );
-  }, []);
+  }, [avocadoRotation, avocadoScale, buttonScale, cartTranslateY]);
 
   const avocadoStyle = useAnimatedStyle(() => ({
     transform: [

@@ -88,10 +88,10 @@ interface ClerkWebhookEvent {
   type: string;
   data: {
     id: string;
-    email_addresses: Array<{
+    email_addresses: {
       id: string;
       email_address: string;
-    }>;
+    }[];
     primary_email_address_id: string;
     first_name: string | null;
     last_name: string | null;

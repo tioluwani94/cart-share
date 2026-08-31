@@ -141,6 +141,38 @@ export const getCurrentHousehold = query({
   },
 });
 
+/** Set or clear the shared monthly grocery budget in pence. */
+export const setMonthlyBudget = mutation({
+  args: { monthlyBudgetPence: v.optional(v.number()) },
+  handler: async (ctx, { monthlyBudgetPence }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) =>
+        q.eq("clerkId", identity.subject),
+      )
+      .unique();
+    if (!user) throw new Error("User not found in database");
+
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    if (!membership) throw new Error("You do not belong to a household");
+
+    await ctx.db.patch(membership.householdId, {
+      monthlyBudgetPence:
+        monthlyBudgetPence === undefined
+          ? undefined
+          : Math.max(0, Math.round(monthlyBudgetPence)),
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
 /**
  * Get a household by invite code.
  * Used when joining a household.

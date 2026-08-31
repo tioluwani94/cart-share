@@ -1,192 +1,337 @@
-import { useRef, useState, useCallback } from "react";
+import { CreateListSheet, ListCard } from "@/components/lists";
+import { Button, UserAvatar } from "@/components/ui";
+import { api } from "@/convex/_generated/api";
+import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
+import { cn } from "@/lib/cn";
+import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
+import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
+import { themeColors } from "@/lib/theme";
+import { useUser } from "@clerk/clerk-expo";
+import BottomSheet from "@gorhom/bottom-sheet";
+import { useMutation } from "convex/react";
+import { type Href, useRouter } from "expo-router";
 import {
-  View,
-  Text,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  CloudOff,
+  Plus,
+  ShoppingBasket,
+} from "lucide-react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
   Pressable,
-  ScrollView,
   RefreshControl,
+  ScrollView,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useUser } from "@clerk/clerk-expo";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
-import { ListCard, EmptyListState, CreateListSheet, ArchiveConfirmDialog } from "@/components/lists";
-import { Toast } from "@/components/ui";
-import { useCachedLists } from "@/lib/useCachedQuery";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  FadeIn,
-} from "react-native-reanimated";
-import BottomSheet from "@gorhom/bottom-sheet";
-import { Plus, CloudOff } from "lucide-react-native";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Get a time-based greeting.
- */
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+function PlanLoadingState() {
+  return (
+    <SafeAreaView className="flex-1 bg-background-light px-6 pt-5">
+      <View className="h-10 w-28 rounded-xl bg-warm-gray-200" />
+      <View className="mt-3 h-5 w-48 rounded-lg bg-warm-gray-100" />
+      <View className="mt-8 rounded-2xl border border-separator bg-surface p-5">
+        <View className="h-5 w-24 rounded-lg bg-warm-gray-200" />
+        <View className="mt-3 h-8 w-40 rounded-lg bg-warm-gray-200" />
+        <View className="mt-3 h-5 w-32 rounded-lg bg-warm-gray-100" />
+        <View className="mt-6 h-12 rounded-xl bg-warm-gray-200" />
+      </View>
+    </SafeAreaView>
+  );
 }
 
-/**
- * Get the user's first name or a friendly fallback.
- */
-function getFirstName(fullName?: string | null): string {
-  if (!fullName) return "there";
-  return fullName.split(" ")[0];
+function nextSaturday(now = new Date()): number {
+  const date = new Date(now);
+  const daysUntilSaturday = (6 - date.getDay() + 7) % 7 || 7;
+  date.setDate(date.getDate() + daysUntilSaturday);
+  date.setHours(10, 0, 0, 0);
+  return date.getTime();
 }
 
-export default function HomeScreen() {
+export default function PlanScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const [refreshing, setRefreshing] = useState(false);
-  const [archiveDialogList, setArchiveDialogList] = useState<{
-    id: Id<"lists">;
-    name: string;
-  } | null>(null);
-  const [isArchiving, setIsArchiving] = useState(false);
-  const [showArchiveToast, setShowArchiveToast] = useState(false);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [planningError, setPlanningError] = useState<string | null>(null);
+  const { data: household } = useCachedHousehold(user?.id);
+  const { data: lists, isFromCache } = useCachedLists(household?._id);
+  const { data: review } = useCachedRestockReview(user?.id, household?._id);
+  const setNextShop = useMutation(api.restocks.setNextShop);
+  const recalculate = useMutation(api.notifications.recalculateForHousehold);
 
-  // Get current household
-  const household = useQuery(api.households.getCurrentHousehold);
+  const otherLists = useMemo(
+    () =>
+      (lists ?? []).filter((list) => list._id !== review?.activeList?._id),
+    [lists, review?.activeList?._id],
+  );
 
-  // Get lists for the household (with real-time updates and offline caching)
-  const { data: lists, isFromCache, isLoading: listsLoading } = useCachedLists(household?._id);
-
-  const archiveList = useMutation(api.lists.archive);
-
-  // FAB animation
-  const fabScale = useSharedValue(1);
-
-  const fabAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: fabScale.value }],
-  }));
-
-  const handleFabPressIn = () => {
-    fabScale.value = withSpring(0.9, { damping: 10, stiffness: 400 });
-  };
-
-  const handleFabPressOut = () => {
-    fabScale.value = withSpring(1, { damping: 10, stiffness: 400 });
-  };
-
-  const handleCreateList = useCallback(() => {
-    bottomSheetRef.current?.expand();
-  }, []);
-
-  const handleSheetClose = useCallback(() => {
-    bottomSheetRef.current?.close();
-  }, []);
-
-  const handleListPress = (listId: string) => {
-    router.push(`/list/${listId}`);
-  };
+  const scheduleSaturday = useCallback(async () => {
+    if (!review?.activeList) return;
+    setIsPlanning(true);
+    setPlanningError(null);
+    try {
+      await setNextShop({
+        listId: review.activeList._id,
+        plannedFor: nextSaturday(),
+      });
+      await recalculate({});
+    } catch (error) {
+      console.error("Couldn't schedule the next shop:", error);
+      setPlanningError("We couldn't save that date. Please try again.");
+    } finally {
+      setIsPlanning(false);
+    }
+  }, [recalculate, review?.activeList, setNextShop]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Convex queries automatically refresh, so we just need to wait a bit
     setTimeout(() => setRefreshing(false), 500);
   }, []);
 
-  const handleArchiveSwipe = useCallback(
-    (listId: Id<"lists">) => {
-      const list = lists?.find((l) => l._id === listId);
-      if (list) {
-        setArchiveDialogList({ id: listId, name: list.name });
-      }
-    },
-    [lists]
-  );
-
-  const handleArchiveConfirm = useCallback(async () => {
-    if (!archiveDialogList) return;
-    setIsArchiving(true);
-    try {
-      await archiveList({ listId: archiveDialogList.id });
-      setArchiveDialogList(null);
-      setShowArchiveToast(true);
-    } catch (error) {
-      console.error("Failed to archive list:", error);
-    } finally {
-      setIsArchiving(false);
-    }
-  }, [archiveList, archiveDialogList]);
-
-  const handleArchiveCancel = useCallback(() => {
-    setArchiveDialogList(null);
-  }, []);
-
-  const handleToastDismiss = useCallback(() => {
-    setShowArchiveToast(false);
-  }, []);
-
-  const greeting = getGreeting();
-  const firstName = getFirstName(user?.firstName || user?.fullName);
-  const hasLists = lists && lists.length > 0;
-
-  // Loading state
-  if (household === undefined) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-light">
-        <View className="flex-1 items-center justify-center">
-          <View className="h-8 w-8 animate-spin rounded-full border-4 border-coral border-t-transparent" />
-          <Text className="mt-4 text-warm-gray-500">Loading your lists...</Text>
-        </View>
-      </SafeAreaView>
-    );
+  if (household === undefined || review === undefined) {
+    return <PlanLoadingState />;
   }
+
+  const activeList = review.activeList;
+  const dateOptions = {
+    locale: review.household.locale,
+    timeZone: review.household.planningTimeZone,
+  };
+  const nextReviewDate =
+    Date.now() + (review.household.shoppingCadenceDays ?? 7) * DAY_MS;
 
   return (
     <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
-      {/* Header with greeting */}
-      <Animated.View entering={FadeIn.duration(500)} className="px-4 pt-4 pb-2">
-        <Text className="text-2xl font-bold text-warm-gray-900">
-          {greeting}, {firstName}!
-        </Text>
-        <Text className="mt-1 text-warm-gray-600">
-          {hasLists
-            ? `You have ${lists.length} shopping list${lists.length === 1 ? "" : "s"}`
-            : "Ready to start shopping?"}
-        </Text>
-        {/* Cached data indicator */}
-        {isFromCache && (
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            className="mt-2 flex-row items-center rounded-lg bg-yellow/20 px-3 py-2"
-          >
-            <CloudOff size={16} color="#CA8A04" strokeWidth={2} />
-            <Text className="ml-2 text-sm text-yellow-700">
-              Showing cached data (offline)
-            </Text>
-          </Animated.View>
-        )}
-      </Animated.View>
+      <View className="flex-row items-center justify-between px-6 pb-5 pt-4">
+        <View className="flex-1 pr-4">
+          <Text className="text-4xl font-bold tracking-tight text-ink">Plan</Text>
+          <Text className="mt-1 text-base text-ink-secondary">
+            Keep the next shop easy
+          </Text>
+        </View>
+        <UserAvatar
+          name={user?.fullName ?? "You"}
+          imageUrl={user?.imageUrl}
+          size={48}
+          showTooltip={false}
+          onPress={() => router.push("/settings")}
+          accessibilityLabel="Open settings"
+        />
+      </View>
 
-      {/* Main content */}
       <ScrollView
-        className="flex-1 px-4"
+        className="flex-1 px-6"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#FF6B6B"
-            colors={["#FF6B6B"]}
+            tintColor={themeColors.coral}
           />
         }
+        contentContainerClassName="pb-10"
       >
-        {hasLists ? (
-          <View className="pt-4 pb-24">
-            {lists.map((list, index) => (
+        {isFromCache && (
+          <View className="mb-3 flex-row items-center rounded-xl bg-yellow/20 px-3 py-2">
+            <CloudOff size={16} color={themeColors.warningInk} />
+            <Text className="ml-2 text-sm text-yellow-900">
+              Showing your saved offline plan
+            </Text>
+          </View>
+        )}
+
+        {activeList ? (
+          <View className="rounded-2xl border border-separator bg-surface p-5">
+            <View className="flex-row items-start">
+              <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
+                <ShoppingBasket size={23} color={themeColors.coral} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-sm font-semibold text-coral">
+                  Next shop
+                </Text>
+                <Text
+                  className="mt-0.5 text-2xl font-bold text-ink"
+                  numberOfLines={2}
+                >
+                  {activeList.name}
+                </Text>
+                <Text className="mt-1 text-base text-ink-secondary">
+                  {activeList.plannedFor
+                    ? formatDateWithWeekday(activeList.plannedFor, dateOptions)
+                    : "Choose a day when you're ready"}
+                </Text>
+              </View>
+            </View>
+
+            <View className="mt-5 flex-row flex-wrap items-center border-t border-separator pt-4">
+              <Text className="text-sm font-medium text-ink-secondary">
+                {activeList.totalItems} {activeList.totalItems === 1 ? "item" : "items"}
+              </Text>
+              <Text className="mx-2 text-warm-gray-400">·</Text>
+              <Text className="text-sm font-medium text-ink-secondary">
+                {activeList.plannedTotalPence > 0
+                  ? `${formatCurrencyFromPence(activeList.plannedTotalPence)} planned`
+                  : activeList.tripBudgetPence !== undefined
+                    ? `${formatCurrencyFromPence(activeList.tripBudgetPence)} budget`
+                    : "Prices optional"}
+              </Text>
+            </View>
+
+            <Button
+              onPress={() =>
+                router.push(
+                  (review.candidateCount > 0
+                    ? "/restock-review"
+                    : "/(tabs)/shop") as Href,
+                )
+              }
+              className="mt-5 w-full"
+              accessibilityLabel={
+                review.candidateCount > 0
+                  ? `Review ${review.candidateCount} suggested restocks`
+                  : "Start shopping"
+              }
+            >
+              {review.candidateCount > 0
+                ? `Review ${review.candidateCount} ${review.candidateCount === 1 ? "item" : "items"}`
+                : "Start shopping"}
+            </Button>
+
+            {review.candidateCount > 0 && (
+              <Button
+                variant="tonal"
+                onPress={() => router.push("/(tabs)/shop" as Href)}
+                className="mt-2 w-full"
+                accessibilityLabel="Start shopping without reviewing restocks"
+              >
+                Start shopping
+              </Button>
+            )}
+          </View>
+        ) : (
+          <View className="rounded-2xl border border-separator bg-surface p-5">
+            <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
+              <ShoppingBasket size={23} color={themeColors.coral} />
+            </View>
+            <Text className="mt-4 text-2xl font-bold text-ink">
+              Choose your next shop
+            </Text>
+            <Text className="mt-2 text-base leading-6 text-ink-secondary">
+              Create a list and we'll keep likely restocks together for you.
+            </Text>
+            <Button
+              onPress={() => bottomSheetRef.current?.expand()}
+              className="mt-5 w-full"
+            >
+              Create Next shop
+            </Button>
+          </View>
+        )}
+
+        {activeList && !activeList.plannedFor && (
+          <Pressable
+            onPress={() => void scheduleSaturday()}
+            disabled={isPlanning}
+            className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
+            accessibilityLabel="Plan the next shop for Saturday"
+            accessibilityRole="button"
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow/20">
+              <CalendarDays size={20} color={themeColors.warningInk} />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="font-semibold text-ink">
+                Plan for Saturday
+              </Text>
+              <Text className="mt-0.5 text-sm text-ink-secondary">
+                {formatDateWithWeekday(nextSaturday(), dateOptions)}
+              </Text>
+            </View>
+            {isPlanning ? (
+              <ActivityIndicator color={themeColors.coral} />
+            ) : (
+              <ChevronRight size={20} color={themeColors.secondaryInk} />
+            )}
+          </Pressable>
+        )}
+        {planningError && (
+          <Text className="mt-2 text-sm text-red-600">{planningError}</Text>
+        )}
+
+        <View className="mt-8 flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="text-xl font-bold text-ink">
+              Restock check
+            </Text>
+            <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+              {review.candidateCount > 0
+                ? `${review.candidateCount} ${review.candidateCount === 1 ? "item may" : "items may"} need a quick check`
+                : `Next check around ${formatDateWithWeekday(nextReviewDate, dateOptions)}`}
+            </Text>
+          </View>
+          {review.candidateCount > 0 && (
+            <View className="rounded-full bg-coral-soft px-3 py-1.5">
+              <Text className="text-sm font-semibold text-coral">
+                {review.candidateCount}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {review.candidateCount > 0 ? (
+          <Pressable
+            onPress={() => router.push("/restock-review" as Href)}
+            className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4"
+            accessibilityLabel="Open restock review"
+            accessibilityRole="button"
+          >
+            {review.candidates.slice(0, 3).map((candidate, index) => (
+              <View
+                key={candidate.householdProductId}
+                className={cn(
+                  "min-h-14 flex-row items-center py-3",
+                  index > 0 && "border-t border-separator",
+                )}
+              >
+                <Text className="flex-1 text-base font-medium text-ink">
+                  {candidate.displayName}
+                </Text>
+                <Text className="mr-1 text-sm font-medium text-coral">
+                  Review
+                </Text>
+                <ChevronRight size={18} color={themeColors.coral} />
+              </View>
+            ))}
+          </Pressable>
+        ) : (
+          <View className="mt-3 flex-row items-center rounded-2xl border border-teal/20 bg-teal-soft p-4">
+            <CheckCircle2 size={24} color={themeColors.teal} />
+            <View className="ml-3 flex-1">
+              <Text className="font-semibold text-ink">
+                Your plan is up to date
+              </Text>
+              <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
+                We'll bring anything uncertain back for a quick check.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {otherLists.length > 0 && (
+          <View className="mt-7">
+            <Text className="mb-3 text-xl font-bold text-ink">
+              Other lists
+            </Text>
+            {otherLists.map((list, index) => (
               <ListCard
                 key={list._id}
                 id={list._id}
@@ -194,51 +339,26 @@ export default function HomeScreen() {
                 category={list.category}
                 totalItems={list.totalItems}
                 completedItems={list.completedItems}
-                onPress={() => handleListPress(list._id)}
-                onArchive={handleArchiveSwipe}
+                onPress={() => router.push(`/list/${list._id}`)}
                 index={index}
               />
             ))}
           </View>
-        ) : (
-          /* Delightful empty state */
-          <EmptyListState onCreateList={handleCreateList} />
         )}
-      </ScrollView>
 
-      {/* FAB - Floating Action Button */}
-      {hasLists && (
-        <AnimatedPressable
-          onPress={handleCreateList}
-          onPressIn={handleFabPressIn}
-          onPressOut={handleFabPressOut}
-          style={fabAnimatedStyle}
-          accessibilityLabel="Create new list"
+        <Pressable
+          onPress={() => bottomSheetRef.current?.expand()}
+          className="mt-7 min-h-12 flex-row items-center justify-center rounded-full border border-separator bg-surface px-4"
+          accessibilityLabel="Create another list"
           accessibilityRole="button"
-          className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-coral shadow-warm-lg"
         >
-          <Plus className="w-4 h-4" color="#FFFFFF" strokeWidth={2.5} />
-        </AnimatedPressable>
-      )}
-
-      {/* Create List Bottom Sheet */}
-      <CreateListSheet ref={bottomSheetRef} onClose={handleSheetClose} />
-
-      {/* Archive confirmation dialog */}
-      <ArchiveConfirmDialog
-        visible={archiveDialogList !== null}
-        listName={archiveDialogList?.name || ""}
-        onConfirm={handleArchiveConfirm}
-        onCancel={handleArchiveCancel}
-        isLoading={isArchiving}
-      />
-
-      {/* Success toast */}
-      <Toast
-        visible={showArchiveToast}
-        message="List archived! ✓"
-        onDismiss={handleToastDismiss}
-        duration={2000}
+          <Plus size={20} color={themeColors.secondaryInk} />
+          <Text className="ml-2 font-semibold text-ink-secondary">New list</Text>
+        </Pressable>
+      </ScrollView>
+      <CreateListSheet
+        ref={bottomSheetRef}
+        onClose={() => bottomSheetRef.current?.close()}
       />
     </SafeAreaView>
   );

@@ -72,7 +72,7 @@ export const InviteCode = (props: InviteCodeProps) => {
           <Animated.View style={copyAnimatedStyle} className="mt-4">
             <Pressable
               onPress={handleCopyCode}
-              className="flex-row items-center justify-center rounded-xl bg-teal/10 py-3"
+              className="flex-row items-center justify-center rounded-full bg-teal/10 py-3"
               accessibilityLabel={
                 copied ? "Copied to clipboard" : "Copy invite code"
               }

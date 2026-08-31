@@ -8,6 +8,10 @@ import {
   getCachedLists,
   cacheItems,
   getCachedItems,
+  cacheListDetail,
+  getCachedListDetail,
+  cacheHousehold,
+  getCachedHousehold,
 } from "./storage";
 
 /**
@@ -18,6 +22,7 @@ export interface ListWithCounts {
   _creationTime: number;
   name: string;
   category?: string;
+  tripBudgetPence?: number;
   isArchived: boolean;
   householdId: Id<"households">;
   createdBy: Id<"users">;
@@ -34,11 +39,13 @@ export interface ItemWithUser {
   _id: Id<"items">;
   _creationTime: number;
   listId: Id<"lists">;
+  clientId?: string;
   name: string;
   quantity?: number;
   unit?: string;
   notes?: string;
   category?: string;
+  estimatedPricePence?: number;
   isCompleted: boolean;
   addedBy: Id<"users">;
   completedBy?: Id<"users">;
@@ -66,6 +73,106 @@ interface CachedQueryResult<T> {
   isFromCache: boolean;
   /** Whether the query is loading (no data yet) */
   isLoading: boolean;
+}
+
+export interface HouseholdDetail {
+  _id: Id<"households">;
+  _creationTime: number;
+  name: string;
+  inviteCode: string;
+  ownerId: Id<"users">;
+  monthlyBudgetPence?: number;
+  createdAt: number;
+  updatedAt: number;
+  userRole: "owner" | "member";
+  members: unknown[];
+}
+
+/** Cache the current household per Clerk user for cold offline Home launches. */
+export function useCachedHousehold(
+  clerkUserId: string | null | undefined,
+): CachedQueryResult<HouseholdDetail | null> {
+  const isOnline = useIsOnline();
+  const household = useQuery(
+    api.households.getCurrentHousehold,
+    clerkUserId && isOnline ? {} : "skip",
+  );
+
+  useEffect(() => {
+    if (household && clerkUserId && isOnline) {
+      cacheHousehold(clerkUserId, household);
+    }
+  }, [clerkUserId, household, isOnline]);
+
+  const cachedHousehold = useMemo(() => {
+    if (!clerkUserId) return null;
+    if (!isOnline) {
+      return getCachedHousehold<HouseholdDetail>(clerkUserId, Infinity);
+    }
+    if (household === undefined) {
+      return getCachedHousehold<HouseholdDetail>(clerkUserId);
+    }
+    return null;
+  }, [clerkUserId, household, isOnline]);
+
+  const data =
+    isOnline && household !== undefined
+      ? household
+      : cachedHousehold ?? household;
+  return {
+    data,
+    isFromCache: cachedHousehold !== null && household === undefined,
+    isLoading: data === undefined,
+  };
+}
+
+export interface ListDetail {
+  _id: Id<"lists">;
+  _creationTime: number;
+  name: string;
+  category?: string;
+  tripBudgetPence?: number;
+  isArchived: boolean;
+  householdId: Id<"households">;
+  createdBy: Id<"users">;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Cache list metadata so an already-visited list can open after a cold offline launch. */
+export function useCachedList(
+  listId: Id<"lists">,
+  clerkUserId: string | null | undefined,
+): CachedQueryResult<ListDetail | null> {
+  const isOnline = useIsOnline();
+  const list = useQuery(
+    api.lists.getById,
+    clerkUserId && isOnline ? { listId } : "skip",
+  );
+
+  useEffect(() => {
+    if (list && clerkUserId && isOnline) {
+      cacheListDetail(clerkUserId, listId, list);
+    }
+  }, [clerkUserId, isOnline, list, listId]);
+
+  const cachedList = useMemo(() => {
+    if (!clerkUserId) return null;
+    if (!isOnline) {
+      return getCachedListDetail<ListDetail>(clerkUserId, listId, Infinity);
+    }
+    if (list === undefined) {
+      return getCachedListDetail<ListDetail>(clerkUserId, listId);
+    }
+    return null;
+  }, [clerkUserId, isOnline, list, listId]);
+
+  const data = isOnline && list !== undefined ? list : cachedList ?? list;
+  return {
+    data,
+    isFromCache: cachedList !== null && list === undefined,
+    isLoading: data === undefined,
+  };
 }
 
 /**

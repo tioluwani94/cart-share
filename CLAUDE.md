@@ -126,15 +126,23 @@ if (!identity) throw new Error("Not authenticated");
 
 ### Offline Queue Pattern
 1. Execute optimistic update (update local UI immediately)
-2. Store mutation in MMKV queue: { fn, args, timestamp }
-3. On network restore, process queue in order
-4. Handle conflicts with last-write-wins using timestamp
+2. Store the operation under its signed-in user and household scope
+3. Identify offline-created items with a stable client ID
+4. On network restore, replay FIFO using absolute intended values
+5. Resolve conflicts by Convex server-arrival order; later applied writes win
 
 ### External API Calls (Actions)
+For durable/background work:
 1. Mutation receives user input
 2. Mutation schedules action: `ctx.scheduler.runAfter(0, internal.vision.process, args)`
 3. Action calls external API
 4. Action calls internal mutation to store results
+
+For immediate, transient user-facing results (such as receipt total
+confirmation), an authenticated public action may call the external API
+directly. It must authorize the referenced resource through an internal query
+and return only the minimum non-sensitive result; raw provider output is never
+returned to the client.
 
 ## Accessibility Requirements (iOS HIG)
 

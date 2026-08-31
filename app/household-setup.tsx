@@ -2,7 +2,7 @@ import { InviteCode } from "@/components/household-setup/InviteCode";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -24,6 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
  */
 export default function HouseholdSetupScreen() {
   const router = useRouter();
+  const convex = useConvex();
   const createHousehold = useMutation(api.households.create);
 
   const [householdName, setHouseholdName] = useState("");
@@ -54,7 +55,31 @@ export default function HouseholdSetupScreen() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong";
-      setError(message);
+
+      if (message.includes("already belong to a household")) {
+        try {
+          const existingHousehold = await convex.query(
+            api.households.getCurrentHousehold,
+          );
+
+          if (existingHousehold) {
+            router.replace(
+              existingHousehold.restockSetupCompletedAt === undefined
+                ? "/restock-setup"
+                : "/(tabs)",
+            );
+            return;
+          }
+        } catch {
+          // The friendly message below is safer than exposing backend details.
+        }
+
+        setError(
+          "Your household already exists. Please reopen the app and try again.",
+        );
+      } else {
+        setError("We couldn't create your household. Please try again.");
+      }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsCreating(false);

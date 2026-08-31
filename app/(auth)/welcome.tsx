@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { useOAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
@@ -9,14 +8,11 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
   Easing,
   FadeIn,
   FadeInUp,
 } from "react-native-reanimated";
-import { useConvex } from "convex/react";
-import { api } from "@/convex/_generated/api";
 
 import { Button } from "@/components/ui";
 import { AnimatedGroceryIcons } from "@/components/welcome/AnimatedGroceryIcons";
@@ -54,8 +50,6 @@ function LoadingSpinner() {
 }
 
 export default function WelcomeScreen() {
-  const router = useRouter();
-  const convex = useConvex();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,30 +63,6 @@ export default function WelcomeScreen() {
   // Redirect URL for OAuth callback
   const redirectUrl = Linking.createURL("/(auth)/welcome");
 
-  /**
-   * Check if user has a household and navigate accordingly.
-   * Waits briefly for auth to propagate to Convex before checking.
-   */
-  const navigateAfterSignIn = useCallback(async () => {
-    // Small delay to allow Convex to receive the auth token
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    try {
-      const household = await convex.query(api.households.getCurrentHousehold);
-      if (household) {
-        // User already has a household, go to home
-        router.replace("/(tabs)");
-      } else {
-        // New user without household, go to setup
-        router.replace("/household-setup");
-      }
-    } catch (err) {
-      // If query fails (e.g., user not yet synced), default to household setup
-      console.log("Household check failed, defaulting to setup:", err);
-      router.replace("/household-setup");
-    }
-  }, [convex, router]);
-
   const handleGoogleSignIn = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -104,7 +74,6 @@ export default function WelcomeScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        await navigateAfterSignIn();
       }
     } catch (err) {
       console.error("OAuth error:", err);
@@ -112,7 +81,7 @@ export default function WelcomeScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [startGoogleOAuth, redirectUrl, navigateAfterSignIn]);
+  }, [startGoogleOAuth, redirectUrl]);
 
   const handleAppleSignIn = useCallback(async () => {
     try {
@@ -125,7 +94,6 @@ export default function WelcomeScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        await navigateAfterSignIn();
       }
     } catch (err) {
       console.error("OAuth error:", err);
@@ -133,7 +101,7 @@ export default function WelcomeScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [startAppleOAuth, redirectUrl, navigateAfterSignIn]);
+  }, [startAppleOAuth, redirectUrl]);
 
   return (
     <SafeAreaView className="flex-1 bg-background-light">

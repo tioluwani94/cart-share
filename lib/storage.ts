@@ -17,6 +17,14 @@ export const StorageKeys = {
   LISTS_CACHE: "cache:lists",
   LISTS_CACHE_TIMESTAMP: "cache:lists:timestamp",
 
+  // Current household cache (per signed-in user)
+  HOUSEHOLD_CACHE_PREFIX: "cache:household:",
+  HOUSEHOLD_CACHE_TIMESTAMP_PREFIX: "cache:household:timestamp:",
+
+  // Individual list detail cache (per signed-in user)
+  LIST_DETAIL_CACHE_PREFIX: "cache:list-detail:",
+  LIST_DETAIL_CACHE_TIMESTAMP_PREFIX: "cache:list-detail:timestamp:",
+
   // Items cache (per list)
   ITEMS_CACHE_PREFIX: "cache:items:",
   ITEMS_CACHE_TIMESTAMP_PREFIX: "cache:items:timestamp:",
@@ -40,6 +48,25 @@ export function getItemsCacheKey(listId: string): string {
  */
 export function getItemsCacheTimestampKey(listId: string): string {
   return `${StorageKeys.ITEMS_CACHE_TIMESTAMP_PREFIX}${listId}`;
+}
+
+function getListDetailCacheKey(clerkUserId: string, listId: string): string {
+  return `${StorageKeys.LIST_DETAIL_CACHE_PREFIX}${encodeURIComponent(clerkUserId)}:${listId}`;
+}
+
+function getHouseholdCacheKey(clerkUserId: string): string {
+  return `${StorageKeys.HOUSEHOLD_CACHE_PREFIX}${encodeURIComponent(clerkUserId)}`;
+}
+
+function getHouseholdTimestampKey(clerkUserId: string): string {
+  return `${StorageKeys.HOUSEHOLD_CACHE_TIMESTAMP_PREFIX}${encodeURIComponent(clerkUserId)}`;
+}
+
+function getListDetailTimestampKey(
+  clerkUserId: string,
+  listId: string,
+): string {
+  return `${StorageKeys.LIST_DETAIL_CACHE_TIMESTAMP_PREFIX}${encodeURIComponent(clerkUserId)}:${listId}`;
 }
 
 /**
@@ -126,6 +153,60 @@ export function cacheLists<T>(householdId: string, lists: T): void {
 
   setItem(cacheKey, lists);
   setItem(timestampKey, Date.now());
+}
+
+/** Cache the signed-in user's household so Home can resolve list cache keys offline. */
+export function cacheHousehold<T>(clerkUserId: string, household: T): void {
+  setItem(getHouseholdCacheKey(clerkUserId), household);
+  setItem(getHouseholdTimestampKey(clerkUserId), Date.now());
+}
+
+export function getCachedHousehold<T>(
+  clerkUserId: string,
+  maxAgeMs: number = 5 * 60 * 1000,
+): T | null {
+  const cacheKey = getHouseholdCacheKey(clerkUserId);
+  const timestampKey = getHouseholdTimestampKey(clerkUserId);
+  const timestamp = getItem<number>(timestampKey);
+  if (timestamp === null) return null;
+
+  if (Date.now() - timestamp > maxAgeMs) {
+    removeItem(cacheKey);
+    removeItem(timestampKey);
+    return null;
+  }
+
+  return getItem<T>(cacheKey);
+}
+
+/** Cache one list for cold offline access without sharing it across accounts. */
+export function cacheListDetail<T>(
+  clerkUserId: string,
+  listId: string,
+  list: T,
+): void {
+  setItem(getListDetailCacheKey(clerkUserId, listId), list);
+  setItem(getListDetailTimestampKey(clerkUserId, listId), Date.now());
+}
+
+/** Read a cached list, optionally allowing stale data while offline. */
+export function getCachedListDetail<T>(
+  clerkUserId: string,
+  listId: string,
+  maxAgeMs: number = 5 * 60 * 1000,
+): T | null {
+  const cacheKey = getListDetailCacheKey(clerkUserId, listId);
+  const timestampKey = getListDetailTimestampKey(clerkUserId, listId);
+  const timestamp = getItem<number>(timestampKey);
+  if (timestamp === null) return null;
+
+  if (Date.now() - timestamp > maxAgeMs) {
+    removeItem(cacheKey);
+    removeItem(timestampKey);
+    return null;
+  }
+
+  return getItem<T>(cacheKey);
 }
 
 /**

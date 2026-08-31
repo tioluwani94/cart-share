@@ -41,7 +41,9 @@
         {
           "cameraPermission": "CartShare needs camera access to scan your receipts and track spending."
         }
-      ]
+      ],
+      "expo-notifications",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

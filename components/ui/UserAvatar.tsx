@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { View, Text, Image, Pressable, Modal } from "react-native";
+import { Text, Image, Pressable, Modal } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -43,6 +43,8 @@ interface UserAvatarProps {
   size?: number;
   showTooltip?: boolean;
   tooltipPrefix?: string;
+  onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
 export function UserAvatar({
@@ -51,6 +53,8 @@ export function UserAvatar({
   size = 24,
   showTooltip = true,
   tooltipPrefix = "Added by",
+  onPress,
+  accessibilityLabel,
 }: UserAvatarProps) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -91,12 +95,15 @@ export function UserAvatar({
   return (
     <>
       <Pressable
+        onPress={onPress}
         onLongPress={handleLongPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         delayLongPress={300}
-        accessibilityLabel={`${tooltipPrefix} ${name}`}
-        accessibilityRole="image"
+        accessibilityLabel={
+          accessibilityLabel ?? `${tooltipPrefix} ${name}`
+        }
+        accessibilityRole={onPress ? "button" : "image"}
       >
         <Animated.View
           style={[

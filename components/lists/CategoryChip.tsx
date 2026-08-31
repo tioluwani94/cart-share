@@ -13,8 +13,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  */
 export const CATEGORIES = [
   { id: "groceries", label: "Groceries", icon: "🛒" },
-  { id: "costco", label: "Costco", icon: "📦" },
-  { id: "target", label: "Target", icon: "🎯" },
+  { id: "tesco", label: "Tesco", icon: "🛍️" },
+  { id: "sainsburys", label: "Sainsbury's", icon: "🧺" },
   { id: "pharmacy", label: "Pharmacy", icon: "💊" },
   { id: "other", label: "Other", icon: "📝" },
 ];

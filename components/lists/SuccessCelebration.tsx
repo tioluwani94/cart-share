@@ -21,7 +21,7 @@ export function SuccessCelebration({ listName }: { listName: string }) {
       200,
       withSpring(1, { damping: 100, stiffness: 300 }),
     );
-  }, []);
+  }, [checkScale, scale]);
 
   const containerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
