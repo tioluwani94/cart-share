@@ -149,9 +149,10 @@ export function Button({
       {material.nativeGlass ? (
         <GlassView
           key={isDisabled ? "disabled-glass" : "interactive-glass"}
+          pointerEvents="none"
           glassEffectStyle={material.nativeGlass.effect}
           tintColor={material.nativeGlass.tintColor}
-          isInteractive={!isDisabled}
+          isInteractive={false}
           colorScheme="light"
           style={{ position: "absolute", inset: 0, borderRadius: 999 }}
         />

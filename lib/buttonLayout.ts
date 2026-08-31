@@ -7,10 +7,10 @@ interface ButtonLayout {
   fixedStyle?: ViewStyle;
 }
 
-const regularSizeStyles: Record<ButtonSize, string> = {
-  sm: "min-h-[48px] px-4",
-  md: "min-h-[48px] px-6",
-  lg: "min-h-[52px] px-8",
+const regularSizeStyles: Record<ButtonSize, ViewStyle> = {
+  sm: { minHeight: 48, paddingHorizontal: 16 },
+  md: { minHeight: 48, paddingHorizontal: 24 },
+  lg: { minHeight: 52, paddingHorizontal: 32 },
 };
 
 const iconDiameter: Record<ButtonSize, number> = {
@@ -27,7 +27,10 @@ export function getButtonLayout({
   iconOnly: boolean;
 }): ButtonLayout {
   if (!iconOnly) {
-    return { containerClassName: regularSizeStyles[size] };
+    return {
+      containerClassName: "",
+      fixedStyle: regularSizeStyles[size],
+    };
   }
 
   const diameter = iconDiameter[size];
