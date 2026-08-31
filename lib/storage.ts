@@ -1,7 +1,7 @@
 import { createMMKV, type MMKV } from "react-native-mmkv";
 
 /**
- * MMKV storage instance for CartShare app.
+ * MMKV storage instance for OurPantry.
  * Used for fast local caching of lists and items for offline support.
  */
 export const storage: MMKV = createMMKV({
@@ -9,7 +9,7 @@ export const storage: MMKV = createMMKV({
 });
 
 /**
- * Storage keys for the CartShare app.
+ * Storage keys for OurPantry.
  * Using a consistent naming convention for organization.
  */
 export const StorageKeys = {

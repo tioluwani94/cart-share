@@ -1,10 +1,6 @@
-import { View, Text, Modal, Pressable, Image, Dimensions } from "react-native";
-import { useState } from "react";
+import { View, Text, Pressable, Image, Dimensions } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -15,6 +11,11 @@ import {
   formatCurrencyFromPence,
   formatDateWithWeekday,
 } from "@/lib/formatters";
+import {
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
+} from "@/components/ui";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -27,7 +28,7 @@ interface ReceiptImageViewerProps {
 }
 
 /**
- * Full-screen modal for viewing receipt images.
+ * Tall bottom sheet for viewing receipt images.
  * Supports zoom and tap to dismiss.
  */
 export function ReceiptImageViewer({
@@ -39,6 +40,8 @@ export function ReceiptImageViewer({
 }: ReceiptImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const sheetRef = useRef<GlassBottomSheetRef>(null);
+  const isPresentedRef = useRef(false);
 
   // Scale for zoom
   const scale = useSharedValue(1);
@@ -54,41 +57,56 @@ export function ReceiptImageViewer({
     }
   };
 
-  const handleClose = () => {
+  useEffect(() => {
+    if (visible) {
+      const frame = requestAnimationFrame(() => {
+        sheetRef.current?.present();
+        isPresentedRef.current = true;
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }
+
+    if (isPresentedRef.current) {
+      sheetRef.current?.dismiss();
+    }
+  }, [visible]);
+
+  const resetViewer = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Reset zoom on close
+    scale.value = 1;
+    setIsZoomed(false);
+    setImageError(false);
+  }, [scale]);
+
+  const handleClose = () => {
+    resetViewer();
+    sheetRef.current?.dismiss();
+  };
+
+  const handleDismiss = useCallback(() => {
+    isPresentedRef.current = false;
     scale.value = 1;
     setIsZoomed(false);
     setImageError(false);
     onClose();
-  };
+  }, [onClose, scale]);
 
   const imageAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  if (!visible) return null;
-
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={handleClose}
+    <GlassBottomSheet
+      ref={sheetRef}
+      snapPoints={["94%"]}
+      onDismiss={handleDismiss}
     >
-      {/* Dark backdrop */}
-      <Animated.View
-        entering={FadeIn.duration(200)}
-        exiting={FadeOut.duration(200)}
-        className="flex-1 bg-black/95"
+      <GlassBottomSheetView
+        className="flex-1 overflow-hidden rounded-t-[28px] bg-black/95"
+        style={{ minHeight: SCREEN_HEIGHT * 0.84 }}
       >
-        {/* Header */}
-        <Animated.View
-          entering={SlideInDown.delay(100).springify()}
-          className="absolute top-0 left-0 right-0 z-10 flex-row items-center justify-between px-4 pt-14 pb-4"
-        >
-          {/* Session info */}
+        <View className="absolute left-0 right-0 top-0 z-10 flex-row items-center justify-between px-5 pb-4 pt-5">
           <View>
             <Text className="text-lg font-semibold text-white">Receipt</Text>
             {sessionDate && (
@@ -101,18 +119,16 @@ export function ReceiptImageViewer({
             )}
           </View>
 
-          {/* Close button */}
           <Pressable
             onPress={handleClose}
-            className="h-10 w-10 items-center justify-center rounded-full bg-white/20"
+            className="h-11 w-11 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
             accessibilityRole="button"
             accessibilityLabel="Close receipt viewer"
           >
             <X size={20} color="#FFFFFF" strokeWidth={2} />
           </Pressable>
-        </Animated.View>
+        </View>
 
-        {/* Receipt image */}
         <View className="flex-1 items-center justify-center px-4">
           {imageUrl && !imageError ? (
             <Pressable onPress={handleToggleZoom}>
@@ -144,16 +160,11 @@ export function ReceiptImageViewer({
           )}
         </View>
 
-        {/* Footer with zoom hint */}
         {imageUrl && !imageError && (
-          <Animated.View
-            entering={SlideInDown.delay(200).springify()}
-            exiting={SlideOutDown}
-            className="absolute bottom-0 left-0 right-0 pb-10 px-4"
-          >
+          <View className="absolute bottom-0 left-0 right-0 px-4 pb-8">
             <Pressable
               onPress={handleToggleZoom}
-              className="flex-row items-center justify-center rounded-full bg-white/20 py-3 px-6 self-center"
+              className="min-h-12 flex-row items-center justify-center self-center rounded-full bg-white/20 px-6 py-3 active:bg-white/30"
               accessibilityRole="button"
               accessibilityLabel={isZoomed ? "Zoom out" : "Zoom in"}
             >
@@ -166,9 +177,9 @@ export function ReceiptImageViewer({
                 {isZoomed ? "Tap to zoom out" : "Tap to zoom in"}
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
         )}
-      </Animated.View>
-    </Modal>
+      </GlassBottomSheetView>
+    </GlassBottomSheet>
   );
 }

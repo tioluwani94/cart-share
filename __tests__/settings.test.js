@@ -7,6 +7,8 @@ import SettingsScreen from "../app/settings";
 const mockUpdatePreferences = jest.fn();
 const mockRecalculateReminders = jest.fn();
 const mockRegisterForPushNotifications = jest.fn();
+const mockPresentSignOutSheet = jest.fn();
+const mockDismissSignOutSheet = jest.fn();
 let mockPreferences;
 
 jest.mock("@/convex/_generated/api", () => ({
@@ -104,6 +106,14 @@ jest.mock("@/components/ui", () => {
         ))}
       </View>
     ),
+    GlassBottomSheet: React.forwardRef(({ children }, ref) => {
+      React.useImperativeHandle(ref, () => ({
+        present: mockPresentSignOutSheet,
+        dismiss: mockDismissSignOutSheet,
+      }));
+      return <View testID="sign-out-sheet">{children}</View>;
+    }),
+    GlassBottomSheetView: View,
     Input: ({ value, onChangeText, accessibilityLabel }) => (
       <TextInput
         value={value}
@@ -188,5 +198,20 @@ describe("SettingsScreen", () => {
     expect(mockUpdatePreferences).not.toHaveBeenCalledWith({
       restockNotificationsEnabled: true,
     });
+  });
+
+  it("presents sign-out confirmation as a bottom sheet", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const signOut = renderer.root.findByProps({
+      accessibilityLabel: "Sign out of your account",
+    });
+
+    act(() => signOut.props.onPress());
+
+    expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
   });
 });

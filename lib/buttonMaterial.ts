@@ -27,13 +27,15 @@ export function getButtonMaterial({
   reduceTransparency,
   onGlassSurface,
   nativeGlassAvailable = false,
+  forceSolid = false,
 }: {
   variant: ButtonVariant;
   reduceTransparency: boolean;
   onGlassSurface: boolean;
   nativeGlassAvailable?: boolean;
+  forceSolid?: boolean;
 }): ButtonMaterial {
-  const allowsThinGlass = !reduceTransparency && !onGlassSurface;
+  const allowsThinGlass = !forceSolid && !reduceTransparency && !onGlassSurface;
   const usesNativeGlass = allowsThinGlass && nativeGlassAvailable;
 
   switch (variant) {

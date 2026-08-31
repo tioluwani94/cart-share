@@ -1,5 +1,8 @@
 import {
   Button,
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
   GlassSegmentedControl,
   Input,
   PageHeader,
@@ -33,11 +36,10 @@ import {
   RotateCcw,
   UserPlus,
 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Modal,
   Pressable,
   ScrollView,
   Switch,
@@ -74,8 +76,8 @@ export default function SettingsScreen() {
   );
   const [showRestoreToast, setShowRestoreToast] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const signOutSheetRef = useRef<GlassBottomSheetRef>(null);
   const [monthlyBudget, setMonthlyBudget] = useState("");
   const [budgetError, setBudgetError] = useState("");
   const [isSavingBudget, setIsSavingBudget] = useState(false);
@@ -205,7 +207,7 @@ export default function SettingsScreen() {
           });
           setPreferenceError(
             registration.reason ??
-              "Notifications are turned off for Our Pantry in device settings.",
+              "Notifications are turned off for OurPantry in device settings.",
           );
           setShowNotificationSettingsLink(registration.status === "denied");
           return;
@@ -244,7 +246,7 @@ export default function SettingsScreen() {
       console.error("Couldn't open notification settings:", error);
       setShowNotificationSettingsLink(false);
       setPreferenceError(
-        "Open your device Settings and allow notifications for Our Pantry.",
+        "Open your device Settings and allow notifications for OurPantry.",
       );
     }
   }, []);
@@ -314,7 +316,7 @@ export default function SettingsScreen() {
       console.error("Sign out failed:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsSigningOut(false);
-      setShowSignOutConfirm(false);
+      signOutSheetRef.current?.dismiss();
     }
   }, [analytics, disablePushDevice, disablePushDevices, signOut]);
 
@@ -654,7 +656,7 @@ export default function SettingsScreen() {
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowSignOutConfirm(true);
+            signOutSheetRef.current?.present();
           }}
           className="mt-8 min-h-14 flex-row items-center justify-center rounded-full border border-separator bg-surface active:bg-warm-gray-50"
           accessibilityLabel="Sign out of your account"
@@ -667,47 +669,37 @@ export default function SettingsScreen() {
         </Pressable>
       </ScrollView>
 
-      <Modal
-        visible={showSignOutConfirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSignOutConfirm(false)}
+      <GlassBottomSheet
+        ref={signOutSheetRef}
+        enableDynamicSizing
+        dismissible={!isSigningOut}
       >
-        <Pressable
-          className="flex-1 items-center justify-center bg-black/50 px-6"
-          onPress={() => setShowSignOutConfirm(false)}
-        >
-          <Pressable
-            className="w-full max-w-sm rounded-2xl bg-surface p-6"
-            onPress={() => {}}
-            accessibilityViewIsModal
-          >
-            <Text className="text-xl font-bold text-ink">Sign out?</Text>
-            <Text className="mt-2 text-base leading-6 text-ink-secondary">
-              Your household data stays safe. You can sign back in at any time.
-            </Text>
-            <View className="mt-6 gap-2">
-              <Button
-                variant="danger"
-                onPress={handleSignOutConfirm}
-                disabled={isSigningOut}
-                loading={isSigningOut}
-                className="w-full"
-              >
-                Sign out
-              </Button>
-              <Button
-                variant="ghost"
-                onPress={() => setShowSignOutConfirm(false)}
-                disabled={isSigningOut}
-                className="w-full"
-              >
-                Cancel
-              </Button>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        <GlassBottomSheetView className="px-6 pb-10 pt-2">
+          <Text className="text-xl font-bold text-ink">Sign out?</Text>
+          <Text className="mt-2 text-base leading-6 text-ink-secondary">
+            Your household data stays safe. You can sign back in at any time.
+          </Text>
+          <View className="mt-6 gap-2">
+            <Button
+              variant="danger"
+              onPress={handleSignOutConfirm}
+              disabled={isSigningOut}
+              loading={isSigningOut}
+              className="w-full"
+            >
+              Sign out
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => signOutSheetRef.current?.dismiss()}
+              disabled={isSigningOut}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </View>
+        </GlassBottomSheetView>
+      </GlassBottomSheet>
 
       <Toast
         visible={showRestoreToast}

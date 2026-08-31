@@ -1,35 +1,44 @@
 import * as Haptics from "expo-haptics";
 import { Archive, MoreHorizontal } from "lucide-react-native";
-import { useState } from "react";
-import { Modal, Pressable, Text, TouchableOpacity } from "react-native";
+import { useCallback, useRef } from "react";
+import { Pressable, Text, TouchableOpacity } from "react-native";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInRight,
-  SlideOutRight,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import {
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
+} from "@/components/ui";
 
 interface HeaderMenuProps {
   onArchive: () => void;
 }
 
 export function HeaderMenu({ onArchive }: HeaderMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const sheetRef = useRef<GlassBottomSheetRef>(null);
+  const archiveAfterDismissRef = useRef(false);
   const buttonScale = useSharedValue(1);
 
-  const toggleMenu = () => {
+  const openMenu = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsOpen(!isOpen);
+    sheetRef.current?.present();
   };
 
   const handleArchive = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsOpen(false);
-    onArchive();
+    archiveAfterDismissRef.current = true;
+    sheetRef.current?.dismiss();
   };
+
+  const handleDismiss = useCallback(() => {
+    if (!archiveAfterDismissRef.current) return;
+
+    archiveAfterDismissRef.current = false;
+    requestAnimationFrame(onArchive);
+  }, [onArchive]);
 
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -48,10 +57,10 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
       {/* Menu button */}
       <Animated.View style={buttonStyle}>
         <TouchableOpacity
-          onPress={toggleMenu}
+          onPress={openMenu}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          className="h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100"
+          className="h-11 w-11 items-center justify-center rounded-full bg-warm-gray-100"
           accessibilityLabel="More options"
           accessibilityRole="button"
         >
@@ -59,48 +68,28 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Menu dropdown */}
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={() => setIsOpen(false)}
+      <GlassBottomSheet
+        ref={sheetRef}
+        enableDynamicSizing
+        onDismiss={handleDismiss}
       >
-        <Pressable
-          className="absolute inset-0"
-          onPress={() => setIsOpen(false)}
-          accessibilityLabel="Close menu"
-        />
-        <Animated.View
-          entering={FadeIn.duration(150)}
-          exiting={FadeOut.duration(100)}
-          className="absolute right-4 top-28"
-        >
-          <Animated.View
-            entering={SlideInRight.springify().damping(90)}
-            exiting={SlideOutRight.duration(150)}
-            className="min-w-[180px] rounded-2xl bg-white p-2 shadow-lg"
-            style={{
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 8,
-            }}
+        <GlassBottomSheetView className="px-6 pb-10 pt-2">
+          <Text className="mb-3 text-xl font-bold text-warm-gray-900">
+            List options
+          </Text>
+          <Pressable
+            onPress={handleArchive}
+            className="min-h-14 flex-row items-center gap-3 rounded-2xl bg-white/60 px-4 py-3 active:bg-warm-gray-100"
+            accessibilityLabel="Archive list"
+            accessibilityRole="button"
           >
-            <Pressable
-              onPress={handleArchive}
-              className="flex-row items-center gap-3 rounded-xl px-4 py-3 active:bg-warm-gray-100"
-              accessibilityLabel="Archive list"
-              accessibilityRole="menuitem"
-            >
-              <Archive size={20} color="#78716C" strokeWidth={2} />
-              <Text className="text-base text-warm-gray-700">Archive list</Text>
-            </Pressable>
-          </Animated.View>
-        </Animated.View>
-      </Modal>
+            <Archive size={20} color="#78716C" strokeWidth={2} />
+            <Text className="text-base font-medium text-warm-gray-700">
+              Archive list
+            </Text>
+          </Pressable>
+        </GlassBottomSheetView>
+      </GlassBottomSheet>
     </>
   );
 }

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CartShare",
+    "name": "OurPantry",
     "slug": "cartshare",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,20 +10,20 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FAFAFA"
+      "backgroundColor": "#D95758"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cartshare.app",
       "appleTeamId": "W6SZ22J8C2",
       "infoPlist": {
-        "NSCameraUsageDescription": "CartShare needs camera access to scan your receipts and track spending."
+        "NSCameraUsageDescription": "OurPantry needs camera access to scan your receipts and track spending."
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FAFAFA"
+        "backgroundColor": "#D95758"
       },
       "package": "com.cartshare.app"
     },
@@ -39,11 +39,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "CartShare needs camera access to scan your receipts and track spending."
+          "cameraPermission": "OurPantry needs camera access to scan your receipts and track spending."
         }
       ],
       "expo-notifications",
-      "expo-localization"
+      "expo-localization",
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

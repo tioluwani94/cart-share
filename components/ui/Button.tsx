@@ -38,6 +38,7 @@ interface ButtonProps {
   textClassName?: string;
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  forceSolid?: boolean;
 }
 
 const sizeTextStyles: Record<ButtonSize, string> = {
@@ -58,6 +59,7 @@ export function Button({
   textClassName,
   accessibilityLabel,
   accessibilityHint,
+  forceSolid = false,
 }: ButtonProps) {
   const reduceMotion = useReducedMotion();
   const reduceTransparency = useReduceTransparency();
@@ -80,8 +82,9 @@ export function Button({
         reduceTransparency: reduceTransparency || Platform.OS !== "ios",
         onGlassSurface,
         nativeGlassAvailable,
+        forceSolid,
       }),
-    [nativeGlassAvailable, onGlassSurface, reduceTransparency, variant],
+    [forceSolid, nativeGlassAvailable, onGlassSurface, reduceTransparency, variant],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({

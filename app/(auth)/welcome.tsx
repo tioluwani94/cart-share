@@ -1,56 +1,16 @@
 import { useCallback, useState } from "react";
-import { View, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useOAuth } from "@clerk/clerk-expo";
-import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  Easing,
-  FadeIn,
-  FadeInUp,
-} from "react-native-reanimated";
+import * as WebBrowser from "expo-web-browser";
 
-import { Button } from "@/components/ui";
-import { AnimatedGroceryIcons } from "@/components/welcome/AnimatedGroceryIcons";
+import { YazioWelcome } from "@/components/welcome/YazioWelcome";
+import type { WelcomeActionId } from "@/lib/welcomeActions";
 
-// Required for OAuth redirects to work properly
 WebBrowser.maybeCompleteAuthSession();
 
-/**
- * Branded loading spinner with coral/teal gradient rotation effect
- */
-function LoadingSpinner() {
-  const rotation = useSharedValue(0);
-
-  rotation.value = withRepeat(
-    withTiming(360, { duration: 1000, easing: Easing.linear }),
-    -1,
-    false
-  );
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  return (
-    <View className="items-center justify-center py-8">
-      <Animated.View
-        style={animatedStyle}
-        className="h-12 w-12 rounded-full border-4 border-warm-gray-200 border-t-coral"
-      />
-      <Text className="mt-4 text-base text-warm-gray-500">
-        Getting things ready...
-      </Text>
-    </View>
-  );
-}
-
 export default function WelcomeScreen() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingActionId, setLoadingActionId] =
+    useState<WelcomeActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({
@@ -60,183 +20,49 @@ export default function WelcomeScreen() {
     strategy: "oauth_apple",
   });
 
-  // Redirect URL for OAuth callback
   const redirectUrl = Linking.createURL("/(auth)/welcome");
 
-  const handleGoogleSignIn = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const completeOAuth = useCallback(
+    async (
+      actionId: WelcomeActionId,
+      startOAuthFlow: typeof startGoogleOAuth | typeof startAppleOAuth,
+    ) => {
+      try {
+        setLoadingActionId(actionId);
+        setError(null);
+        const { createdSessionId, setActive } = await startOAuthFlow({
+          redirectUrl,
+        });
 
-      const { createdSessionId, setActive } = await startGoogleOAuth({
-        redirectUrl,
-      });
-
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
+        if (createdSessionId && setActive) {
+          await setActive({ session: createdSessionId });
+        }
+      } catch (oauthError) {
+        console.error("OAuth error:", oauthError);
+        setError("Something went wrong. Please try again.");
+      } finally {
+        setLoadingActionId(null);
       }
-    } catch (err) {
-      console.error("OAuth error:", err);
-      setError("Something went wrong. Please try again!");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [startGoogleOAuth, redirectUrl]);
-
-  const handleAppleSignIn = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { createdSessionId, setActive } = await startAppleOAuth({
-        redirectUrl,
-      });
-
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-      }
-    } catch (err) {
-      console.error("OAuth error:", err);
-      setError("Something went wrong. Please try again!");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [startAppleOAuth, redirectUrl]);
-
-  return (
-    <SafeAreaView className="flex-1 bg-background-light">
-      {/* Decorative gradient background */}
-      <View className="absolute inset-0 bg-gradient-to-b from-coral/5 via-transparent to-teal/5" />
-
-      <View className="flex-1 px-6">
-        {/* Top section with animated icons */}
-        <Animated.View
-          entering={FadeInUp.duration(600).delay(200)}
-          className="mt-12 items-center"
-        >
-          <AnimatedGroceryIcons />
-        </Animated.View>
-
-        {/* Main content */}
-        <View className="flex-1 items-center justify-center">
-          {/* Logo and headline */}
-          <Animated.View
-            entering={FadeInUp.duration(600).delay(400)}
-            className="items-center"
-          >
-            <Text className="text-5xl font-bold tracking-tight text-coral">
-              CartShare
-            </Text>
-            <Text className="mt-4 text-center text-2xl font-semibold text-warm-gray-800">
-              Shop smarter, together
-            </Text>
-          </Animated.View>
-
-          {/* Value proposition */}
-          <Animated.View
-            entering={FadeInUp.duration(600).delay(600)}
-            className="mt-6 items-center"
-          >
-            <Text className="text-center text-lg leading-7 text-warm-gray-600">
-              The fun way for couples to manage{"\n"}grocery lists and split the
-              shopping
-            </Text>
-          </Animated.View>
-
-          {/* Features list with personality */}
-          <Animated.View
-            entering={FadeInUp.duration(600).delay(800)}
-            className="mt-8 space-y-3"
-          >
-            <FeatureItem emoji="📝" text="Real-time shared lists" />
-            <FeatureItem emoji="📸" text="Scan receipts instantly" />
-            <FeatureItem emoji="📊" text="Track spending together" />
-          </Animated.View>
-        </View>
-
-        {/* Bottom section with auth */}
-        <Animated.View
-          entering={FadeIn.duration(600).delay(1000)}
-          className="mb-8"
-        >
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : (
-            <>
-              {error && (
-                <View className="mb-4 rounded-xl bg-coral/10 p-3">
-                  <Text className="text-center text-sm text-coral">{error}</Text>
-                </View>
-              )}
-
-              <Button
-                onPress={handleGoogleSignIn}
-                size="lg"
-                className="w-full"
-                accessibilityLabel="Continue with Google"
-              >
-                <View className="flex-row items-center">
-                  <View className="mr-3 h-6 w-6 items-center justify-center rounded-full bg-white">
-                    <Text className="text-sm font-bold text-warm-gray-700">
-                      G
-                    </Text>
-                  </View>
-                  <Text className="text-lg font-semibold text-white">
-                    Continue with Google
-                  </Text>
-                </View>
-              </Button>
-
-              {/* Apple Sign-In - styled per Apple HIG */}
-              <Button
-                onPress={handleAppleSignIn}
-                size="lg"
-                variant="dark"
-                className="mt-3 w-full"
-                accessibilityLabel="Continue with Apple"
-              >
-                <View className="flex-row items-center">
-                  <View className="mr-3 items-center justify-center">
-                    <Text className="text-xl text-white"></Text>
-                  </View>
-                  <Text className="text-lg font-semibold text-white">
-                    Continue with Apple
-                  </Text>
-                </View>
-              </Button>
-
-              <Text className="mt-6 text-center text-sm text-warm-gray-400">
-                By continuing, you agree to our Terms of Service
-              </Text>
-            </>
-          )}
-        </Animated.View>
-      </View>
-
-      {/* Decorative food elements at bottom */}
-      <View className="absolute bottom-0 left-0 right-0 h-32 opacity-10">
-        <View className="absolute bottom-4 left-8">
-          <Text className="text-6xl">🍊</Text>
-        </View>
-        <View className="absolute bottom-8 right-12">
-          <Text className="text-5xl">🥦</Text>
-        </View>
-        <View className="absolute bottom-2 right-32">
-          <Text className="text-4xl">🍇</Text>
-        </View>
-      </View>
-    </SafeAreaView>
+    },
+    [redirectUrl],
   );
-}
 
-/**
- * Feature item with emoji and text
- */
-function FeatureItem({ emoji, text }: { emoji: string; text: string }) {
+  const handleWelcomeAction = useCallback(
+    (actionId: WelcomeActionId) => {
+      const startOAuthFlow =
+        actionId === "yazio.continue-google"
+          ? startGoogleOAuth
+          : startAppleOAuth;
+      void completeOAuth(actionId, startOAuthFlow);
+    },
+    [completeOAuth, startAppleOAuth, startGoogleOAuth],
+  );
+
   return (
-    <View className="flex-row items-center">
-      <Text className="mr-3 text-2xl">{emoji}</Text>
-      <Text className="text-base text-warm-gray-700">{text}</Text>
-    </View>
+    <YazioWelcome
+      onActionPress={handleWelcomeAction}
+      loadingActionId={loadingActionId}
+      error={error}
+    />
   );
 }

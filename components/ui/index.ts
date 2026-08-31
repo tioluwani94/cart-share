@@ -15,6 +15,10 @@ export {
   type GlassBottomSheetProps,
   type GlassBottomSheetRef,
 } from "./GlassBottomSheet";
+export {
+  ControlledGlassBottomSheet,
+  type ControlledGlassBottomSheetProps,
+} from "./ControlledGlassBottomSheet";
 export { PageHeader } from "./PageHeader";
 export { Toast } from "./Toast";
 export { UploadProgressRing } from "./UploadProgressRing";

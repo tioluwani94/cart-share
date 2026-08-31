@@ -1,13 +1,16 @@
-import { useState, useCallback } from "react";
-import { Text, Image, Pressable, Modal } from "react-native";
+import { useState, useCallback, useRef } from "react";
+import { Text, Image, Pressable, View } from "react-native";
 import Animated, {
-  FadeIn,
-  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import {
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
+} from "./GlassBottomSheet";
 
 // Fun gradient color pairs for initials backgrounds
 const GRADIENT_COLORS = [
@@ -56,8 +59,8 @@ export function UserAvatar({
   onPress,
   accessibilityLabel,
 }: UserAvatarProps) {
-  const [tooltipVisible, setTooltipVisible] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const infoSheetRef = useRef<GlassBottomSheetRef>(null);
   const scale = useSharedValue(1);
 
   const initials = getInitials(name);
@@ -70,7 +73,7 @@ export function UserAvatar({
       } catch {
         // Haptics not available
       }
-      setTooltipVisible(true);
+      infoSheetRef.current?.present();
     }
   }, [showTooltip]);
 
@@ -83,7 +86,7 @@ export function UserAvatar({
   }, [scale]);
 
   const dismissTooltip = useCallback(() => {
-    setTooltipVisible(false);
+    infoSheetRef.current?.dismiss();
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -146,43 +149,55 @@ export function UserAvatar({
         </Animated.View>
       </Pressable>
 
-      {/* Tooltip Modal */}
-      <Modal
-        visible={tooltipVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={dismissTooltip}
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0, 0, 0, 0.3)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-          onPress={dismissTooltip}
-        >
-          <Animated.View
-            entering={FadeIn.duration(150)}
-            exiting={FadeOut.duration(100)}
-            style={{
-              backgroundColor: "#1A1A2E",
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 12,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 4,
-            }}
-          >
-            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "500" }}>
-              {tooltipPrefix} {name}
-            </Text>
-          </Animated.View>
-        </Pressable>
-      </Modal>
+      {showTooltip ? (
+        <GlassBottomSheet ref={infoSheetRef} enableDynamicSizing>
+          <GlassBottomSheetView className="px-6 pb-10 pt-2">
+            <View className="flex-row items-center">
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: primaryColor,
+                  overflow: "hidden",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {imageUrl && !imageError ? (
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={{ width: 48, height: 48 }}
+                    accessibilityLabel={`${name}'s avatar`}
+                  />
+                ) : (
+                  <Text className="text-lg font-semibold text-white">
+                    {initials}
+                  </Text>
+                )}
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-sm text-warm-gray-500">
+                  {tooltipPrefix}
+                </Text>
+                <Text className="mt-0.5 text-lg font-semibold text-warm-gray-900">
+                  {name}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={dismissTooltip}
+              className="mt-6 min-h-12 items-center justify-center rounded-full bg-white/60 px-5 active:bg-warm-gray-100"
+              accessibilityLabel="Close profile details"
+              accessibilityRole="button"
+            >
+              <Text className="text-base font-semibold text-warm-gray-700">
+                Done
+              </Text>
+            </Pressable>
+          </GlassBottomSheetView>
+        </GlassBottomSheet>
+      ) : null}
     </>
   );
 }

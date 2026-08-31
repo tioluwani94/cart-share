@@ -21,6 +21,25 @@ describe("button material", () => {
     );
   });
 
+  it("uses an explicit solid material when an action needs guaranteed contrast", () => {
+    expect(
+      getButtonMaterial({
+        variant: "primary",
+        reduceTransparency: false,
+        onGlassSurface: false,
+        nativeGlassAvailable: true,
+        forceSolid: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        nativeGlass: null,
+        blurIntensity: 0,
+        containerClassName: "bg-coral",
+        textClassName: "text-white",
+      }),
+    );
+  });
+
   it("keeps primary actions strongly tinted and legible", () => {
     expect(
       getButtonMaterial({

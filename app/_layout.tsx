@@ -1,4 +1,5 @@
 import { OfflineIndicator } from "@/components/layout";
+import { WELCOME_IMAGE_ASSETS } from "@/components/welcome/YazioWelcome";
 import { api } from "@/convex/_generated/api";
 import {
   AnalyticsProvider,
@@ -18,6 +19,11 @@ import { OfflineQueueProvider } from "@/lib/useScopedOfflineQueue";
 import type { OfflineScope } from "@/lib/offlineQueue";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import {
+  Nunito_800ExtraBold,
+  Nunito_900Black,
+  useFonts,
+} from "@expo-google-fonts/nunito";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import {
@@ -28,6 +34,7 @@ import {
   useSegments,
 } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import { Asset } from "expo-asset";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -37,7 +44,9 @@ import { useReducedMotion } from "react-native-reanimated";
 import "../global.css";
 
 // Prevent the splash screen from auto-hiding
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch((error) => {
+  console.warn("Could not keep the native splash visible:", error);
+});
 
 // Initialize Convex client with the deployment URL
 const convex = new ConvexReactClient(
@@ -245,7 +254,9 @@ function InitialLayout() {
   useEffect(() => {
     if (authRedirect) {
       router.replace(authRedirect as Href);
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch((error) => {
+        console.warn("Could not hide the native splash:", error);
+      });
       return;
     }
 
@@ -256,7 +267,9 @@ function InitialLayout() {
         household !== undefined);
 
     if (navigationState?.key && isLoaded && authStateResolved) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch((error) => {
+        console.warn("Could not hide the native splash:", error);
+      });
     }
   }, [
     authRedirect,
@@ -312,6 +325,37 @@ function ConvexClerkLayout() {
  * 3. InitialLayout - Handles auth-based routing and splash screen
  */
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Nunito_800ExtraBold,
+    Nunito_900Black,
+  });
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [imageError, setImageError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    Asset.loadAsync(WELCOME_IMAGE_ASSETS)
+      .then(() => {
+        if (mounted) setImagesLoaded(true);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        setImageError(
+          error instanceof Error
+            ? error
+            : new Error("Could not preload welcome artwork."),
+        );
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (fontError) throw fontError;
+  if (imageError) throw imageError;
+  if (!fontsLoaded || !imagesLoaded) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
