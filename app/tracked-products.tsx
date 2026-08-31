@@ -10,7 +10,13 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
+import { cn } from "@/lib/cn";
 import { themeColors } from "@/lib/theme";
+import {
+  buildTrackedProductRows,
+  type TrackedProductRow,
+} from "@/lib/trackedProducts";
+import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import {
@@ -22,13 +28,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface TrackedProduct {
@@ -59,8 +59,9 @@ export default function TrackedProductsScreen() {
     api.notifications.recalculateForHousehold,
   );
   const editorSheetRef = useRef<GlassBottomSheetRef>(null);
-  const [editingProduct, setEditingProduct] =
-    useState<TrackedProduct | null>(null);
+  const [editingProduct, setEditingProduct] = useState<TrackedProduct | null>(
+    null,
+  );
   const [cadence, setCadence] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
@@ -69,12 +70,8 @@ export default function TrackedProductsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
 
-  const activeProducts = useMemo(
-    () => products?.filter((product) => product.status === "active") ?? [],
-    [products],
-  );
-  const pausedProducts = useMemo(
-    () => products?.filter((product) => product.status === "paused") ?? [],
+  const productRows = useMemo(
+    () => buildTrackedProductRows(products ?? []),
     [products],
   );
 
@@ -106,7 +103,11 @@ export default function TrackedProductsScreen() {
     if (!editingProduct) return;
     const cadenceDays = Number(cadence);
     const defaultQuantity = quantity.trim() ? Number(quantity) : null;
-    if (!Number.isInteger(cadenceDays) || cadenceDays < 1 || cadenceDays > 180) {
+    if (
+      !Number.isInteger(cadenceDays) ||
+      cadenceDays < 1 ||
+      cadenceDays > 180
+    ) {
       setFormError("Choose a cadence between 1 and 180 days.");
       return;
     }
@@ -134,7 +135,8 @@ export default function TrackedProductsScreen() {
         cadenceDays !== editingProduct.cadenceDays && "cadence",
         defaultQuantity !== (editingProduct.defaultQuantity ?? null) &&
           "quantity",
-        (unit.trim() || null) !== (editingProduct.defaultUnit ?? null) && "unit",
+        (unit.trim() || null) !== (editingProduct.defaultUnit ?? null) &&
+          "unit",
         (category.trim() || null) !== (editingProduct.category ?? null) &&
           "category",
       ].filter((field): field is string => Boolean(field));
@@ -212,20 +214,28 @@ export default function TrackedProductsScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView
-          className="flex-1 px-6"
-          contentContainerClassName="pb-12 pt-4"
+        <FlashList
+          data={productRows}
+          keyExtractor={(row) => row.key}
+          getItemType={(row) => row.type}
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingTop: 16,
+            paddingBottom: 48,
+          }}
           showsVerticalScrollIndicator={false}
-        >
-          <Text className="text-3xl font-bold tracking-tight text-ink">
-            Your grocery rhythm
-          </Text>
-          <Text className="mt-2 text-base leading-6 text-ink-secondary">
-            Adjust when an item comes back for review, or pause anything you no
-            longer want us to remember.
-          </Text>
-
-          {products.length === 0 ? (
+          ListHeaderComponent={
+            <View>
+              <Text className="text-3xl font-bold tracking-tight text-ink">
+                Your grocery rhythm
+              </Text>
+              <Text className="mt-2 text-base leading-6 text-ink-secondary">
+                Adjust when an item comes back for review, or pause anything you
+                no longer want us to remember.
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={
             <View className="mt-10 items-center rounded-2xl border border-separator bg-surface px-6 py-10">
               <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
                 <SlidersHorizontal size={28} color={themeColors.coral} />
@@ -237,24 +247,19 @@ export default function TrackedProductsScreen() {
                 Products you choose during a restock setup will appear here.
               </Text>
             </View>
-          ) : (
-            <>
-              <ProductSection
-                title="Active"
-                products={activeProducts}
-                onPress={openEditor}
-              />
-              {pausedProducts.length > 0 && (
-                <ProductSection
-                  title="Paused"
-                  products={pausedProducts}
-                  onPress={openEditor}
-                  paused
-                />
-              )}
-            </>
-          )}
-        </ScrollView>
+          }
+          renderItem={({ item: row }) => {
+            if (row.type === "section") {
+              return (
+                <Text className="mb-2 mt-7 text-base font-semibold text-ink">
+                  {row.title}
+                </Text>
+              );
+            }
+
+            return <TrackedProductListItem row={row} onPress={openEditor} />;
+          }}
+        />
       )}
 
       <GlassBottomSheet
@@ -392,71 +397,71 @@ export default function TrackedProductsScreen() {
   );
 }
 
-function ProductSection({
-  title,
-  products,
+type TrackedProductItemRow = Extract<
+  TrackedProductRow<TrackedProduct>,
+  { type: "product" }
+>;
+
+function TrackedProductListItem({
+  row,
   onPress,
-  paused = false,
 }: {
-  title: string;
-  products: TrackedProduct[];
+  row: TrackedProductItemRow;
   onPress: (product: TrackedProduct) => void;
-  paused?: boolean;
 }) {
-  if (products.length === 0) return null;
+  const { firstInSection, lastInSection, paused, product } = row;
 
   return (
-    <View className="mt-7">
-      <Text className="mb-2 text-base font-semibold text-ink">{title}</Text>
-      <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
-        {products.map((product, index) => (
-          <Pressable
-            key={product._id}
-            onPress={() => onPress(product)}
-            className={`min-h-20 flex-row items-center px-4 py-3 active:bg-warm-gray-50 ${
-              index > 0 ? "border-t border-separator" : ""
-            }`}
-            accessibilityRole="button"
-            accessibilityLabel={`Edit ${product.displayName}, every ${product.cadenceDays} days${
-              paused ? ", tracking paused" : ""
-            }`}
+    <Pressable
+      onPress={() => onPress(product)}
+      className={cn(
+        "min-h-20 flex-row items-center border-x border-t border-separator bg-surface px-4 py-3 active:bg-warm-gray-50",
+        firstInSection && "rounded-t-2xl",
+        lastInSection && "rounded-b-2xl border-b",
+      )}
+      accessibilityRole="button"
+      accessibilityLabel={`Edit ${product.displayName}, every ${product.cadenceDays} days${
+        paused ? ", tracking paused" : ""
+      }`}
+    >
+      <View
+        className={cn(
+          "h-11 w-11 items-center justify-center rounded-xl",
+          paused ? "bg-warm-gray-100" : "bg-teal-soft",
+        )}
+      >
+        <PackageCheck
+          size={21}
+          color={paused ? themeColors.secondaryInk : themeColors.teal}
+        />
+      </View>
+      <View className="ml-3 min-w-0 flex-1 pr-3">
+        <View className="flex-row items-start">
+          <Text
+            className={cn(
+              "min-w-0 flex-1 text-base font-semibold",
+              paused ? "text-ink-secondary" : "text-ink",
+            )}
+            numberOfLines={2}
           >
-            <View
-              className={`h-11 w-11 items-center justify-center rounded-xl ${
-                paused ? "bg-warm-gray-100" : "bg-teal-soft"
-              }`}
-            >
-              <PackageCheck
-                size={21}
-                color={paused ? themeColors.secondaryInk : themeColors.teal}
-              />
-            </View>
-            <View className="ml-3 flex-1 pr-3">
-              <View className="flex-row items-center">
-                <Text
-                  className={`flex-shrink text-base font-semibold ${
-                    paused ? "text-ink-secondary" : "text-ink"
-                  }`}
-                  numberOfLines={1}
-                >
-                  {product.displayName}
-                </Text>
-                {paused && (
-                  <View className="ml-2 rounded-full bg-warm-gray-100 px-2 py-0.5">
-                    <Text className="text-xs font-semibold text-ink-secondary">
-                      Paused
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="mt-0.5 text-sm text-ink-secondary">
-                Every {product.cadenceDays} days · {productAmount(product)}
+            {product.displayName}
+          </Text>
+          {paused && (
+            <View className="ml-2 shrink-0 rounded-full bg-warm-gray-100 px-2 py-0.5">
+              <Text className="text-xs font-semibold text-ink-secondary">
+                Paused
               </Text>
             </View>
-            <ChevronRight size={20} color={themeColors.secondaryInk} />
-          </Pressable>
-        ))}
+          )}
+        </View>
+        <Text
+          className="mt-0.5 text-sm leading-5 text-ink-secondary"
+          numberOfLines={2}
+        >
+          Every {product.cadenceDays} days · {productAmount(product)}
+        </Text>
       </View>
-    </View>
+      <ChevronRight size={20} color={themeColors.secondaryInk} />
+    </Pressable>
   );
 }
