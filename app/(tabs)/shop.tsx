@@ -5,7 +5,12 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
 import { getReceiptCaptureRoute } from "@/lib/receiptFlow";
-import { canFinishShoppingList } from "@/lib/shoppingList";
+import {
+  buildShoppingListHandoff,
+  canFinishShoppingList,
+  getEffectiveShoppingMode,
+  type PreferredShoppingMode,
+} from "@/lib/shoppingList";
 import { themeColors } from "@/lib/theme";
 import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
@@ -13,13 +18,24 @@ import { useShoppingList } from "@/lib/useShoppingList";
 import { useUser } from "@clerk/clerk-expo";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation } from "convex/react";
+import * as Clipboard from "expo-clipboard";
 import { type Href, useRouter } from "expo-router";
-import { Camera, CloudOff, Receipt, ShoppingBasket, X } from "lucide-react-native";
+import {
+  Camera,
+  Check,
+  CloudOff,
+  Copy,
+  Receipt,
+  Share2,
+  ShoppingBasket,
+  X,
+} from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Share,
   Text,
   View,
 } from "react-native";
@@ -73,6 +89,7 @@ export default function ShopScreen() {
       list={review.activeList}
       locale={review.household.locale}
       planningTimeZone={review.household.planningTimeZone}
+      preferredShoppingMode={review.household.preferredShoppingMode}
     />
   );
 }
@@ -81,6 +98,7 @@ interface ActiveShopProps {
   householdId: Id<"households">;
   locale: string;
   planningTimeZone: string;
+  preferredShoppingMode?: PreferredShoppingMode;
   list: {
     _id: Id<"lists">;
     name: string;
@@ -95,6 +113,7 @@ function ActiveShop({
   list,
   locale,
   planningTimeZone,
+  preferredShoppingMode,
 }: ActiveShopProps) {
   const router = useRouter();
   const analytics = useAnalytics();
@@ -117,6 +136,9 @@ function ActiveShop({
   const [finishOpen, setFinishOpen] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const [handoffStatus, setHandoffStatus] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
 
   const canFinish = canFinishShoppingList({
     totalItems: totalCount,
@@ -137,6 +159,18 @@ function ActiveShop({
         : queueLength > 0
           ? "Wait for pending changes to finish syncing."
           : null;
+  const shoppingMode = getEffectiveShoppingMode(
+    list.shoppingMode,
+    preferredShoppingMode,
+  );
+  const handoffText = buildShoppingListHandoff({
+    listName: list.name,
+    items: items ?? [],
+  });
+
+  useEffect(() => {
+    setHandoffStatus("idle");
+  }, [handoffText]);
 
   useEffect(() => {
     analytics.track("shop started", {
@@ -155,6 +189,29 @@ function ActiveShop({
     },
     [addItem, analytics, householdId],
   );
+
+  const shareHandoff = useCallback(async () => {
+    if (!handoffText) return;
+    setHandoffStatus("idle");
+    try {
+      await Share.share({ message: handoffText, title: list.name });
+    } catch (error) {
+      console.error("Couldn't share the shopping list:", error);
+      setHandoffStatus("error");
+    }
+  }, [handoffText, list.name]);
+
+  const copyHandoff = useCallback(async () => {
+    if (!handoffText) return;
+    setHandoffStatus("idle");
+    try {
+      await Clipboard.setStringAsync(handoffText);
+      setHandoffStatus("copied");
+    } catch (error) {
+      console.error("Couldn't copy the shopping list:", error);
+      setHandoffStatus("error");
+    }
+  }, [handoffText]);
 
   const finishWithoutReceipt = useCallback(async () => {
     if (!canFinish) return;
@@ -248,6 +305,56 @@ function ActiveShop({
           </View>
         )}
       </View>
+
+      {shoppingMode === "online" && (
+        <View className="mx-6 mt-4 rounded-2xl border border-teal/20 bg-teal-soft p-4">
+          <Text className="text-lg font-bold text-ink">Ready to order online</Text>
+          <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+            Share or copy what is still needed, then paste it into your retailer's
+            app or website.
+          </Text>
+          <View className="mt-4 flex-row gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={() => void shareHandoff()}
+              disabled={!handoffText}
+              className="flex-1"
+              accessibilityLabel="Share the remaining shopping list"
+            >
+              <Share2 size={17} color={themeColors.surface} />
+              <Text className="ml-2 text-sm font-semibold text-white">Share list</Text>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => void copyHandoff()}
+              disabled={!handoffText}
+              className="flex-1 border-teal"
+              accessibilityLabel="Copy the remaining shopping list"
+            >
+              {handoffStatus === "copied" ? (
+                <Check size={17} color={themeColors.teal} />
+              ) : (
+                <Copy size={17} color={themeColors.teal} />
+              )}
+              <Text className="ml-2 text-sm font-semibold text-teal">
+                {handoffStatus === "copied" ? "Copied" : "Copy list"}
+              </Text>
+            </Button>
+          </View>
+          {!handoffText && (
+            <Text className="mt-3 text-sm text-ink-secondary">
+              Add an item, or untick something already picked up, to create a handoff.
+            </Text>
+          )}
+          {handoffStatus === "error" && (
+            <Text className="mt-3 text-sm text-red-600">
+              We couldn't prepare the handoff. Please try again.
+            </Text>
+          )}
+        </View>
+      )}
 
       <View className="flex-1 px-6 pb-20">
         {totalCount === 0 ? (

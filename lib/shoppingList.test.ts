@@ -1,5 +1,7 @@
 import {
+  buildShoppingListHandoff,
   canFinishShoppingList,
+  getEffectiveShoppingMode,
   summarizeShoppingList,
 } from "./shoppingList";
 
@@ -53,5 +55,35 @@ describe("shopping list summary", () => {
         isFinishing: false,
       }),
     ).toBe(false);
+  });
+
+  it("builds an online handoff from only the items still needed", () => {
+    expect(
+      buildShoppingListHandoff({
+        listName: "Next shop",
+        items: [
+          { name: "Milk", quantity: 2, unit: "litres", isCompleted: false },
+          { name: "Bananas", quantity: 6, isCompleted: false },
+          { name: "Bread", isCompleted: true },
+        ],
+      }),
+    ).toBe(
+      "Next shop\n\n• Milk — 2 litres\n• Bananas — 6\n\n2 items to order",
+    );
+  });
+
+  it("does not build an empty handoff when everything is picked up", () => {
+    expect(
+      buildShoppingListHandoff({
+        listName: "Next shop",
+        items: [{ name: "Bread", isCompleted: true }],
+      }),
+    ).toBeNull();
+  });
+
+  it("uses the household preference until a shop-specific mode is chosen", () => {
+    expect(getEffectiveShoppingMode(undefined, "online")).toBe("online");
+    expect(getEffectiveShoppingMode(undefined, "both")).toBe("in_store");
+    expect(getEffectiveShoppingMode("online", "in_store")).toBe("online");
   });
 });

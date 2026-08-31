@@ -2,6 +2,10 @@ import { CreateListSheet, ListCard } from "@/components/lists";
 import { Button, UserAvatar } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
+import {
+  getEffectiveShoppingMode,
+  type ShoppingMode,
+} from "@/lib/shoppingList";
 import { cn } from "@/lib/cn";
 import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
@@ -18,7 +22,7 @@ import {
   Plus,
   ShoppingBasket,
 } from "lucide-react-native";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -61,6 +65,10 @@ export default function PlanScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [planningError, setPlanningError] = useState<string | null>(null);
+  const [isChangingMode, setIsChangingMode] = useState(false);
+  const [shoppingModeError, setShoppingModeError] = useState<string | null>(null);
+  const [optimisticShoppingMode, setOptimisticShoppingMode] =
+    useState<ShoppingMode | null>(null);
   const { data: household } = useCachedHousehold(user?.id);
   const { data: lists, isFromCache } = useCachedLists(household?._id);
   const { data: review } = useCachedRestockReview(user?.id, household?._id);
@@ -72,6 +80,18 @@ export default function PlanScreen() {
       (lists ?? []).filter((list) => list._id !== review?.activeList?._id),
     [lists, review?.activeList?._id],
   );
+  const effectiveShoppingMode = getEffectiveShoppingMode(
+    review?.activeList?.shoppingMode,
+    review?.household.preferredShoppingMode,
+  );
+  const displayedShoppingMode =
+    optimisticShoppingMode ?? effectiveShoppingMode;
+
+  useEffect(() => {
+    if (review?.activeList?.shoppingMode === optimisticShoppingMode) {
+      setOptimisticShoppingMode(null);
+    }
+  }, [optimisticShoppingMode, review?.activeList?.shoppingMode]);
 
   const scheduleSaturday = useCallback(async () => {
     if (!review?.activeList) return;
@@ -90,6 +110,27 @@ export default function PlanScreen() {
       setIsPlanning(false);
     }
   }, [recalculate, review?.activeList, setNextShop]);
+
+  const chooseShoppingMode = useCallback(
+    async (shoppingMode: ShoppingMode) => {
+      if (!review?.activeList || shoppingMode === displayedShoppingMode) return;
+      const previousMode = displayedShoppingMode;
+      setOptimisticShoppingMode(shoppingMode);
+      setIsChangingMode(true);
+      setShoppingModeError(null);
+      try {
+        await setNextShop({ listId: review.activeList._id, shoppingMode });
+      } catch (error) {
+        console.error("Couldn't update the shopping mode:", error);
+        setOptimisticShoppingMode(previousMode);
+        setShoppingModeError(
+          "We couldn't save that shopping mode. Please try again.",
+        );
+      } finally {
+        setIsChangingMode(false);
+      }
+    }, [displayedShoppingMode, review?.activeList, setNextShop],
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -170,6 +211,11 @@ export default function PlanScreen() {
                     : "Choose a day when you're ready"}
                 </Text>
               </View>
+              {shoppingModeError && (
+                <Text className="mt-2 text-sm text-red-600">
+                  {shoppingModeError}
+                </Text>
+              )}
             </View>
 
             <View className="mt-5 flex-row flex-wrap items-center border-t border-separator pt-4">
@@ -184,6 +230,45 @@ export default function PlanScreen() {
                     ? `${formatCurrencyFromPence(activeList.tripBudgetPence)} budget`
                     : "Prices optional"}
               </Text>
+            </View>
+
+            <View className="mt-4">
+              <Text className="text-sm font-semibold text-ink-secondary">
+                How will you shop?
+              </Text>
+              <View className="mt-2 flex-row rounded-full bg-warm-gray-100 p-1">
+                {(
+                  [
+                    ["In store", "in_store"],
+                    ["Online", "online"],
+                  ] as const
+                ).map(([label, mode]) => {
+                  const selected = displayedShoppingMode === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      onPress={() => void chooseShoppingMode(mode)}
+                      disabled={isChangingMode}
+                      className={cn(
+                        "min-h-11 flex-1 items-center justify-center rounded-full px-4",
+                        selected && "bg-surface",
+                      )}
+                      accessibilityLabel={`Shop ${label.toLocaleLowerCase("en-GB")}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected, disabled: isChangingMode }}
+                    >
+                      <Text
+                        className={cn(
+                          "font-semibold",
+                          selected ? "text-ink" : "text-ink-secondary",
+                        )}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
             <Button
