@@ -1,5 +1,6 @@
 import {
   Button,
+  GlassSegmentedControl,
   Input,
   PageHeader,
   Toast,
@@ -32,7 +33,7 @@ import {
   RotateCcw,
   UserPlus,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -43,6 +44,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const REMINDER_TIME_OPTIONS = [9 * 60, 13 * 60, 18 * 60] as const;
+
+function formatReminderTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+}
 
 function SettingsLoadingState({ onBack }: { onBack: () => void }) {
   return (
@@ -72,6 +81,9 @@ export default function SettingsScreen() {
   const [showBudgetToast, setShowBudgetToast] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
+  const [notificationTimeMinutes, setNotificationTimeMinutes] = useState(
+    18 * 60,
+  );
   const { signOut } = useAuth();
   const analytics = useAnalytics();
   const household = useQuery(api.households.getCurrentHousehold);
@@ -95,6 +107,24 @@ export default function SettingsScreen() {
       setMonthlyBudget((household.monthlyBudgetPence / 100).toFixed(2));
     }
   }, [household?.monthlyBudgetPence]);
+
+  useEffect(() => {
+    if (preferences?.notificationTimeMinutesLocal !== undefined) {
+      setNotificationTimeMinutes(preferences.notificationTimeMinutesLocal);
+    }
+  }, [preferences?.notificationTimeMinutesLocal]);
+
+  const reminderTimeOptions = useMemo(() => {
+    const minutes = new Set<number>(REMINDER_TIME_OPTIONS);
+    minutes.add(notificationTimeMinutes);
+    return [...minutes]
+      .sort((left, right) => left - right)
+      .map((value) => ({
+        value: String(value),
+        label: formatReminderTime(value),
+        accessibilityLabel: `Send reminders at ${formatReminderTime(value)}`,
+      }));
+  }, [notificationTimeMinutes]);
 
   const toggleArchivedSection = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -218,6 +248,36 @@ export default function SettingsScreen() {
       }
     },
     [analytics, updatePreferences],
+  );
+
+  const handleReminderTimeChange = useCallback(
+    async (value: string) => {
+      const nextTime = Number(value);
+      if (
+        !Number.isInteger(nextTime) ||
+        nextTime < 8 * 60 ||
+        nextTime >= 20 * 60 ||
+        nextTime === notificationTimeMinutes
+      ) {
+        return;
+      }
+
+      const previousTime = notificationTimeMinutes;
+      setNotificationTimeMinutes(nextTime);
+      setIsSavingPreferences(true);
+      setPreferenceError(null);
+      try {
+        await updatePreferences({ notificationTimeMinutesLocal: nextTime });
+        await recalculateReminders({});
+      } catch (error) {
+        console.error("Couldn't update reminder time:", error);
+        setNotificationTimeMinutes(previousTime);
+        setPreferenceError("We couldn't update your reminder time. Please try again.");
+      } finally {
+        setIsSavingPreferences(false);
+      }
+    },
+    [notificationTimeMinutes, recalculateReminders, updatePreferences],
   );
 
   const handleSignOutConfirm = useCallback(async () => {
@@ -409,6 +469,29 @@ export default function SettingsScreen() {
               accessibilityLabel="Restock reminders"
             />
           </View>
+
+          {preferences?.restockNotificationsEnabled && (
+            <>
+              <View className="mx-4 h-px bg-separator" />
+              <View className="px-4 py-4">
+                <Text className="text-sm font-semibold text-ink">
+                  Reminder time
+                </Text>
+                <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+                  We use {preferences.notificationTimeZone} and keep 20:00–08:00
+                  quiet.
+                </Text>
+                <GlassSegmentedControl
+                  value={String(notificationTimeMinutes)}
+                  options={reminderTimeOptions}
+                  onValueChange={(value) => void handleReminderTimeChange(value)}
+                  disabled={isSavingPreferences}
+                  accessibilityLabel="Restock reminder time"
+                  className="mt-3"
+                />
+              </View>
+            </>
+          )}
 
           <View className="mx-4 h-px bg-separator" />
 

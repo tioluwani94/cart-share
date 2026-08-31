@@ -133,12 +133,20 @@ export const getReview = query({
       ? await ctx.db.get(household.activeListId)
       : null;
     const activeList = activeListRecord?.isArchived ? null : activeListRecord;
-    const products = await ctx.db
-      .query("householdProducts")
-      .withIndex("by_household_and_status", (index) =>
-        index.eq("householdId", household._id).eq("status", "active"),
-      )
-      .collect();
+    const [products, pausedProducts] = await Promise.all([
+      ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_status", (index) =>
+          index.eq("householdId", household._id).eq("status", "active"),
+        )
+        .collect(),
+      ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_status", (index) =>
+          index.eq("householdId", household._id).eq("status", "paused"),
+        )
+        .collect(),
+    ]);
     const now = Date.now();
     const candidates = calculateRestockReview({
       now,
@@ -206,6 +214,7 @@ export const getReview = query({
           isAdded: itemByProduct.has(product._id),
         };
       }),
+      trackedProductCount: products.length + pausedProducts.length,
       candidateCount: candidates.length,
     };
   },

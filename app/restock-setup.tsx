@@ -8,9 +8,10 @@ import { useMutation, useQuery } from "convex/react";
 import { getCalendars } from "expo-localization";
 import { useRouter } from "expo-router";
 import { Bell, Check, Minus, Plus, ShieldCheck } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -28,6 +29,7 @@ const starterProducts = [
 ];
 
 type ShoppingMode = "in_store" | "online" | "both";
+type CompletionMode = "complete" | "deferred";
 
 export default function RestockSetupScreen() {
   const router = useRouter();
@@ -57,8 +59,19 @@ export default function RestockSetupScreen() {
   const [shareAnalytics, setShareAnalytics] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasTrackedActivationStart = useRef(false);
   const planningTimeZone =
     getCalendars()[0]?.timeZone ?? "Europe/London";
+
+  useEffect(() => {
+    if (!household?._id || hasTrackedActivationStart.current) return;
+    hasTrackedActivationStart.current = true;
+    analytics.track("activation started", {
+      household_id: household._id,
+      market: "GB",
+      platform: Platform.OS,
+    });
+  }, [analytics, household?._id]);
 
   const suggestions = useMemo(() => {
     const history = historySuggestions ?? [];
@@ -82,7 +95,10 @@ export default function RestockSetupScreen() {
     });
   };
 
-  const finish = async (enableNotifications: boolean) => {
+  const finish = async (
+    enableNotifications: boolean,
+    completionMode: CompletionMode = "complete",
+  ) => {
     if (!household?._id) return;
     setIsFinishing(true);
     setError(null);
@@ -126,19 +142,28 @@ export default function RestockSetupScreen() {
         planningTimeZone,
         products,
       });
-      await updatePreferences({
-        analyticsConsent: shareAnalytics ? "granted" : "denied",
-        notificationTimeZone: planningTimeZone,
-      });
-      analytics.setConsent(shareAnalytics ? "granted" : "denied");
-      analytics.track("activation completed", {
-        household_id: household._id,
-        market: "GB",
-        household_size_bucket:
-          peopleServed <= 2 ? "1-2" : peopleServed <= 4 ? "3-4" : "5+",
-        cadence_bucket: cadenceDays ? `${cadenceDays}_days` : "variable",
-        shopping_mode: shoppingMode,
-      });
+      if (completionMode === "complete") {
+        await updatePreferences({
+          analyticsConsent: shareAnalytics ? "granted" : "denied",
+          notificationTimeZone: planningTimeZone,
+        });
+        analytics.setConsent(shareAnalytics ? "granted" : "denied");
+        analytics.track("activation completed", {
+          household_id: household._id,
+          market: "GB",
+          household_size_bucket:
+            peopleServed <= 2 ? "1-2" : peopleServed <= 4 ? "3-4" : "5+",
+          cadence_bucket: cadenceDays ? `${cadenceDays}_days` : "variable",
+          shopping_mode: shoppingMode,
+        });
+      } else {
+        await updatePreferences({ notificationTimeZone: planningTimeZone });
+        analytics.track("activation skipped", {
+          household_id: household._id,
+          market: "GB",
+          step: String(step + 1),
+        });
+      }
 
       if (enableNotifications) {
         const registration = await registerForPushNotifications();
@@ -410,21 +435,35 @@ export default function RestockSetupScreen() {
 
       <View className="border-t border-warm-gray-200 bg-white px-5 pb-4 pt-3">
         {step < 3 ? (
-          <View className="flex-row gap-3">
-            {step > 0 && (
+          <View>
+            <View className="flex-row gap-3">
+              {step > 0 && (
+                <Button
+                  variant="outline"
+                  onPress={() => setStep((value) => value - 1)}
+                  disabled={isFinishing}
+                  className="flex-1"
+                >
+                  Back
+                </Button>
+              )}
               <Button
-                variant="outline"
-                onPress={() => setStep((value) => value - 1)}
+                onPress={() => setStep((value) => value + 1)}
+                disabled={isFinishing}
                 className="flex-1"
               >
-                Back
+                Continue
               </Button>
-            )}
+            </View>
             <Button
-              onPress={() => setStep((value) => value + 1)}
-              className="flex-1"
+              variant="ghost"
+              onPress={() => void finish(false, "deferred")}
+              disabled={isFinishing}
+              loading={isFinishing}
+              accessibilityLabel="Set up grocery rhythm later"
+              className="mt-1 w-full"
             >
-              Continue
+              Set up later
             </Button>
           </View>
         ) : (

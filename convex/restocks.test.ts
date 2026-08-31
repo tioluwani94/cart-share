@@ -1,5 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import { decide, listProducts, updateProduct } from "./restocks";
+import { decide, getReview, listProducts, updateProduct } from "./restocks";
 
 type DecideHandler = (
   ctx: unknown,
@@ -38,6 +38,108 @@ type ListProductsHandler = (
 const listTrackedProducts = (
   listProducts as unknown as { _handler: ListProductsHandler }
 )._handler;
+
+type GetReviewHandler = (
+  ctx: unknown,
+  args: Record<string, never>,
+) => Promise<{ trackedProductCount: number }>;
+
+const getRestockReview = (
+  getReview as unknown as { _handler: GetReviewHandler }
+)._handler;
+
+describe("restocks.getReview", () => {
+  it("tells Plan when a deferred household has no tracked products", async () => {
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const userId = "user_1" as Id<"users">;
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: async (id: string) => {
+          if (id === householdId) {
+            return {
+              _id: householdId,
+              activeListId: listId,
+              restockSetupCompletedAt: 1,
+            };
+          }
+          if (id === listId) {
+            return { _id: listId, name: "Weekly shop", isArchived: false };
+          }
+          return null;
+        },
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users" ? { _id: userId } : null,
+            first: async () =>
+              table === "householdMembers"
+                ? { householdId, userId }
+                : null,
+            collect: async () => [],
+          }),
+        }),
+      },
+    };
+
+    await expect(getRestockReview(ctx, {})).resolves.toEqual(
+      expect.objectContaining({ trackedProductCount: 0 }),
+    );
+  });
+
+  it("does not treat paused products as an unfinished activation", async () => {
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const userId = "user_1" as Id<"users">;
+    let productQueryCount = 0;
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: async (id: string) => {
+          if (id === householdId) {
+            return {
+              _id: householdId,
+              activeListId: listId,
+              restockSetupCompletedAt: 1,
+            };
+          }
+          if (id === listId) {
+            return { _id: listId, name: "Weekly shop", isArchived: false };
+          }
+          return null;
+        },
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users" ? { _id: userId } : null,
+            first: async () =>
+              table === "householdMembers"
+                ? { householdId, userId }
+                : null,
+            collect: async () => {
+              if (table !== "householdProducts") return [];
+              productQueryCount += 1;
+              return productQueryCount === 1
+                ? []
+                : [
+                    {
+                      _id: "product_1",
+                      displayName: "Milk",
+                      status: "paused",
+                    },
+                  ];
+            },
+          }),
+        }),
+      },
+    };
+
+    await expect(getRestockReview(ctx, {})).resolves.toEqual(
+      expect.objectContaining({ trackedProductCount: 1 }),
+    );
+  });
+});
 
 describe("restocks.decide", () => {
   it("rejects a caller who is not a member of the product household", async () => {

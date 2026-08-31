@@ -363,7 +363,25 @@ export default function PlanScreen() {
           )}
         </View>
 
-        {review.candidateCount > 0 ? (
+        {review.trackedProductCount === 0 ? (
+          <View className="mt-3 rounded-2xl border border-separator bg-surface p-4">
+            <Text className="text-base font-semibold text-ink">
+              Let us remember the regulars
+            </Text>
+            <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+              Choose a few recurring products when you have a minute. You can
+              change them at any time.
+            </Text>
+            <Button
+              variant="tonal"
+              onPress={() => router.push("/restock-setup" as Href)}
+              className="mt-4 w-full"
+              accessibilityLabel="Continue grocery rhythm setup"
+            >
+              Continue setup
+            </Button>
+          </View>
+        ) : review.candidateCount > 0 ? (
           <Pressable
             onPress={() => router.push("/restock-review" as Href)}
             className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4"
