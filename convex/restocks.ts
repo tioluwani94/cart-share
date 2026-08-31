@@ -3,6 +3,7 @@ import {
   applyRestockDecision,
   calculateRestockReview,
   DAY_MS,
+  learnFromPurchase,
 } from "../lib/restockEngine";
 import { calculatePlannedTotal } from "../lib/budget";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -57,6 +58,63 @@ function median(values: number[]): number | undefined {
   return sorted.length % 2 === 0
     ? (sorted[middle - 1] + sorted[middle]) / 2
     : sorted[middle];
+}
+
+export async function recordCompletedShop(
+  ctx: MutationCtx,
+  args: {
+    sessionId: Id<"shoppingSessions">;
+  },
+) {
+  const session = await ctx.db.get(args.sessionId);
+  if (!session) throw new Error("Shopping session not found");
+  if (!session.listId) return;
+  const list = await ctx.db.get(session.listId);
+  if (!list || list.householdId !== session.householdId) {
+    throw new Error("Shopping session list does not belong to its household");
+  }
+  const completedItems = await ctx.db
+    .query("items")
+    .withIndex("by_list_and_completed", (query) =>
+      query.eq("listId", session.listId!).eq("isCompleted", true),
+    )
+    .collect();
+  const updatedAt = Date.now();
+  const learnedProductIds = new Set<string>();
+  for (const item of completedItems) {
+    if (
+      !item.householdProductId ||
+      learnedProductIds.has(item.householdProductId)
+    ) {
+      continue;
+    }
+    const product = await ctx.db.get(item.householdProductId);
+    if (
+      !product ||
+      product.householdId !== session.householdId ||
+      product.status !== "active"
+    ) {
+      continue;
+    }
+    const learning = learnFromPurchase({
+      product: {
+        id: product._id,
+        displayName: product.displayName,
+        status: product.status,
+        cadenceDays: product.cadenceDays,
+        lastPurchasedAt: product.lastPurchasedAt,
+        activatedAt: product.createdAt,
+        reviewAfter: product.reviewAfter,
+        purchaseObservationCount: product.purchaseObservationCount,
+      },
+      purchasedAt: session.sessionDate,
+    });
+    await ctx.db.patch(product._id, {
+      ...learning,
+      updatedAt,
+    });
+    learnedProductIds.add(product._id);
+  }
 }
 
 export const getReview = query({

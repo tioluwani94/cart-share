@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   appendOfflineOperation,
   createOfflineOperation,
+  executeOfflineOperation,
   getOfflineQueueStorageKey,
   getReplayOperations,
   replayOfflineOperations,
@@ -41,8 +42,10 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
     getStoredQueue(scope),
   );
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasSyncError, setHasSyncError] = useState(false);
   const { isConnected } = useNetworkStatus();
   const processingRef = useRef(false);
+  const inFlightOperationIdsRef = useRef<ReadonlySet<string>>(new Set());
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   const syncStatus = useSyncStatusSafe();
@@ -52,6 +55,7 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
   const updateItem = useMutation(api.items.update);
   const removeItemMutation = useMutation(api.items.remove);
   const decideRestock = useMutation(api.restocks.decide);
+  const completeOfflineSession = useMutation(api.sessions.completeOffline);
   const recalculateReminders = useMutation(
     api.notifications.recalculateForHousehold,
   );
@@ -66,7 +70,11 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
 
       const operation = createOfflineOperation(scope, input);
       setQueue((current) => {
-        const next = appendOfflineOperation(current, operation);
+        const next = appendOfflineOperation(
+          current,
+          operation,
+          inFlightOperationIdsRef.current,
+        );
         saveQueue(scope, next);
         return next;
       });
@@ -76,27 +84,19 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
   );
 
   const executeOperation = useCallback(
-    async (operation: OfflineOperation): Promise<void> => {
-      switch (operation.type) {
-        case "items.add":
-          await addItem(operation.args);
-          return;
-        case "items.setCompleted":
-          await setCompleted(operation.args);
-          return;
-        case "items.update":
-          await updateItem(operation.args);
-          return;
-        case "items.remove":
-          await removeItemMutation(operation.args);
-          return;
-        case "restocks.decide":
-          await decideRestock(operation.args);
-          await recalculateReminders({});
-      }
-    },
+    (operation: OfflineOperation): Promise<void> =>
+      executeOfflineOperation(operation, {
+        addItem,
+        setCompleted,
+        updateItem,
+        removeItem: removeItemMutation,
+        decideRestock,
+        completeShop: completeOfflineSession,
+        recalculateReminders: () => recalculateReminders({}),
+      }),
     [
       addItem,
+      completeOfflineSession,
       decideRestock,
       recalculateReminders,
       removeItemMutation,
@@ -118,10 +118,16 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
       getStoredQueue(processingScope),
       processingScope,
     );
-    if (replay.length === 0) return { success: 0, failed: 0 };
+    if (replay.length === 0) {
+      setHasSyncError(false);
+      return { success: 0, failed: 0 };
+    }
 
     processingRef.current = true;
+    const replayIds = new Set(replay.map((operation) => operation.id));
+    inFlightOperationIdsRef.current = replayIds;
     setIsProcessing(true);
+    setHasSyncError(false);
     syncStatus?.startSyncing(replay.length);
 
     // Stop at the first failure so later writes never overtake an earlier
@@ -138,7 +144,6 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
     );
     const { success, failed, remaining } = replayResult;
 
-    const replayIds = new Set(replay.map((operation) => operation.id));
     const operationsQueuedDuringReplay = getStoredQueue(
       processingScope,
     ).filter((operation) => !replayIds.has(operation.id));
@@ -151,9 +156,11 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
       scopesMatch(scopeRef.current, processingScope)
     ) {
       setQueue(nextQueue);
+      setHasSyncError(failed > 0);
     }
 
     processingRef.current = false;
+    inFlightOperationIdsRef.current = new Set();
     setIsProcessing(false);
     syncStatus?.finishSyncing({ success, failed });
     return { success, failed };
@@ -163,12 +170,14 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
     if (!scope) return;
     saveQueue(scope, []);
     setQueue([]);
+    setHasSyncError(false);
   }, [scope]);
 
   useEffect(() => {
     // Never replay the legacy globally-scoped queue.
     removeItem(StorageKeys.OFFLINE_QUEUE);
     setQueue(getStoredQueue(scope));
+    setHasSyncError(false);
   }, [scope]);
 
   useEffect(() => {
@@ -180,6 +189,7 @@ export function useScopedOfflineQueue(scope: OfflineScope | null) {
   return {
     queue,
     isProcessing,
+    hasSyncError,
     queueLength: queue.length,
     isOnline: isConnected,
     addToQueue,

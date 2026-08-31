@@ -1,6 +1,7 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   appendOfflineOperation,
+  executeOfflineOperation,
   getOfflineQueueStorageKey,
   getReplayOperations,
   removeScopeOperations,
@@ -119,6 +120,27 @@ describe("offline queue", () => {
     expect(queue).toEqual([]);
   });
 
+  it("keeps a delete queued when its matching offline add is already replaying", () => {
+    const clientId = "client_item_in_flight";
+    const listId = "list_1" as Id<"lists">;
+    const add = operation(
+      { type: "items.add", args: { listId, clientId, name: "Butter" } },
+      1,
+    );
+    const remove = operation(
+      { type: "items.remove", args: { listId, clientId } },
+      2,
+    );
+
+    const queue = appendOfflineOperation(
+      [add],
+      remove,
+      new Set([add.id]),
+    );
+
+    expect(queue).toEqual([add, remove]);
+  });
+
   it("isolates replay by user and household", () => {
     const otherScope: OfflineScope = {
       clerkUserId: "clerk_user_2",
@@ -214,5 +236,140 @@ describe("offline queue", () => {
         operationId: "restock_operation_1",
       }),
     );
+  });
+
+  it("keeps an offline shop completion snapshot and stable operation ID in scope", () => {
+    const completion = operation(
+      {
+        type: "sessions.complete",
+        args: {
+          householdId: scope.householdId,
+          listId: "list_1" as Id<"lists">,
+          operationId: "shop_completion_1",
+          sessionDate: Date.UTC(2026, 7, 31, 12),
+          items: [
+            {
+              clientId: "client_item_1",
+              isCompleted: true,
+            },
+          ],
+        },
+      },
+      1,
+    );
+
+    expect(getReplayOperations([completion], scope)).toEqual([completion]);
+    expect(completion.args).toEqual(
+      expect.objectContaining({
+        operationId: "shop_completion_1",
+        items: [{ clientId: "client_item_1", isCompleted: true }],
+      }),
+    );
+  });
+
+  it("replays shop completion after earlier item writes and never across scopes", async () => {
+    const listId = "list_1" as Id<"lists">;
+    const otherScope: OfflineScope = {
+      clerkUserId: "clerk_user_2",
+      householdId: "household_2" as Id<"households">,
+    };
+    const add = operation(
+      {
+        type: "items.add",
+        args: {
+          listId,
+          clientId: "client_item_1",
+          name: "Milk",
+        },
+      },
+      1,
+    );
+    const completion = operation(
+      {
+        type: "sessions.complete",
+        args: {
+          householdId: scope.householdId,
+          listId,
+          operationId: "shop_completion_1",
+          sessionDate: Date.UTC(2026, 7, 31, 12),
+          items: [{ clientId: "client_item_1", isCompleted: true }],
+        },
+      },
+      2,
+    );
+    const otherCompletion: OfflineOperation = {
+      id: "operation_3",
+      scope: otherScope,
+      queuedAt: 3,
+      type: "sessions.complete",
+      args: {
+        householdId: otherScope.householdId,
+        listId,
+        operationId: "shop_completion_2",
+        sessionDate: Date.UTC(2026, 7, 31, 12),
+        items: [{ clientId: "client_item_2", isCompleted: true }],
+      },
+    };
+    const executed: string[] = [];
+
+    const replay = getReplayOperations(
+      [otherCompletion, completion, add],
+      scope,
+    );
+    const result = await replayOfflineOperations(replay, async (entry) => {
+      executed.push(entry.type);
+    });
+
+    expect(executed).toEqual(["items.add", "sessions.complete"]);
+    expect(result).toEqual({ success: 2, failed: 0, remaining: [] });
+  });
+
+  it("dispatches item writes before completion through the production executor", async () => {
+    const listId = "list_1" as Id<"lists">;
+    const add = operation(
+      {
+        type: "items.add",
+        args: {
+          listId,
+          clientId: "client_item_1",
+          name: "Milk",
+        },
+      },
+      1,
+    );
+    const completion = operation(
+      {
+        type: "sessions.complete",
+        args: {
+          householdId: scope.householdId,
+          listId,
+          operationId: "shop_completion_1",
+          sessionDate: Date.UTC(2026, 7, 31, 12),
+          items: [{ clientId: "client_item_1", isCompleted: true }],
+        },
+      },
+      2,
+    );
+    const calls: string[] = [];
+    const adapter = {
+      addItem: jest.fn(async () => {
+        calls.push("items.add");
+      }),
+      setCompleted: jest.fn(),
+      updateItem: jest.fn(),
+      removeItem: jest.fn(),
+      decideRestock: jest.fn(),
+      completeShop: jest.fn(async () => {
+        calls.push("sessions.complete");
+      }),
+      recalculateReminders: jest.fn(),
+    };
+
+    await replayOfflineOperations([add, completion], (entry) =>
+      executeOfflineOperation(entry, adapter),
+    );
+
+    expect(calls).toEqual(["items.add", "sessions.complete"]);
+    expect(adapter.completeShop).toHaveBeenCalledWith(completion.args);
   });
 });

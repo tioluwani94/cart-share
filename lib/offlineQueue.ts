@@ -30,6 +30,20 @@ type RestockDecision =
   | "not_this_time"
   | "stop_tracking";
 
+export interface ShopCompletionItemSnapshot {
+  itemId?: Id<"items">;
+  clientId?: string;
+  isCompleted: boolean;
+}
+
+interface ShopCompletionArgs {
+  householdId: Id<"households">;
+  listId: Id<"lists">;
+  operationId: string;
+  sessionDate: number;
+  items: ShopCompletionItemSnapshot[];
+}
+
 export type OfflineOperation =
   | {
       id: string;
@@ -78,6 +92,14 @@ export type OfflineOperation =
         decision: RestockDecision;
         operationId: string;
       };
+    }
+  | {
+      id: string;
+      scope: OfflineScope;
+      queuedAt: number;
+      retryCount?: number;
+      type: "sessions.complete";
+      args: ShopCompletionArgs;
     };
 
 export type NewOfflineOperation =
@@ -102,7 +124,53 @@ export type NewOfflineOperation =
         decision: RestockDecision;
         operationId: string;
       };
+    }
+  | {
+      type: "sessions.complete";
+      args: ShopCompletionArgs;
     };
+
+type OperationArgs<TType extends OfflineOperation["type"]> = Extract<
+  OfflineOperation,
+  { type: TType }
+>["args"];
+
+export interface OfflineOperationAdapter {
+  addItem(args: OperationArgs<"items.add">): Promise<unknown>;
+  setCompleted(args: OperationArgs<"items.setCompleted">): Promise<unknown>;
+  updateItem(args: OperationArgs<"items.update">): Promise<unknown>;
+  removeItem(args: OperationArgs<"items.remove">): Promise<unknown>;
+  decideRestock(args: OperationArgs<"restocks.decide">): Promise<unknown>;
+  completeShop(args: OperationArgs<"sessions.complete">): Promise<unknown>;
+  recalculateReminders(): Promise<unknown>;
+}
+
+export async function executeOfflineOperation(
+  operation: OfflineOperation,
+  adapter: OfflineOperationAdapter,
+): Promise<void> {
+  switch (operation.type) {
+    case "items.add":
+      await adapter.addItem(operation.args);
+      return;
+    case "items.setCompleted":
+      await adapter.setCompleted(operation.args);
+      return;
+    case "items.update":
+      await adapter.updateItem(operation.args);
+      return;
+    case "items.remove":
+      await adapter.removeItem(operation.args);
+      return;
+    case "restocks.decide":
+      await adapter.decideRestock(operation.args);
+      await adapter.recalculateReminders();
+      return;
+    case "sessions.complete":
+      await adapter.completeShop(operation.args);
+      await adapter.recalculateReminders();
+  }
+}
 
 export function scopesMatch(a: OfflineScope, b: OfflineScope): boolean {
   return (
@@ -117,22 +185,33 @@ export function getOfflineQueueStorageKey(scope: OfflineScope): string {
 export function appendOfflineOperation(
   queue: OfflineOperation[],
   operation: OfflineOperation,
+  inFlightOperationIds: ReadonlySet<string> = new Set(),
 ): OfflineOperation[] {
   if (operation.type === "items.remove" && operation.args.clientId) {
-    const hasUnsyncedAdd = queue.some(
+    const hasInFlightAdd = queue.some(
       (entry) =>
         scopesMatch(entry.scope, operation.scope) &&
         entry.type === "items.add" &&
         entry.args.listId === operation.args.listId &&
-        entry.args.clientId === operation.args.clientId,
+        entry.args.clientId === operation.args.clientId &&
+        inFlightOperationIds.has(entry.id),
+    );
+    const hasCancellableAdd = queue.some(
+      (entry) =>
+        scopesMatch(entry.scope, operation.scope) &&
+        entry.type === "items.add" &&
+        entry.args.listId === operation.args.listId &&
+        entry.args.clientId === operation.args.clientId &&
+        !inFlightOperationIds.has(entry.id),
     );
 
-    if (hasUnsyncedAdd) {
+    if (hasCancellableAdd && !hasInFlightAdd) {
       return queue.filter(
         (entry) =>
           !(
             scopesMatch(entry.scope, operation.scope) &&
             entry.type !== "restocks.decide" &&
+            entry.type !== "sessions.complete" &&
             entry.args.listId === operation.args.listId &&
             entry.args.clientId === operation.args.clientId
           ),

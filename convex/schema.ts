@@ -189,11 +189,16 @@ export default defineSchema({
     shopperId: v.id("users"),
     paidBy: v.optional(v.union(v.literal("joint"), v.id("users"))),
     receiptImageId: v.optional(v.id("_storage")),
+    completionOperationId: v.optional(v.string()),
     sessionDate: v.number(),
     createdAt: v.number(),
   })
     .index("by_household", ["householdId"])
     .index("by_household_and_date", ["householdId", "sessionDate"])
     .index("by_shopper", ["shopperId"])
-    .index("by_list", ["listId"]),
+    .index("by_list", ["listId"])
+    .index("by_list_and_completion_operation", [
+      "listId",
+      "completionOperationId",
+    ]),
 });

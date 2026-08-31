@@ -5,6 +5,10 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useIsOnline } from "./useNetworkStatus";
 import { createOfflineId, type OfflineScope } from "./offlineQueue";
+import {
+  createShopCompletionSnapshot,
+  getShopCompletionMode,
+} from "./shoppingList";
 import { useScopedOfflineQueue } from "./useScopedOfflineQueue";
 import {
   getItemsCacheKey,
@@ -72,8 +76,13 @@ export function useOfflineItems(
     [householdId, userId],
   );
   const isOnline = useIsOnline();
-  const { addToQueue, queue, isProcessing } =
-    useScopedOfflineQueue(scope);
+  const {
+    addToQueue,
+    queue,
+    isProcessing,
+    hasSyncError,
+    processQueue,
+  } = useScopedOfflineQueue(scope);
 
   // Track items that are pending sync (by their temp ID or mutation ID)
   const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(new Set());
@@ -83,6 +92,7 @@ export function useOfflineItems(
   const toggleCompleteMutation = useMutation(api.items.toggleComplete);
   const removeItemMutation = useMutation(api.items.remove);
   const updateItemMutation = useMutation(api.items.update);
+  const createSession = useMutation(api.sessions.create);
 
   /**
    * Update items in cache
@@ -345,6 +355,43 @@ export function useOfflineItems(
     [getItemReference, pendingItemIds, queue],
   );
 
+  const completeShop = useCallback(
+    async (items: OptimisticItem[]) => {
+      if (!householdId) {
+        throw new Error("Shop completion is unavailable until your household is loaded");
+      }
+      const sessionDate = Date.now();
+      const mode = getShopCompletionMode({
+        isOnline,
+        queueLength: queue.length,
+      });
+      if (mode === "immediate") {
+        await createSession({ householdId, listId, sessionDate });
+        return { mode, sessionDate } as const;
+      }
+
+      const operationId = createOfflineId("shop_completion");
+      addToQueue({
+        type: "sessions.complete",
+        args: {
+          householdId,
+          listId,
+          operationId,
+          sessionDate,
+          items: createShopCompletionSnapshot(items),
+        },
+      });
+      return { mode, operationId, sessionDate } as const;
+    },
+    [addToQueue, createSession, householdId, isOnline, listId, queue.length],
+  );
+
+  const hasQueuedCompletion = queue.some(
+    (operation) =>
+      operation.type === "sessions.complete" &&
+      operation.args.listId === listId,
+  );
+
   /**
    * Clear pending status for items that have been synced
    */
@@ -373,12 +420,16 @@ export function useOfflineItems(
     toggleComplete,
     removeItem,
     updateItem,
+    completeShop,
 
     // Status
     isOnline,
     isPendingSync,
     pendingCount: pendingItemIds.size,
     isProcessing,
+    hasSyncError,
+    hasQueuedCompletion,
+    retrySync: processQueue,
 
     // Queue info
     queueLength: queue.length,

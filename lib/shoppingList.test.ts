@@ -1,9 +1,12 @@
 import {
   buildShoppingListHandoff,
   canFinishShoppingList,
+  createShopCompletionSnapshot,
   getEffectiveShoppingMode,
+  getShopCompletionMode,
   summarizeShoppingList,
 } from "./shoppingList";
+import type { Id } from "@/convex/_generated/dataModel";
 
 describe("shopping list summary", () => {
   it("derives progress, planned spend, and item groups consistently", () => {
@@ -30,31 +33,67 @@ describe("shopping list summary", () => {
     });
   });
 
-  it("only allows finishing a non-empty, fully-synced online shop", () => {
+  it("allows finishing a non-empty shop even when it must sync later", () => {
     expect(
       canFinishShoppingList({
         totalItems: 0,
-        isOnline: true,
-        queueLength: 0,
         isFinishing: false,
+        hasQueuedCompletion: false,
       }),
     ).toBe(false);
     expect(
       canFinishShoppingList({
         totalItems: 3,
-        isOnline: true,
-        queueLength: 0,
         isFinishing: false,
+        hasQueuedCompletion: false,
       }),
     ).toBe(true);
     expect(
       canFinishShoppingList({
         totalItems: 3,
-        isOnline: false,
-        queueLength: 1,
         isFinishing: false,
+        hasQueuedCompletion: false,
+      }),
+    ).toBe(true);
+    expect(
+      canFinishShoppingList({
+        totalItems: 3,
+        isFinishing: false,
+        hasQueuedCompletion: true,
       }),
     ).toBe(false);
+  });
+
+  it("captures offline-created items by client ID and synced items by server ID", () => {
+    expect(
+      createShopCompletionSnapshot([
+        {
+          _id: "temp_item_local_1" as Id<"items">,
+          clientId: "item_local_1",
+          isCompleted: true,
+        },
+        {
+          _id: "item_server_1" as Id<"items">,
+          clientId: "item_original_client_id",
+          isCompleted: false,
+        },
+      ]),
+    ).toEqual([
+      { clientId: "item_local_1", isCompleted: true },
+      { itemId: "item_server_1", isCompleted: false },
+    ]);
+  });
+
+  it("queues completion offline or behind earlier writes", () => {
+    expect(getShopCompletionMode({ isOnline: true, queueLength: 0 })).toBe(
+      "immediate",
+    );
+    expect(getShopCompletionMode({ isOnline: false, queueLength: 0 })).toBe(
+      "queued",
+    );
+    expect(getShopCompletionMode({ isOnline: true, queueLength: 2 })).toBe(
+      "queued",
+    );
   });
 
   it("builds an online handoff from only the items still needed", () => {

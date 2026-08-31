@@ -1,4 +1,6 @@
+import type { Id } from "@/convex/_generated/dataModel";
 import { calculatePlannedTotal } from "./budget";
+import type { ShopCompletionItemSnapshot } from "./offlineQueue";
 
 export interface ShoppingListSummaryItem {
   isCompleted: boolean;
@@ -18,23 +20,47 @@ interface ShoppingListHandoffInput {
   items: ShoppingListHandoffItem[];
 }
 
+interface ShoppingListCompletionItem {
+  _id: Id<"items">;
+  clientId?: string;
+  isCompleted: boolean;
+}
+
 export type ShoppingMode = "in_store" | "online";
 export type PreferredShoppingMode = ShoppingMode | "both";
 
 interface FinishShoppingListState {
   totalItems: number;
-  isOnline: boolean;
-  queueLength: number;
   isFinishing: boolean;
+  hasQueuedCompletion: boolean;
 }
 
 export function canFinishShoppingList({
   totalItems,
+  isFinishing,
+  hasQueuedCompletion,
+}: FinishShoppingListState): boolean {
+  return totalItems > 0 && !isFinishing && !hasQueuedCompletion;
+}
+
+export function createShopCompletionSnapshot(
+  items: ShoppingListCompletionItem[],
+): ShopCompletionItemSnapshot[] {
+  return items.map((item) =>
+    String(item._id).startsWith("temp_") && item.clientId
+      ? { clientId: item.clientId, isCompleted: item.isCompleted }
+      : { itemId: item._id, isCompleted: item.isCompleted },
+  );
+}
+
+export function getShopCompletionMode({
   isOnline,
   queueLength,
-  isFinishing,
-}: FinishShoppingListState): boolean {
-  return totalItems > 0 && isOnline && queueLength === 0 && !isFinishing;
+}: {
+  isOnline: boolean;
+  queueLength: number;
+}): "immediate" | "queued" {
+  return isOnline && queueLength === 0 ? "immediate" : "queued";
 }
 
 export function summarizeShoppingList<T extends ShoppingListSummaryItem>(

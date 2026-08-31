@@ -327,7 +327,13 @@ Observed intervals are clamped to 1–180 days. The first purchase only establis
 - Restock decisions made offline queue an absolute desired state and remain scoped to the signed-in user and household.
 - Add uses a stable client operation ID and product identity so replay is idempotent.
 - Finish shop is available offline only if it can enqueue one atomic completion command containing the list snapshot and stable client ID. Otherwise the UI explains that completion will be available after reconnecting while ordinary list work continues.
-- This extension was approved in checkpoint C and remains unimplemented.
+- This checkpoint-C extension is implemented: Finish shop queues one scoped,
+  stable snapshot command behind item writes and replays it idempotently as a
+  single Convex completion transaction.
+- Item changes made while replay is already in flight remain queued behind that
+  replay, so a late delete cannot resurrect an offline-created item.
+- If another household member deletes a snapshotted item before completion
+  replays, the missing item is skipped and the remaining snapshot can finish.
 
 ### 8.9 Trust and copy rules
 
@@ -486,6 +492,21 @@ totalAmount: v.optional(v.number())
 
 This allows a household to complete a valid physical shop without being forced to scan a receipt or enter spending. Analytics must exclude missing totals from sums while still counting the shopping session where appropriate.
 
+Offline completion additionally stores an approved idempotency key:
+
+```ts
+completionOperationId: v.optional(v.string())
+
+.index("by_list_and_completion_operation", [
+  "listId",
+  "completionOperationId",
+])
+```
+
+The field is present only for queued completion commands. It keeps retries
+idempotent without treating every future completion of the same list as the
+same shopping session.
+
 ### 9.6 New table: `userPreferences`
 
 ```ts
@@ -558,6 +579,8 @@ notificationReminders: defineTable({
 
 - All additions are optional or live in a new table; existing household, list, item, receipt, and session documents remain valid.
 - Existing session totals remain unchanged.
+- Existing sessions leave `completionOperationId` absent; no idempotency-key
+  backfill is required.
 - No automatic production backfill runs at schema deployment.
 - Existing households see a one-time activation experience after sign-in because `restockSetupCompletedAt` is absent.
 - Existing households receive GB/GBP/en-GB defaults only when activation is saved; no speculative data backfill runs. Their time zone is seeded from the activating device and explicitly confirmed.

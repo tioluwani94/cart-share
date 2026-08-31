@@ -5,7 +5,6 @@ import {
   GlassBottomSheetView,
   type GlassBottomSheetRef,
 } from "@/components/ui";
-import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
@@ -22,7 +21,6 @@ import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useShoppingList } from "@/lib/useShoppingList";
 import { useUser } from "@clerk/clerk-expo";
 import { FlashList } from "@shopify/flash-list";
-import { useMutation } from "convex/react";
 import * as Clipboard from "expo-clipboard";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -131,14 +129,21 @@ function ActiveShop({
     isPendingSync,
     isOnline,
     queueLength,
+    isProcessing,
+    hasSyncError,
+    hasQueuedCompletion,
+    retrySync,
+    completeShop,
     completedCount,
     totalItems: totalCount,
     progress,
     plannedTotalPence,
   } = useShoppingList(list._id, householdId);
-  const createSession = useMutation(api.sessions.create);
   const finishSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [completionQueued, setCompletionQueued] = useState(
+    hasQueuedCompletion,
+  );
   const [finishError, setFinishError] = useState<string | null>(null);
   const [handoffStatus, setHandoffStatus] = useState<
     "idle" | "copied" | "error"
@@ -146,23 +151,26 @@ function ActiveShop({
 
   const canFinish = canFinishShoppingList({
     totalItems: totalCount,
-    isOnline,
-    queueLength,
     isFinishing,
+    hasQueuedCompletion,
   });
-  const syncMessage = !isOnline
-    ? "Offline changes are saved on this device. Reconnect before finishing."
+  const canScanReceipt =
+    canFinish && isOnline && queueLength === 0 && !hasQueuedCompletion;
+  const syncMessage = hasQueuedCompletion
+    ? isOnline
+      ? "Finishing this shop now that you're connected."
+      : "This shop is saved on this device and will finish when you're back online."
+    : !isOnline
+      ? "Offline changes are saved on this device. You can finish now and sync later."
     : queueLength > 0
       ? `${queueLength} ${queueLength === 1 ? "change is" : "changes are"} syncing before you can finish.`
       : "Showing saved items while the latest version loads.";
   const finishUnavailableMessage =
     totalCount === 0
       ? "Add at least one item before finishing this shop."
-      : !isOnline
-        ? "Reconnect before finishing this shop."
-        : queueLength > 0
-          ? "Wait for pending changes to finish syncing."
-          : null;
+      : hasQueuedCompletion
+        ? "This shop is already waiting to sync."
+        : null;
   const shoppingMode = getEffectiveShoppingMode(
     list.shoppingMode,
     preferredShoppingMode,
@@ -175,6 +183,10 @@ function ActiveShop({
   useEffect(() => {
     setHandoffStatus("idle");
   }, [handoffText]);
+
+  useEffect(() => {
+    if (hasQueuedCompletion) setCompletionQueued(true);
+  }, [hasQueuedCompletion]);
 
   useEffect(() => {
     analytics.track("shop started", {
@@ -222,7 +234,7 @@ function ActiveShop({
     setIsFinishing(true);
     setFinishError(null);
     try {
-      await createSession({ householdId, listId: list._id });
+      const result = await completeShop(items ?? []);
       analytics.track("shop completed", {
         household_id: householdId,
         item_count_bucket:
@@ -230,7 +242,12 @@ function ActiveShop({
         total_present: false,
         receipt_present: false,
       });
-      router.replace("/(tabs)" as Href);
+      if (result.mode === "immediate") {
+        router.replace("/(tabs)" as Href);
+      } else {
+        setCompletionQueued(true);
+        finishSheetRef.current?.close();
+      }
     } catch (error) {
       console.error("Couldn't finish shop:", error);
       setFinishError("We couldn't save this shop. Your list is still available.");
@@ -240,15 +257,59 @@ function ActiveShop({
   }, [
     analytics,
     canFinish,
-    createSession,
+    completeShop,
     householdId,
-    list._id,
+    items,
     router,
     totalCount,
   ]);
 
   if (isLoading) {
     return <ShopLoadingState />;
+  }
+
+  if (completionQueued) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-background-light px-6"
+        edges={["top"]}
+      >
+        <Text className="pt-4 text-4xl font-bold tracking-tight text-ink">
+          Shop
+        </Text>
+        <View className="flex-1 items-center justify-center pb-24">
+          <View className="h-20 w-20 items-center justify-center rounded-full bg-teal-soft">
+            <Check size={36} color={themeColors.teal} strokeWidth={2.5} />
+          </View>
+          <Text className="mt-6 text-center text-2xl font-bold text-ink">
+            Shop saved
+          </Text>
+          <Text className="mt-2 max-w-sm text-center text-base leading-6 text-ink-secondary">
+            {hasSyncError
+              ? "We couldn't sync this shop yet. It's still safely saved on this device."
+              : isOnline
+                ? "We're finishing the session and updating your household's plan."
+                : "We'll finish the session and update your household's plan when you're back online."}
+          </Text>
+          {hasSyncError ? (
+            <Button
+              onPress={() => void retrySync()}
+              disabled={!isOnline || isProcessing}
+              loading={isProcessing}
+              className="mt-6"
+              accessibilityLabel="Retry syncing the completed shop"
+            >
+              {isOnline ? "Retry sync" : "Retry when online"}
+            </Button>
+          ) : isOnline ? (
+            <ActivityIndicator
+              className="mt-6"
+              color={themeColors.coral}
+            />
+          ) : null}
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -430,7 +491,9 @@ function ActiveShop({
             </Pressable>
           </View>
           <Text className="mt-2 text-base leading-6 text-ink-secondary">
-            A receipt helps track actual spend. You can also finish without one.
+            {canScanReceipt
+              ? "A receipt helps track actual spend. You can also finish without one."
+              : "Receipt scanning needs a connection. You can finish without one and sync later."}
           </Text>
 
           <Pressable
@@ -438,7 +501,7 @@ function ActiveShop({
               finishSheetRef.current?.close();
               router.push(getReceiptCaptureRoute(list._id));
             }}
-            disabled={!canFinish}
+            disabled={!canScanReceipt}
             className="mt-5 min-h-16 flex-row items-center rounded-xl bg-coral p-4 disabled:opacity-50"
             accessibilityLabel="Scan a receipt"
             accessibilityRole="button"

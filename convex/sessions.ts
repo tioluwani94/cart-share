@@ -4,9 +4,35 @@ import {
   calculatePlannedTotal,
 } from "../lib/budget";
 import { formatMonthShort } from "../lib/formatters";
-import { learnFromPurchase } from "../lib/restockEngine";
 import { getUkMonthRange, getUkYearMonth } from "../lib/ukCalendar";
+import { recordCompletedShop } from "./restocks";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+
+async function finishList(
+  ctx: MutationCtx,
+  args: {
+    householdId: Id<"households">;
+    listId: Id<"lists">;
+    sessionId: Id<"shoppingSessions">;
+    updatedAt: number;
+  },
+) {
+  await recordCompletedShop(ctx, { sessionId: args.sessionId });
+
+  await ctx.db.patch(args.listId, {
+    isArchived: true,
+    updatedAt: args.updatedAt,
+  });
+  const household = await ctx.db.get(args.householdId);
+  if (household?.activeListId === args.listId) {
+    await ctx.db.patch(args.householdId, {
+      activeListId: undefined,
+      updatedAt: args.updatedAt,
+    });
+  }
+}
 
 /**
  * Create a new shopping session.
@@ -105,55 +131,166 @@ export const create = mutation({
     // Keep session creation and list completion in the same Convex transaction.
     // If either write fails, Convex rolls back both and the list stays usable.
     if (args.listId) {
-      const completedItems = await ctx.db
-        .query("items")
-        .withIndex("by_list", (query) => query.eq("listId", args.listId!))
-        .collect();
-      const learnedProductIds = new Set<string>();
-      for (const item of completedItems) {
-        if (
-          !item.isCompleted ||
-          !item.householdProductId ||
-          learnedProductIds.has(item.householdProductId)
-        ) {
-          continue;
-        }
-        const product = await ctx.db.get(item.householdProductId);
-        if (!product || product.householdId !== args.householdId) continue;
-        const learning = learnFromPurchase({
-          product: {
-            id: product._id,
-            displayName: product.displayName,
-            status: product.status,
-            cadenceDays: product.cadenceDays,
-            lastPurchasedAt: product.lastPurchasedAt,
-            activatedAt: product.createdAt,
-            reviewAfter: product.reviewAfter,
-            purchaseObservationCount: product.purchaseObservationCount,
-          },
-          purchasedAt: args.sessionDate ?? now,
-        });
-        await ctx.db.patch(product._id, {
-          ...learning,
-          updatedAt: now,
-        });
-        learnedProductIds.add(product._id);
-      }
-
-      await ctx.db.patch(args.listId, {
-        isArchived: true,
+      await finishList(ctx, {
+        householdId: args.householdId,
+        listId: args.listId,
+        sessionId,
         updatedAt: now,
       });
-      const household = await ctx.db.get(args.householdId);
-      if (household?.activeListId === args.listId) {
-        await ctx.db.patch(args.householdId, {
-          activeListId: undefined,
+    }
+
+    return { sessionId };
+  },
+});
+
+/**
+ * Replay an offline Finish shop command.
+ *
+ * The captured item states are applied before session creation so learning,
+ * archival, and Next shop clearing observe the same snapshot. Convex runs the
+ * entire mutation transactionally. Retries are keyed by list and operation ID,
+ * so reusing a list can still produce a later, distinct shopping session.
+ */
+export const completeOffline = mutation({
+  args: {
+    householdId: v.id("households"),
+    listId: v.id("lists"),
+    operationId: v.string(),
+    sessionDate: v.number(),
+    items: v.array(
+      v.object({
+        itemId: v.optional(v.id("items")),
+        clientId: v.optional(v.string()),
+        isCompleted: v.boolean(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    if (!args.operationId.trim()) {
+      throw new Error("Completion operation ID is required");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (query) =>
+        query.eq("clerkId", identity.subject),
+      )
+      .unique();
+    if (!user) throw new Error("User not found in database");
+
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_household_and_user", (query) =>
+        query
+          .eq("householdId", args.householdId)
+          .eq("userId", user._id),
+      )
+      .unique();
+    if (!membership) {
+      throw new Error("You are not a member of this household");
+    }
+
+    const list = await ctx.db.get(args.listId);
+    if (!list) throw new Error("List not found");
+    if (list.householdId !== args.householdId) {
+      throw new Error("List does not belong to this household");
+    }
+
+    const existingSession = await ctx.db
+      .query("shoppingSessions")
+      .withIndex("by_list_and_completion_operation", (query) =>
+        query
+          .eq("listId", args.listId)
+          .eq("completionOperationId", args.operationId),
+      )
+      .unique();
+    if (existingSession) {
+      return {
+        sessionId: existingSession._id,
+        alreadyCompleted: true as const,
+      };
+    }
+
+    const now = Date.now();
+    const resolvedSnapshotItems = new Map<Id<"items">, {
+      item: Doc<"items">;
+      isCompleted: boolean;
+    }>();
+    for (const snapshot of args.items) {
+      if (!snapshot.itemId && !snapshot.clientId) {
+        throw new Error("Completion item reference is required");
+      }
+      const item = snapshot.itemId
+        ? await ctx.db.get(snapshot.itemId)
+        : await ctx.db
+            .query("items")
+            .withIndex("by_list_and_client_id", (query) =>
+              query
+                .eq("listId", args.listId)
+                .eq("clientId", snapshot.clientId!),
+            )
+            .unique();
+      // A household member may delete an item while this device is offline.
+      // Its absence is already the authoritative server state, so it should
+      // not permanently block the queued completion command.
+      if (!item) continue;
+      if (item.listId !== args.listId) {
+        throw new Error("Completion item does not belong to this list");
+      }
+      if (resolvedSnapshotItems.has(item._id)) {
+        throw new Error("Duplicate completion item reference");
+      }
+      resolvedSnapshotItems.set(item._id, {
+        item,
+        isCompleted: snapshot.isCompleted,
+      });
+    }
+
+    const serverCompletedItems = await ctx.db
+      .query("items")
+      .withIndex("by_list_and_completed", (query) =>
+        query.eq("listId", args.listId).eq("isCompleted", true),
+      )
+      .collect();
+    for (const item of serverCompletedItems) {
+      if (!resolvedSnapshotItems.has(item._id)) {
+        await ctx.db.patch(item._id, {
+          isCompleted: false,
+          completedBy: undefined,
+          completedAt: undefined,
+          updatedAt: now,
+        });
+      }
+    }
+    for (const { item, isCompleted } of resolvedSnapshotItems.values()) {
+      if (item.isCompleted !== isCompleted) {
+        await ctx.db.patch(item._id, {
+          isCompleted,
+          completedBy: isCompleted ? user._id : undefined,
+          completedAt: isCompleted ? args.sessionDate : undefined,
           updatedAt: now,
         });
       }
     }
 
-    return { sessionId };
+    const sessionId = await ctx.db.insert("shoppingSessions", {
+      householdId: args.householdId,
+      listId: args.listId,
+      completionOperationId: args.operationId,
+      shopperId: user._id,
+      sessionDate: args.sessionDate,
+      createdAt: now,
+    });
+    await finishList(ctx, {
+      householdId: args.householdId,
+      listId: args.listId,
+      sessionId,
+      updatedAt: now,
+    });
+
+    return { sessionId, alreadyCompleted: false as const };
   },
 });
 
