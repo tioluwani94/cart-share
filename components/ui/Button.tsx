@@ -1,19 +1,30 @@
-import { Pressable, Text, ActivityIndicator } from "react-native";
+import { BlurView } from "expo-blur";
+import {
+  GlassView,
+  isGlassEffectAPIAvailable,
+  isLiquidGlassAvailable,
+} from "expo-glass-effect";
+import { useMemo } from "react";
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   useReducedMotion,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { cn } from "@/lib/cn";
-import { themeColors } from "@/lib/theme";
+import { getButtonLayout, type ButtonSize } from "@/lib/buttonLayout";
+import {
+  getButtonMaterial,
+  type ButtonVariant,
+} from "@/lib/buttonMaterial";
+import { useIsOnGlassSurface } from "./GlassSurfaceContext";
+import { useReduceTransparency } from "./useReduceTransparency";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const PRESS_EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-
-type ButtonVariant = "primary" | "secondary" | "tonal" | "outline" | "ghost";
-type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -21,33 +32,13 @@ interface ButtonProps {
   size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
+  iconOnly?: boolean;
   onPress?: () => void;
   className?: string;
   textClassName?: string;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
-
-const variantStyles: Record<ButtonVariant, string> = {
-  primary: "bg-coral active:bg-coral/90",
-  secondary: "bg-teal active:bg-teal/90",
-  tonal: "bg-coral-soft active:bg-coral-soft/70",
-  outline: "border border-coral bg-transparent",
-  ghost: "bg-transparent",
-};
-
-const variantTextStyles: Record<ButtonVariant, string> = {
-  primary: "text-white",
-  secondary: "text-white",
-  tonal: "text-coral",
-  outline: "text-coral",
-  ghost: "text-coral",
-};
-
-const sizeStyles: Record<ButtonSize, string> = {
-  sm: "min-h-[48px] px-4",
-  md: "min-h-[48px] px-6",
-  lg: "min-h-[52px] px-8",
-};
 
 const sizeTextStyles: Record<ButtonSize, string> = {
   sm: "text-sm",
@@ -61,31 +52,76 @@ export function Button({
   size = "md",
   disabled = false,
   loading = false,
+  iconOnly = false,
   onPress,
   className,
   textClassName,
   accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
   const reduceMotion = useReducedMotion();
+  const reduceTransparency = useReduceTransparency();
+  const onGlassSurface = useIsOnGlassSurface();
+  const nativeGlassAvailable =
+    Platform.OS === "ios" &&
+    !reduceTransparency &&
+    isLiquidGlassAvailable() &&
+    isGlassEffectAPIAvailable();
   const scale = useSharedValue(1);
+  const pressOverlayOpacity = useSharedValue(0);
+  const layout = useMemo(
+    () => getButtonLayout({ size, iconOnly }),
+    [iconOnly, size],
+  );
+  const material = useMemo(
+    () =>
+      getButtonMaterial({
+        variant,
+        reduceTransparency: reduceTransparency || Platform.OS !== "ios",
+        onGlassSurface,
+        nativeGlassAvailable,
+      }),
+    [nativeGlassAvailable, onGlassSurface, reduceTransparency, variant],
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.get() }],
   }));
+  const animatedPressOverlayStyle = useAnimatedStyle(() => ({
+    opacity: pressOverlayOpacity.get(),
+  }));
 
   const handlePressIn = () => {
+    pressOverlayOpacity.set(
+      withTiming(1, { duration: 80, easing: PRESS_EASE_OUT }),
+    );
     if (!reduceMotion) {
       scale.set(
-        withTiming(0.97, { duration: 120, easing: PRESS_EASE_OUT }),
+        withSpring(0.97, {
+          damping: 28,
+          stiffness: 520,
+          mass: 0.7,
+          overshootClamping: true,
+          energyThreshold: 6e-9,
+        }),
       );
     }
   };
 
   const handlePressOut = () => {
+    pressOverlayOpacity.set(
+      withTiming(0, { duration: 120, easing: PRESS_EASE_OUT }),
+    );
     scale.set(
       reduceMotion
         ? 1
-        : withTiming(1, { duration: 120, easing: PRESS_EASE_OUT }),
+        : withSpring(1, {
+            damping: 28,
+            stiffness: 520,
+            mass: 0.7,
+            overshootClamping: true,
+            energyThreshold: 6e-9,
+          }),
     );
   };
 
@@ -98,32 +134,66 @@ export function Button({
       onPressOut={handlePressOut}
       disabled={isDisabled}
       pressRetentionOffset={16}
-      style={animatedStyle}
+      style={[animatedStyle, layout.fixedStyle]}
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled }}
       className={cn(
-        "flex-row items-center justify-center rounded-full",
-        variantStyles[variant],
-        sizeStyles[size],
-        isDisabled && "opacity-50",
+        "relative flex-row items-center justify-center overflow-hidden rounded-full",
+        material.containerClassName,
+        layout.containerClassName,
         className,
       )}
     >
+      {material.nativeGlass ? (
+        <GlassView
+          key={isDisabled ? "disabled-glass" : "interactive-glass"}
+          glassEffectStyle={material.nativeGlass.effect}
+          tintColor={material.nativeGlass.tintColor}
+          isInteractive={!isDisabled}
+          colorScheme="light"
+          style={{ position: "absolute", inset: 0, borderRadius: 999 }}
+        />
+      ) : material.blurIntensity > 0 ? (
+        <BlurView
+          pointerEvents="none"
+          tint={material.blurTint}
+          intensity={material.blurIntensity}
+          style={{ position: "absolute", inset: 0 }}
+        />
+      ) : null}
+      {material.highlightColor !== "transparent" ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: material.highlightColor,
+          }}
+        />
+      ) : null}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(26, 25, 23, 0.1)",
+          },
+          animatedPressOverlayStyle,
+        ]}
+      />
       {loading ? (
         <ActivityIndicator
-          color={
-            variant === "primary" || variant === "secondary"
-              ? themeColors.surface
-              : themeColors.coral
-          }
+          color={material.spinnerColor}
           size="small"
         />
       ) : typeof children === "string" ? (
         <Text
           className={cn(
             "font-semibold",
-            variantTextStyles[variant],
+            material.textClassName,
             sizeTextStyles[size],
             textClassName,
           )}
@@ -133,6 +203,16 @@ export function Button({
       ) : (
         children
       )}
+      {isDisabled ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(250, 250, 250, 0.52)",
+          }}
+        />
+      ) : null}
     </AnimatedPressable>
   );
 }

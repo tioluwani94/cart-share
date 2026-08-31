@@ -153,6 +153,55 @@ export const getReview = query({
   },
 });
 
+export const listProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_user", (index) => index.eq("userId", user._id))
+      .first();
+    if (!membership) throw new Error("You do not belong to a household");
+
+    const [activeProducts, pausedProducts] = await Promise.all([
+      ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_status", (index) =>
+          index
+            .eq("householdId", membership.householdId)
+            .eq("status", "active"),
+        )
+        .collect(),
+      ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_status", (index) =>
+          index
+            .eq("householdId", membership.householdId)
+            .eq("status", "paused"),
+        )
+        .collect(),
+    ]);
+
+    return [...activeProducts, ...pausedProducts]
+      .sort(
+        (left, right) =>
+          Number(left.status === "paused") - Number(right.status === "paused") ||
+          left.displayName.localeCompare(right.displayName, "en-GB"),
+      )
+      .map((product) => ({
+        _id: product._id,
+        displayName: product.displayName,
+        category: product.category,
+        defaultQuantity: product.defaultQuantity,
+        defaultUnit: product.defaultUnit,
+        cadenceDays: product.cadenceDays,
+        lastPurchasedAt: product.lastPurchasedAt,
+        purchaseObservationCount: product.purchaseObservationCount,
+        status: product.status,
+      }));
+  },
+});
+
 export const getActivationSuggestions = query({
   args: {},
   handler: async (ctx) => {
@@ -377,9 +426,9 @@ export const updateProduct = mutation({
   args: {
     householdProductId: v.id("householdProducts"),
     displayName: v.optional(v.string()),
-    category: v.optional(v.string()),
-    defaultQuantity: v.optional(v.number()),
-    defaultUnit: v.optional(v.string()),
+    category: v.optional(v.union(v.string(), v.null())),
+    defaultQuantity: v.optional(v.union(v.number(), v.null())),
+    defaultUnit: v.optional(v.union(v.string(), v.null())),
     cadenceDays: v.optional(v.number()),
     status: v.optional(v.union(v.literal("active"), v.literal("paused"))),
   },
@@ -399,11 +448,13 @@ export const updateProduct = mutation({
       updates.displayName = displayName;
       updates.normalizedName = normalizeProductName(displayName);
     }
-    if (args.category !== undefined) updates.category = args.category;
+    if (args.category !== undefined) updates.category = args.category ?? undefined;
     if (args.defaultQuantity !== undefined) {
-      updates.defaultQuantity = args.defaultQuantity;
+      updates.defaultQuantity = args.defaultQuantity ?? undefined;
     }
-    if (args.defaultUnit !== undefined) updates.defaultUnit = args.defaultUnit;
+    if (args.defaultUnit !== undefined) {
+      updates.defaultUnit = args.defaultUnit ?? undefined;
+    }
     if (args.cadenceDays !== undefined) {
       updates.cadenceDays = clampCadenceDays(args.cadenceDays);
     }

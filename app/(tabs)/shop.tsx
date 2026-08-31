@@ -1,5 +1,10 @@
 import { AddItemInput, ListItem } from "@/components/lists";
-import { Button } from "@/components/ui";
+import {
+  Button,
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
+} from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
@@ -30,10 +35,9 @@ import {
   ShoppingBasket,
   X,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   Share,
   Text,
@@ -133,7 +137,7 @@ function ActiveShop({
     plannedTotalPence,
   } = useShoppingList(list._id, householdId);
   const createSession = useMutation(api.sessions.create);
-  const [finishOpen, setFinishOpen] = useState(false);
+  const finishSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [handoffStatus, setHandoffStatus] = useState<
@@ -268,12 +272,22 @@ function ActiveShop({
             </Text>
           </View>
           <Button
-            onPress={() => setFinishOpen(true)}
+            onPress={() => {
+              setFinishError(null);
+              finishSheetRef.current?.expand();
+            }}
             disabled={!canFinish}
             variant="tonal"
+            iconOnly
             size="sm"
+            accessibilityLabel="Finish shopping"
+            accessibilityHint="Opens receipt and finish options"
           >
-            Finish
+            <Check
+              size={21}
+              color={themeColors.coral}
+              strokeWidth={2.5}
+            />
           </Button>
         </View>
 
@@ -395,89 +409,87 @@ function ActiveShop({
       </View>
       <AddItemInput onAdd={handleAdd} />
 
-      <Modal
-        visible={finishOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFinishOpen(false)}
+      <GlassBottomSheet
+        ref={finishSheetRef}
+        index={-1}
+        snapPoints={["52%"]}
+        dismissible={!isFinishing}
       >
-        <View className="flex-1 justify-end bg-black/40">
-          <View className="rounded-t-2xl bg-surface px-6 pb-10 pt-5">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-2xl font-bold text-ink">
-                Finish this shop
-              </Text>
-              <Pressable
-                onPress={() => setFinishOpen(false)}
-                className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
-                accessibilityLabel="Close finish shop options"
-                accessibilityRole="button"
-              >
-                <X size={20} color={themeColors.secondaryInk} />
-              </Pressable>
-            </View>
-            <Text className="mt-2 text-base leading-6 text-ink-secondary">
-              A receipt helps track actual spend. You can also finish without one.
+        <GlassBottomSheetView className="px-6 pb-10 pt-2">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-ink">
+              Finish this shop
             </Text>
-
             <Pressable
-              onPress={() => {
-                setFinishOpen(false);
-                router.push(getReceiptCaptureRoute(list._id));
-              }}
-              disabled={!canFinish}
-              className="mt-5 min-h-16 flex-row items-center rounded-xl bg-coral p-4 disabled:opacity-50"
-              accessibilityLabel="Scan a receipt"
+              onPress={() => finishSheetRef.current?.close()}
+              className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
+              accessibilityLabel="Close finish shop options"
               accessibilityRole="button"
             >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-white/20">
-                <Camera size={22} color={themeColors.surface} />
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-bold text-white">
-                  Scan receipt
-                </Text>
-                <Text className="mt-0.5 text-sm text-white/80">
-                  Check the total before saving
-                </Text>
-              </View>
+              <X size={20} color={themeColors.secondaryInk} />
             </Pressable>
-
-            <Pressable
-              onPress={() => void finishWithoutReceipt()}
-              disabled={!canFinish}
-              className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator p-4 disabled:opacity-50"
-              accessibilityLabel="Finish without a receipt"
-              accessibilityRole="button"
-            >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
-                {isFinishing ? (
-                  <ActivityIndicator color={themeColors.secondaryInk} />
-                ) : (
-                  <Receipt size={22} color={themeColors.secondaryInk} />
-                )}
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-bold text-ink">
-                  Finish without receipt
-                </Text>
-                <Text className="mt-0.5 text-sm text-ink-secondary">
-                  Save the trip without an actual total
-                </Text>
-              </View>
-            </Pressable>
-
-            {finishUnavailableMessage && (
-              <Text className="mt-3 text-sm text-yellow-800">
-                {finishUnavailableMessage}
-              </Text>
-            )}
-            {finishError && (
-              <Text className="mt-3 text-sm text-red-600">{finishError}</Text>
-            )}
           </View>
-        </View>
-      </Modal>
+          <Text className="mt-2 text-base leading-6 text-ink-secondary">
+            A receipt helps track actual spend. You can also finish without one.
+          </Text>
+
+          <Pressable
+            onPress={() => {
+              finishSheetRef.current?.close();
+              router.push(getReceiptCaptureRoute(list._id));
+            }}
+            disabled={!canFinish}
+            className="mt-5 min-h-16 flex-row items-center rounded-xl bg-coral p-4 disabled:opacity-50"
+            accessibilityLabel="Scan a receipt"
+            accessibilityRole="button"
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-white/20">
+              <Camera size={22} color={themeColors.surface} />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-bold text-white">
+                Scan receipt
+              </Text>
+              <Text className="mt-0.5 text-sm text-white/80">
+                Check the total before saving
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => void finishWithoutReceipt()}
+            disabled={!canFinish}
+            className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator p-4 disabled:opacity-50"
+            accessibilityLabel="Finish without a receipt"
+            accessibilityRole="button"
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
+              {isFinishing ? (
+                <ActivityIndicator color={themeColors.secondaryInk} />
+              ) : (
+                <Receipt size={22} color={themeColors.secondaryInk} />
+              )}
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-bold text-ink">
+                Finish without receipt
+              </Text>
+              <Text className="mt-0.5 text-sm text-ink-secondary">
+                Save the trip without an actual total
+              </Text>
+            </View>
+          </Pressable>
+
+          {finishUnavailableMessage && (
+            <Text className="mt-3 text-sm text-yellow-800">
+              {finishUnavailableMessage}
+            </Text>
+          )}
+          {finishError && (
+            <Text className="mt-3 text-sm text-red-600">{finishError}</Text>
+          )}
+        </GlassBottomSheetView>
+      </GlassBottomSheet>
     </SafeAreaView>
   );
 }

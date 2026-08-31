@@ -1,5 +1,9 @@
 import { CreateListSheet, ListCard } from "@/components/lists";
-import { Button, UserAvatar } from "@/components/ui";
+import {
+  Button,
+  type GlassBottomSheetRef,
+  UserAvatar,
+} from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
 import {
@@ -11,7 +15,6 @@ import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { themeColors } from "@/lib/theme";
 import { useUser } from "@clerk/clerk-expo";
-import BottomSheet from "@gorhom/bottom-sheet";
 import { useMutation } from "convex/react";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -20,6 +23,7 @@ import {
   ChevronRight,
   CloudOff,
   Plus,
+  SlidersHorizontal,
   ShoppingBasket,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -61,7 +65,7 @@ function nextSaturday(now = new Date()): number {
 export default function PlanScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [planningError, setPlanningError] = useState<string | null>(null);
@@ -410,6 +414,24 @@ export default function PlanScreen() {
             </View>
           </View>
         )}
+
+        <Pressable
+          onPress={() => router.push("/tracked-products" as Href)}
+          className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
+          accessibilityLabel="Manage tracked products"
+          accessibilityRole="button"
+        >
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-warm-gray-100">
+            <SlidersHorizontal size={20} color={themeColors.secondaryInk} />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="font-semibold text-ink">Tracked products</Text>
+            <Text className="mt-0.5 text-sm text-ink-secondary">
+              Adjust timing or pause reminders
+            </Text>
+          </View>
+          <ChevronRight size={20} color={themeColors.secondaryInk} />
+        </Pressable>
 
         {otherLists.length > 0 && (
           <View className="mt-7">

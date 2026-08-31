@@ -1,10 +1,11 @@
-import { Button, Input } from "@/components/ui";
+import {
+  Button,
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
+  Input,
+} from "@/components/ui";
 import { api } from "@/convex/_generated/api";
-import BottomSheet, {
-  BottomSheetBackdrop,
-  type BottomSheetBackdropProps,
-  BottomSheetView,
-} from "@gorhom/bottom-sheet";
 import { useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -21,7 +22,10 @@ interface CreateListSheetProps {
 /**
  * Bottom sheet for creating a new shopping list.
  */
-export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
+export const CreateListSheet = forwardRef<
+  GlassBottomSheetRef,
+  CreateListSheetProps
+>(
   function CreateListSheet({ onClose }, ref) {
     const router = useRouter();
     const [listName, setListName] = useState("");
@@ -60,18 +64,6 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
         }
       },
       [onClose, resetForm],
-    );
-
-    const renderBackdrop = useCallback(
-      (props: BottomSheetBackdropProps) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      [],
     );
 
     const handleCreate = async () => {
@@ -129,17 +121,14 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
     };
 
     return (
-      <BottomSheet
+      <GlassBottomSheet
         ref={ref}
         index={-1}
         snapPoints={snapPoints}
         onChange={handleSheetChange}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#FFFFFF" }}
-        handleIndicatorStyle={{ backgroundColor: "#D4D2CC", width: 40 }}
+        dismissible={!isCreating}
       >
-        <BottomSheetView className="flex-1 px-6">
+        <GlassBottomSheetView className="flex-1 px-6">
           {showSuccess ? (
             <SuccessCelebration listName={listName.trim()} />
           ) : (
@@ -216,8 +205,8 @@ export const CreateListSheet = forwardRef<BottomSheet, CreateListSheetProps>(
               </View>
             </>
           )}
-        </BottomSheetView>
-      </BottomSheet>
+        </GlassBottomSheetView>
+      </GlassBottomSheet>
     );
   },
 );

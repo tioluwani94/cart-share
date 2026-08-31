@@ -7,7 +7,14 @@ import {
   ListItem,
   PartnerActivityToast,
 } from "@/components/lists";
-import { Button, Input, Toast } from "@/components/ui";
+import {
+  Button,
+  GlassBottomSheet,
+  GlassBottomSheetView,
+  type GlassBottomSheetRef,
+  Input,
+  Toast,
+} from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCachedList } from "@/lib/useCachedQuery";
@@ -17,7 +24,6 @@ import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
-import BottomSheet from "@gorhom/bottom-sheet";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
@@ -26,7 +32,6 @@ import { ChevronDown, ChevronLeft, CloudOff } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   RefreshControl,
   Text,
@@ -69,7 +74,6 @@ export default function ListDetailScreen() {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showArchiveToast, setShowArchiveToast] = useState(false);
-  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
   const [tripBudgetInput, setTripBudgetInput] = useState("");
   const [tripBudgetError, setTripBudgetError] = useState("");
   const [isSavingTripBudget, setIsSavingTripBudget] = useState(false);
@@ -81,7 +85,8 @@ export default function ListDetailScreen() {
   const flashListRef = useRef<any>(null);
 
   // Ref for edit item bottom sheet
-  const editSheetRef = useRef<BottomSheet>(null);
+  const editSheetRef = useRef<GlassBottomSheetRef>(null);
+  const budgetSheetRef = useRef<GlassBottomSheetRef>(null);
 
   // Fetch list, items (with caching), and current user
   const { data: list } = useCachedList(listId, userId);
@@ -278,7 +283,7 @@ export default function ListDetailScreen() {
         : (list.tripBudgetPence / 100).toFixed(2),
     );
     setTripBudgetError("");
-    setShowBudgetEditor(true);
+    requestAnimationFrame(() => budgetSheetRef.current?.expand());
   }, [list?.tripBudgetPence]);
 
   const handleSaveTripBudget = useCallback(async () => {
@@ -294,7 +299,7 @@ export default function ListDetailScreen() {
     setIsSavingTripBudget(true);
     try {
       await updateList({ listId, tripBudgetPence: budgetPence });
-      setShowBudgetEditor(false);
+      budgetSheetRef.current?.close();
     } catch (error) {
       console.error("Failed to update trip budget:", error);
       setTripBudgetError("Couldn't save the budget. Please try again.");
@@ -576,50 +581,48 @@ export default function ListDetailScreen() {
         onDelete={offlineRemoveItem}
       />
 
-      <Modal
-        visible={showBudgetEditor}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBudgetEditor(false)}
+      <GlassBottomSheet
+        ref={budgetSheetRef}
+        index={-1}
+        snapPoints={["44%"]}
+        dismissible={!isSavingTripBudget}
       >
-        <View className="flex-1 items-center justify-center bg-black/30 px-6">
-          <View className="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg">
-            <Text className="text-xl font-bold text-warm-gray-900">
-              Trip budget
-            </Text>
-            <Text className="mb-5 mt-1 text-warm-gray-500">
-              Leave this empty to remove the budget.
-            </Text>
-            <Input
-              label="Budget in pounds"
-              value={tripBudgetInput}
-              onChangeText={(value) => {
-                setTripBudgetInput(value);
-                setTripBudgetError("");
-              }}
-              error={tripBudgetError}
-              placeholder="e.g. £60"
-              keyboardType="decimal-pad"
-            />
-            <View className="mt-2 flex-row gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onPress={() => setShowBudgetEditor(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onPress={handleSaveTripBudget}
-                loading={isSavingTripBudget}
-              >
-                Save
-              </Button>
-            </View>
+        <GlassBottomSheetView className="px-6 pb-10 pt-2">
+          <Text className="text-xl font-bold text-warm-gray-900">
+            Trip budget
+          </Text>
+          <Text className="mb-5 mt-1 text-warm-gray-500">
+            Leave this empty to remove the budget.
+          </Text>
+          <Input
+            label="Budget in pounds"
+            value={tripBudgetInput}
+            onChangeText={(value) => {
+              setTripBudgetInput(value);
+              setTripBudgetError("");
+            }}
+            error={tripBudgetError}
+            placeholder="e.g. £60"
+            keyboardType="decimal-pad"
+          />
+          <View className="mt-2 flex-row gap-3">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onPress={() => budgetSheetRef.current?.close()}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onPress={handleSaveTripBudget}
+              loading={isSavingTripBudget}
+            >
+              Save
+            </Button>
           </View>
-        </View>
-      </Modal>
+        </GlassBottomSheetView>
+      </GlassBottomSheet>
 
       {/* Completion celebration overlay */}
       <CompletionCelebration

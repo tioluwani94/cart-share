@@ -4,7 +4,13 @@ import { Pencil, Minus, Plus, Trash2 } from "lucide-react-native";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { Button, Input } from "@/components/ui";
+import {
+  Button,
+  GlassBottomSheet,
+  GlassBottomSheetScrollView,
+  type GlassBottomSheetRef,
+  Input,
+} from "@/components/ui";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
@@ -14,11 +20,6 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import BottomSheet, {
-  BottomSheetBackdrop,
-  type BottomSheetBackdropProps,
-  BottomSheetScrollView,
-} from "@gorhom/bottom-sheet";
 import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
@@ -209,7 +210,7 @@ interface EditItemSheetProps {
 /**
  * Bottom sheet for editing item details.
  */
-export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
+export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>(
   function EditItemSheet({ onClose, item, onUpdate, onDelete }, ref) {
     const [name, setName] = useState("");
     const [quantity, setQuantity] = useState(1);
@@ -266,18 +267,6 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
         }
       },
       [onClose, resetForm],
-    );
-
-    const renderBackdrop = useCallback(
-      (props: BottomSheetBackdropProps) => (
-        <BottomSheetBackdrop
-          {...props}
-          disappearsOnIndex={-1}
-          appearsOnIndex={0}
-          opacity={0.5}
-        />
-      ),
-      [],
     );
 
     const handleSave = async () => {
@@ -365,19 +354,14 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
     };
 
     return (
-      <BottomSheet
+      <GlassBottomSheet
         ref={ref}
         index={-1}
         snapPoints={snapPoints}
         onChange={handleSheetChange}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#FFFFFF" }}
-        handleIndicatorStyle={{ backgroundColor: "#D4D2CC", width: 40 }}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
+        dismissible={!isSaving && !isDeleting}
       >
-        <BottomSheetScrollView
+        <GlassBottomSheetScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
         >
           {/* Header */}
@@ -494,8 +478,8 @@ export const EditItemSheet = forwardRef<BottomSheet, EditItemSheetProps>(
               />
             </Pressable>
           </View>
-        </BottomSheetScrollView>
-      </BottomSheet>
+        </GlassBottomSheetScrollView>
+      </GlassBottomSheet>
     );
   },
 );

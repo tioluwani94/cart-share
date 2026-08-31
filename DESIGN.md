@@ -58,14 +58,16 @@ components:
     backgroundColor: "{colors.primary-coral}"
     textColor: "{colors.surface}"
     typography: "{typography.title}"
-    rounded: "{rounded.md}"
+    material: "native-liquid-glass-with-brand-tint"
+    rounded: "{rounded.pill}"
     padding: "14px 20px"
     height: "48px"
   button-tonal:
-    backgroundColor: "{colors.primary-coral-soft}"
+    backgroundColor: "rgba(201, 74, 74, 0.14)"
     textColor: "{colors.primary-coral}"
     typography: "{typography.title}"
-    rounded: "{rounded.md}"
+    material: "native-clear-liquid-glass"
+    rounded: "{rounded.pill}"
     padding: "14px 20px"
     height: "48px"
   input:
@@ -94,7 +96,7 @@ The interface should feel like returning to a clear kitchen counter where the ne
 
 The system is restrained, native, and task-oriented. Warmth comes from language, the coral identity colour, responsive touch feedback, and a small number of meaningful illustrations—not from covering the interface with decoration. Familiar platform behaviour is part of the visual identity: users should immediately understand navigation, lists, sheets, toggles, and swipe actions.
 
-It rejects cartoonish gamification, dashboard clutter, prompt-first AI, exact-inventory administration, decorative gradients, glass surfaces, excessive cards, and motion that delays the task.
+It rejects cartoonish gamification, dashboard clutter, prompt-first AI, exact-inventory administration, decorative gradients, decorative or stacked glass surfaces, excessive cards, and motion that delays the task. Restrained system material is reserved for temporary bottom-sheet chrome and interactive button layers, where translucency reinforces physical hierarchy.
 
 **Key Characteristics:**
 
@@ -125,7 +127,7 @@ The palette preserves the existing coral, teal, yellow, and warm-neutral identit
 ### Neutral
 
 - **Clean Canvas** (`#FAFAFA`): Light app background.
-- **Clear Surface** (`#FFFFFF`): Focused controls, sheets, and selectively grouped content.
+- **Clear Surface** (`#FFFFFF`): Focused controls, the accessible solid fallback for sheets, and selectively grouped content.
 - **Household Ink** (`#1A1917`): Primary text and icons.
 - **Secondary Ink** (`#5C5A54`): Supporting text that remains legible on Canvas and Surface.
 - **Quiet Separator** (`#E8E6E1`): Dividers and control outlines.
@@ -170,10 +172,13 @@ The interface is flat by default. Hierarchy comes from spacing, typography, sepa
 
 ### Buttons
 
-- **Shape:** Soft native rectangle with 12 px radius, not a capsule by default.
-- **Primary:** Household Coral with white text, at least 48 px high and full-width only when the action owns the screen.
-- **Pressed / Focus:** Short 150–200 ms tonal darkening with subtle haptic feedback where appropriate; visible platform focus treatment for keyboard and assistive input.
-- **Secondary:** Tonal Coral Whisper or plain text depending emphasis. Avoid thick coloured outlines as the default secondary style.
+- **Shape:** A native-feeling capsule at least 48 px high. Icon-only actions use the shared `iconOnly` layout: an exact 48×48 pt circle at the small size, with no inherited horizontal padding.
+- **Primary:** Native iOS Liquid Glass with a Household Coral tint and white text. It stays visually strong and becomes full-width only when the action owns the screen.
+- **Secondary:** Fresh Teal uses the same native tinted treatment. Tonal and outline actions use native Clear Liquid Glass over ordinary content; ghost actions remain surface-free so every action does not compete for elevation.
+- **Platform fallback:** iOS 26 uses `GlassView`. Earlier iOS versions use System Thin Material, while Android and Reduce Transparency use opaque semantic fills with the same hierarchy.
+- **Material boundaries:** Never blur a button on top of another glass surface. Inside a glass sheet, tonal and outline actions switch automatically to solid Coral Whisper or Clear Surface fallbacks.
+- **Pressed / Focus:** Respond on touch-down with a critically damped scale to 0.97 and a brief tonal overlay; keep visible platform focus treatment for keyboard and assistive input.
+- **Accessibility:** Respect Reduce Motion and Reduce Transparency independently. Reduced transparency uses opaque semantic fills without changing the button hierarchy.
 - **Disabled / Loading:** Preserve label readability, prevent repeat submission, and retain the control's dimensions.
 
 ### Chips
@@ -201,6 +206,14 @@ The interface is flat by default. Hierarchy comes from spacing, typography, sepa
 - **iOS:** Native-feeling tab bar, large top-level titles, navigation stack for detail, sheet for self-contained review and editing tasks, preserved edge-swipe back gesture.
 - **Android:** Material navigation bar at compact width, rail or drawer at expanded widths, predictive Back, edge-to-edge layout with correct insets.
 - **Destinations:** Plan, Shop, and Spending. Household settings open from the profile control and do not occupy a primary tab.
+
+### Bottom Sheets
+
+- **Default implementation:** Every self-contained bottom-sheet task uses the shared `GlassBottomSheet` wrapper around Gorhom Bottom Sheet. Do not introduce page-sheet or hand-built bottom-modal variants.
+- **Material:** System Material Light blur with a restrained warm translucent fill, bright one-pixel edge, 28 px top corners, and the Overlay shadow. Do not stack additional translucent cards inside it.
+- **Interaction:** Direct 1:1 dragging, pan-down dismissal, a responsive interruptible spring, keyboard-aware positioning, and a 34% dimming backdrop. Disable dismissal while an irreversible save is in flight.
+- **Accessibility:** Follow the system Reduce Motion setting. When Reduce Transparency is enabled, replace blur with an opaque Clean Canvas surface while preserving contrast and hierarchy.
+- **Boundaries:** Alerts, destructive confirmations, popovers, tooltips, celebrations, and full-screen media viewers keep their purpose-built interaction patterns; they are not bottom sheets.
 
 ### Restock Row
 
@@ -243,7 +256,7 @@ Analytics consent is a plain-language beta choice, separate from notifications a
 - **Don't** make a chatbot or prompt box the main interface for routine grocery decisions.
 - **Don't** require exact inventory or ask users to record every consumed item.
 - **Don't** use autonomous or opaque recommendations that hide why an item was suggested.
-- **Don't** use decorative gradients, glass surfaces, gradient text, side-stripe accents, or nested cards.
+- **Don't** use decorative gradients, decorative or stacked glass surfaces, gradient text, side-stripe accents, or nested cards. Restrained glass belongs only to temporary sheet chrome and shared interactive button layers.
 - **Don't** use raw hard-coded colours where platform semantic roles are needed for dark mode or increased contrast.
 - **Don't** animate every row on load or celebrate individual checkbox taps with confetti.
 - **Don't** ask for notification permission at first launch or bundle analytics consent into account creation.

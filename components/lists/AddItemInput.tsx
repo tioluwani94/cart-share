@@ -1,18 +1,16 @@
 import * as Haptics from "expo-haptics";
 import { Plus } from "lucide-react-native";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import Animated, {
   useAnimatedKeyboard,
-  useReducedMotion,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { themeColors } from "@/lib/theme";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+import { Button } from "@/components/ui/Button";
 
 interface AddItemInputProps {
   onAdd: (name: string) => Promise<void>;
@@ -20,15 +18,12 @@ interface AddItemInputProps {
 }
 
 export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
-  const reduceMotion = useReducedMotion();
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   // Animation values
-  const buttonScale = useSharedValue(1);
-  const inputWidth = useSharedValue(1);
   const inputOpacity = useSharedValue(1);
 
   // Keyboard animation
@@ -38,13 +33,8 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
     transform: [{ translateY: -keyboard.height.value }],
   }));
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
   const inputAnimatedStyle = useAnimatedStyle(() => ({
     opacity: inputOpacity.value,
-    transform: [{ scaleX: inputWidth.value }],
   }));
 
   const handleSubmit = useCallback(async () => {
@@ -52,14 +42,6 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
     if (!trimmedValue || isSubmitting || disabled) return;
 
     setIsSubmitting(true);
-
-    // Press animation for button
-    buttonScale.value = reduceMotion
-      ? 1
-      : withSequence(
-          withTiming(0.96, { duration: 80 }),
-          withTiming(1, { duration: 120 }),
-        );
 
     try {
       await onAdd(trimmedValue);
@@ -90,22 +72,8 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
     isSubmitting,
     disabled,
     onAdd,
-    buttonScale,
     inputOpacity,
-    reduceMotion,
   ]);
-
-  const handleButtonPressIn = () => {
-    if (!disabled && value.trim()) {
-      buttonScale.value = reduceMotion
-        ? 1
-        : withTiming(0.97, { duration: 100 });
-    }
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = reduceMotion ? 1 : withTiming(1, { duration: 140 });
-  };
 
   const handleKeyboardSubmit = () => {
     handleSubmit();
@@ -151,27 +119,20 @@ export function AddItemInput({ onAdd, disabled = false }: AddItemInputProps) {
         </Animated.View>
 
         {/* Add button */}
-        <AnimatedPressable
-          onPress={handleSubmit}
-          onPressIn={handleButtonPressIn}
-          onPressOut={handleButtonPressOut}
+        <Button
+          onPress={() => void handleSubmit()}
           disabled={isAddDisabled}
-          style={buttonAnimatedStyle}
-          className={`h-12 w-12 items-center justify-center rounded-full ${
-            isAddDisabled ? "bg-warm-gray-300" : "bg-coral"
-          }`}
+          iconOnly
+          size="sm"
           accessibilityLabel="Add item"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isAddDisabled }}
+          accessibilityHint="Adds the entered item to this shopping list"
         >
           <Plus
-            size={24}
-            color={
-              isAddDisabled ? themeColors.secondaryInk : themeColors.surface
-            }
+            size={22}
+            color={themeColors.surface}
             strokeWidth={2.5}
           />
-        </AnimatedPressable>
+        </Button>
       </View>
     </Animated.View>
   );

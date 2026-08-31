@@ -573,10 +573,11 @@ export default function SettingsScreen() {
             </Text>
             <View className="mt-6 gap-2">
               <Button
+                variant="danger"
                 onPress={handleSignOutConfirm}
                 disabled={isSigningOut}
                 loading={isSigningOut}
-                className="w-full bg-red-700"
+                className="w-full"
               >
                 Sign out
               </Button>

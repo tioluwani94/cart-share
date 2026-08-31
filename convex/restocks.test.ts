@@ -1,5 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import { decide, updateProduct } from "./restocks";
+import { decide, listProducts, updateProduct } from "./restocks";
 
 type DecideHandler = (
   ctx: unknown,
@@ -17,12 +17,26 @@ type UpdateProductHandler = (
   ctx: unknown,
   args: {
     householdProductId: Id<"householdProducts">;
-    status: "paused";
+    displayName?: string;
+    category?: string | null;
+    defaultQuantity?: number | null;
+    defaultUnit?: string | null;
+    cadenceDays?: number;
+    status?: "active" | "paused";
   },
 ) => Promise<unknown>;
 
 const updateTrackedProduct = (
   updateProduct as unknown as { _handler: UpdateProductHandler }
+)._handler;
+
+type ListProductsHandler = (
+  ctx: unknown,
+  args: Record<string, never>,
+) => Promise<unknown>;
+
+const listTrackedProducts = (
+  listProducts as unknown as { _handler: ListProductsHandler }
 )._handler;
 
 describe("restocks.decide", () => {
@@ -148,6 +162,79 @@ describe("restocks.decide", () => {
   });
 });
 
+describe("restocks.listProducts", () => {
+  it("returns active and paused household products in a predictable order", async () => {
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    const activeProduct = {
+      _id: "product_2" as Id<"householdProducts">,
+      displayName: "Milk",
+      normalizedName: "milk",
+      householdId,
+      cadenceDays: 7,
+      purchaseObservationCount: 2,
+      status: "active" as const,
+      createdBy: userId,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const pausedProduct = {
+      _id: "product_1" as Id<"householdProducts">,
+      displayName: "Bread",
+      normalizedName: "bread",
+      householdId,
+      cadenceDays: 14,
+      purchaseObservationCount: 1,
+      status: "paused" as const,
+      createdBy: userId,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    let productQueryCount = 0;
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () => (table === "users" ? { _id: userId } : null),
+            first: async () =>
+              table === "householdMembers" ? { householdId, userId } : null,
+            collect: async () => {
+              if (table !== "householdProducts") return [];
+              productQueryCount += 1;
+              return productQueryCount === 1 ? [activeProduct] : [pausedProduct];
+            },
+          }),
+        }),
+      },
+    };
+
+    await expect(listTrackedProducts(ctx, {})).resolves.toEqual([
+      expect.objectContaining({ displayName: "Milk", status: "active" }),
+      expect.objectContaining({ displayName: "Bread", status: "paused" }),
+    ]);
+  });
+
+  it("rejects a signed-in user without a household membership", async () => {
+    const userId = "user_1" as Id<"users">;
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () => (table === "users" ? { _id: userId } : null),
+            first: async () => null,
+          }),
+        }),
+      },
+    };
+
+    await expect(listTrackedProducts(ctx, {})).rejects.toThrow(
+      "You do not belong to a household",
+    );
+  });
+});
+
 describe("restocks.updateProduct", () => {
   it("patches only fields the household explicitly changed", async () => {
     const householdProductId = "product_1" as Id<"householdProducts">;
@@ -179,5 +266,41 @@ describe("restocks.updateProduct", () => {
     );
     expect(patch.mock.calls[0][1]).not.toHaveProperty("displayName");
     expect(patch.mock.calls[0][1]).not.toHaveProperty("defaultQuantity");
+  });
+
+  it("clears optional product details when the household removes them", async () => {
+    const householdProductId = "product_1" as Id<"householdProducts">;
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    const patch = jest.fn(async (_id: string, _changes: object) => undefined);
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: async () => ({ _id: householdProductId, householdId }),
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users" ? { _id: userId } : { householdId, userId },
+          }),
+        }),
+        patch,
+      },
+    };
+
+    await updateTrackedProduct(ctx, {
+      householdProductId,
+      category: null,
+      defaultQuantity: null,
+      defaultUnit: null,
+    });
+
+    expect(patch).toHaveBeenCalledWith(
+      householdProductId,
+      expect.objectContaining({
+        category: undefined,
+        defaultQuantity: undefined,
+        defaultUnit: undefined,
+      }),
+    );
   });
 });

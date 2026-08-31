@@ -191,8 +191,8 @@ export default function WelcomeScreen() {
               <Button
                 onPress={handleAppleSignIn}
                 size="lg"
-                variant="outline"
-                className="mt-3 w-full border-2 border-warm-gray-900 bg-warm-gray-900"
+                variant="dark"
+                className="mt-3 w-full"
                 accessibilityLabel="Continue with Apple"
               >
                 <View className="flex-row items-center">
