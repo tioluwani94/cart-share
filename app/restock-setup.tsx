@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui";
+import { Button, GlassSegmentedControl } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
@@ -255,20 +255,17 @@ export default function RestockSetupScreen() {
             <Text className="mt-7 text-base font-semibold text-warm-gray-900">
               How you usually shop
             </Text>
-            <View className="mt-3 flex-row flex-wrap gap-2">
-              {[
-                ["In store", "in_store"],
-                ["Online", "online"],
-                ["Both", "both"],
-              ].map(([label, value]) => (
-                <Choice
-                  key={value}
-                  label={label}
-                  selected={shoppingMode === value}
-                  onPress={() => setShoppingMode(value as ShoppingMode)}
-                />
-              ))}
-            </View>
+            <GlassSegmentedControl
+              value={shoppingMode}
+              options={[
+                { label: "In store", value: "in_store" },
+                { label: "Online", value: "online" },
+                { label: "Both", value: "both" },
+              ]}
+              onValueChange={setShoppingMode}
+              accessibilityLabel="Usual shopping method"
+              className="mt-3"
+            />
             <Text className="mt-6 text-sm leading-5 text-warm-gray-500">
               Household size only improves the starting plan. Your purchase history
               and corrections will take over as better evidence.

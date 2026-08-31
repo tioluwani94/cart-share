@@ -1,6 +1,7 @@
 import { CreateListSheet, ListCard } from "@/components/lists";
 import {
   Button,
+  GlassSegmentedControl,
   type GlassBottomSheetRef,
   UserAvatar,
 } from "@/components/ui";
@@ -240,39 +241,25 @@ export default function PlanScreen() {
               <Text className="text-sm font-semibold text-ink-secondary">
                 How will you shop?
               </Text>
-              <View className="mt-2 flex-row rounded-full bg-warm-gray-100 p-1">
-                {(
-                  [
-                    ["In store", "in_store"],
-                    ["Online", "online"],
-                  ] as const
-                ).map(([label, mode]) => {
-                  const selected = displayedShoppingMode === mode;
-                  return (
-                    <Pressable
-                      key={mode}
-                      onPress={() => void chooseShoppingMode(mode)}
-                      disabled={isChangingMode}
-                      className={cn(
-                        "min-h-11 flex-1 items-center justify-center rounded-full px-4",
-                        selected && "bg-surface",
-                      )}
-                      accessibilityLabel={`Shop ${label.toLocaleLowerCase("en-GB")}`}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected, disabled: isChangingMode }}
-                    >
-                      <Text
-                        className={cn(
-                          "font-semibold",
-                          selected ? "text-ink" : "text-ink-secondary",
-                        )}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <GlassSegmentedControl
+                value={displayedShoppingMode}
+                options={[
+                  {
+                    label: "In store",
+                    value: "in_store",
+                    accessibilityLabel: "Shop in store",
+                  },
+                  {
+                    label: "Online",
+                    value: "online",
+                    accessibilityLabel: "Shop online",
+                  },
+                ]}
+                onValueChange={(mode) => void chooseShoppingMode(mode)}
+                disabled={isChangingMode}
+                accessibilityLabel="Shopping method"
+                className="mt-2"
+              />
             </View>
 
             <Button

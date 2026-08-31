@@ -4,6 +4,11 @@ export { Checkbox } from "./Checkbox";
 export { CodeInput } from "./CodeInput";
 export { Input } from "./Input";
 export {
+  GlassSegmentedControl,
+  type GlassSegmentedControlOption,
+  type GlassSegmentedControlProps,
+} from "./GlassSegmentedControl";
+export {
   GlassBottomSheet,
   GlassBottomSheetScrollView,
   GlassBottomSheetView,
