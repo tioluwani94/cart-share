@@ -1,16 +1,21 @@
 import React, { type ReactNode } from "react";
 import type { PressableProps } from "react-native";
-import TestRenderer, {
-  act,
-  type ReactTestRenderer,
-} from "react-test-renderer";
+import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 
 import RestockReviewScreen from "../app/restock-review";
 
 const mockReplace = jest.fn();
 const mockTrack = jest.fn();
 const mockMakeDecision = jest.fn();
+const mockFlashList = jest.fn();
 
+const milkCandidate = {
+  householdProductId: "product_1",
+  displayName: "Milk",
+  cadenceDays: 7,
+  expectedDueAt: Date.UTC(2026, 8, 5),
+  isAdded: false,
+};
 const mockReview = {
   activeList: null as null | { _id: string; name: string },
   candidateCount: 1,
@@ -20,21 +25,55 @@ const mockReview = {
     marketCountryCode: "GB",
     planningTimeZone: "Europe/London",
   },
-  candidates: [
-    {
-      householdProductId: "product_1",
-      displayName: "Milk",
-      cadenceDays: 7,
-      expectedDueAt: Date.UTC(2026, 8, 5),
-      isAdded: false,
-    },
-  ],
+  candidates: [milkCandidate],
 };
 
+jest.mock("@shopify/flash-list", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+
+  const renderOptionalComponent = (
+    component: React.ElementType | ReactNode,
+  ) => {
+    if (!component) return null;
+    return React.isValidElement(component)
+      ? component
+      : React.createElement(component as React.ElementType);
+  };
+
+  return {
+    FlashList: (props: {
+      data: typeof mockReview.candidates;
+      renderItem: (input: {
+        item: (typeof mockReview.candidates)[number];
+        index: number;
+      }) => ReactNode;
+      ListHeaderComponent?: React.ElementType | ReactNode;
+      ListEmptyComponent?: React.ElementType | ReactNode;
+      ListFooterComponent?: React.ElementType | ReactNode;
+    }) => {
+      mockFlashList(props);
+      return (
+        <View>
+          {renderOptionalComponent(props.ListHeaderComponent)}
+          {props.data.length === 0
+            ? renderOptionalComponent(props.ListEmptyComponent)
+            : props.data.map((item, index) => (
+                <React.Fragment key={item.householdProductId}>
+                  {props.renderItem({ item, index })}
+                </React.Fragment>
+              ))}
+          {renderOptionalComponent(props.ListFooterComponent)}
+        </View>
+      );
+    },
+  };
+});
+
 jest.mock("@/components/ui", () => {
-  const { Pressable, Text } = jest.requireActual<typeof import("react-native")>(
-    "react-native",
-  );
+  const { Pressable, Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
   return {
     Button: ({
       children,
@@ -82,9 +121,8 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("lucide-react-native", () => {
-  const { View } = jest.requireActual<typeof import("react-native")>(
-    "react-native",
-  );
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
   const Icon = () => <View />;
   return new Proxy({}, { get: () => Icon });
 });
@@ -93,7 +131,8 @@ describe("RestockReviewScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReview.activeList = null;
-    mockReview.candidates[0].isAdded = false;
+    mockReview.candidateCount = 1;
+    mockReview.candidates = [{ ...milkCandidate }];
   });
 
   it("keeps Add unavailable when there is no Next shop", () => {
@@ -149,4 +188,32 @@ describe("RestockReviewScreen", () => {
     expect(mockTrack).toHaveBeenCalledTimes(1);
   });
 
+  it("virtualizes a long household review without dropping candidates", () => {
+    mockReview.activeList = {
+      _id: "list_1",
+      name: "Weekly shop",
+    };
+    mockReview.candidates = Array.from({ length: 12 }, (_, index) => ({
+      ...milkCandidate,
+      householdProductId: `product_${index}`,
+      displayName: `Product ${index}`,
+    }));
+    mockReview.candidateCount = mockReview.candidates.length;
+
+    let renderer!: ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<RestockReviewScreen />);
+    });
+
+    expect(mockFlashList).toHaveBeenCalledWith(
+      expect.objectContaining({ data: mockReview.candidates }),
+    );
+    mockReview.candidates.forEach((candidate) => {
+      expect(
+        renderer.root.findByProps({
+          accessibilityLabel: `Add ${candidate.displayName} to shop`,
+        }),
+      ).toBeTruthy();
+    });
+  });
 });
