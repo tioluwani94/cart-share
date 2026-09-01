@@ -1,9 +1,9 @@
 # Next Shop MVP — Product, UX, and Engineering Brief
 
-Status: **Navigation, core restock schema, offline direction, and activation placement approved; notification, analytics, household-size, and market additions proposed**
-Application code changed: **No**
-Schema changed: **No**
-Navigation changed: **No**
+Status: **Core MVP implemented; release hardening and closed-beta validation in progress**
+Application code changed: **Yes**
+Schema changed: **Yes — approved additive fields, tables, and indexes**
+Navigation changed: **Yes — approved Plan / Shop / Spending structure**
 
 ## 1. Feature summary
 
@@ -63,7 +63,7 @@ Every suggestion must answer three questions at a glance:
 
 ## 5. Information architecture proposal
 
-This navigation structure was approved in checkpoint A and remains unimplemented.
+This navigation structure was approved in checkpoint A and is implemented.
 
 ### Primary tabs
 
@@ -80,13 +80,13 @@ This navigation structure was approved in checkpoint A and remains unimplemented
 - Receipt capture and confirmation remain focused stack routes.
 - Product tracking preferences open as a nested Plan/settings route, not another tab.
 
-### File-level direction
+### Implemented file-level structure
 
-- `app/(tabs)/index.tsx` becomes Plan.
-- Add `app/(tabs)/shop.tsx` for the active shop.
-- `app/(tabs)/analytics.tsx` keeps its route but displays the label Spending.
-- `app/(tabs)/settings.tsx` remains addressable but uses `href: null` in the tab configuration.
-- Extract the reusable shopping-list implementation from `app/list/[id].tsx` so the Shop tab and list detail cross the same interface rather than duplicating behaviour.
+- `app/(tabs)/index.tsx` is Plan.
+- `app/(tabs)/shop.tsx` presents the active shop.
+- `app/(tabs)/analytics.tsx` keeps its route and displays the label Spending.
+- Settings is a hidden stack route opened from avatar controls rather than a visible tab.
+- `lib/useShoppingList.ts` and the list modules share shopping-list behaviour between the Shop tab and list detail.
 
 ## 6. Core flow
 
@@ -249,7 +249,7 @@ The list is archived only after a shopping session is saved. “Skip for now” 
 - Activation occurs after the household exists, not inside Clerk authentication.
 - “Household activation” means product onboarding after account and household creation. It is separate from authentication and invitation.
 - A household completes activation once; both members share the result.
-- It should take less than 90 seconds, support skip and resume, and never require a complete pantry inventory.
+- It should take less than 90 seconds, preserve in-progress choices when navigating back, and never require a complete pantry inventory. The four short steps are required before entering the main app.
 - Ask “How many people do you usually buy groceries for?” rather than “family size.” Accept 1–20 and explain that this only improves the starting plan.
 - The user chooses shopping mode and an approximate cadence: 7, 14, 30 days, or variable.
 - Existing repeated list items may be suggested as recurring products.
@@ -394,9 +394,12 @@ Event names use the `[object] [verb]` convention and live in one typed contract.
 - Store and product data must not hard-code Tesco or any other retailer into the domain model. Retailers are user-entered or supplied by a market catalogue adapter.
 - Keep existing pence-named storage during the UK beta to avoid an unrelated migration. Expose currency-neutral `Money` values at module boundaries. Before a second currency launches, perform a planned dual-read/backfill migration to `*Minor` field names and test mixed-version clients.
 
-## 9. Proposed schema and indexes
+## 9. Implemented schema and indexes
 
-Sections 9.1–9.5 were approved in checkpoint B. Sections 9.6–9.8 and the additional household fields remain proposed; repository rules require their approval before editing `convex/schema.ts` or creating indexes.
+Sections 9.1–9.5 were approved in checkpoint B. Sections 9.6–9.8 and the
+additional household fields were approved in checkpoint G. All are implemented.
+The separate account-deletion field/index changes in checkpoint J remain gated
+and are documented in `docs/RELEASE_READINESS.md`.
 
 ### 9.1 New table: `householdProducts`
 
@@ -628,7 +631,7 @@ These functions accept time and return results without I/O. Their interface is t
 
 | State | Required behaviour |
 |---|---|
-| First household activation | Explain benefit, allow skip, never require an exhaustive pantry |
+| First household activation | Explain the benefit, require only the four short setup steps, and never require an exhaustive pantry |
 | No tracked products | Offer starter staples and history suggestions |
 | No candidates due | Reassure; provide next expected review and manual add |
 | No active list | Choose existing or create Next shop |
@@ -742,32 +745,28 @@ The feature is promising when households return for at least three planning cycl
 
 Implementation must pause for explicit approval at each checkpoint required by `AGENT.md`:
 
-Approved in the prior checkpoint:
+Approved checkpoints; implementation status is summarised in section 17:
 
 1. **A — Navigation:** Plan / Shop / Spending tabs and hidden Settings route.
 2. **B — Core restock schema and indexes:** `householdProducts` plus the previously proposed optional fields and two indexes.
 3. **C — Offline strategy:** Restock-decision and atomic shop-completion queue semantics.
 4. **D — Auth/activation placement:** Activation occurs after household setup; Clerk authentication is unchanged.
-
-New approvals required before implementation:
-
 5. **E — Dependencies:** Add `expo-notifications`, `expo-constants`, `posthog-react-native`, `expo-file-system`, `expo-application`, `expo-device`, and `expo-localization`. Convex sends push messages directly to Expo's HTTP API; no server push SDK is added.
 6. **F — Environment and native configuration:** Add `EXPO_PUBLIC_POSTHOG_API_KEY` and `EXPO_PUBLIC_POSTHOG_HOST` for the client; `POSTHOG_API_KEY` and `POSTHOG_HOST` for consent-gated server events; configure `extra.eas.projectId`; and configure APNs/FCM credentials through EAS rather than source-controlled environment files.
 7. **G — Additional schema and indexes:** Add `peopleServed` and market metadata to households; add `userPreferences`, `pushTokens`, and `notificationReminders`; add their six indexes exactly as shown in sections 9.6–9.8.
 8. **H — Privacy and consent:** Use PostHog Cloud EU, explicit opt-in, the event/property allow-list, no session replay/autocapture/geolocation, generic push copy, per-member notification preferences, and identity reset/token disable on sign-out.
 9. **I — Market strategy:** Launch UK-first without a country selector, keep the international seams in section 8.12, and defer the pence-to-minor-unit migration until a second currency is actually scheduled.
 
-## 17. Recommended implementation order after approval
+Release-only checkpoints still require explicit approval because of repository
+rules:
 
-1. Stabilise and validate the current hardening change set.
-2. Add pure restock-engine tests and implementation.
-3. Apply the approved additive schema and authenticated Convex interface.
-4. Add activation, people-served input, market defaults, and historical staple suggestions.
-5. Add the typed analytics boundary and consent flow before instrumenting product events.
-6. Add per-member notification preferences, token lifecycle, reminder scheduler, and deep links.
-7. Extract the shared shopping-list module from the current list screen.
-8. Implement Plan and Shop against real data.
-9. Adapt Spending and Settings to the approved information architecture.
-10. Apply the design tokens and simplified interaction language.
-11. Validate typecheck, lint, Jest, iOS simulator, offline replay, two-device sync, notification delivery/receipt cleanup, analytics isolation, and receipt cancellation.
-12. Run the closed UK household beta before adding AI or another market.
+10. **J — Account deletion:** Approve the shared-household deletion and ownership-transfer semantics before changing the Clerk/Convex authentication lifecycle.
+11. **K — Production services:** Approve creation/linking of the EAS project and any production Convex, Clerk, PostHog, APNs, or Google Vision configuration. Approval of the configuration design does not authorize a production deployment.
+
+## 17. Implementation and release status
+
+1. **Implemented:** stabilisation, deterministic restock engine, additive schema, authenticated Convex interface, activation, household inputs, historical suggestions, analytics consent, notification scheduling, scoped token lifecycle, shared shopping-list modules, Plan, Shop, Spending, Settings, UK defaults, and the approved visual direction.
+2. **Locally verified:** TypeScript, lint, Jest, iOS simulator flows, receipt cancellation, offline replay invariants, and analytics allow-list/identity isolation.
+3. **Release hardening in progress:** legal/account-deletion flow, EAS project and credentials, production environment configuration, App Store privacy declarations, and release-build permission audit.
+4. **Physical-device validation pending:** Google and Apple production OAuth, APNs delivery and receipt cleanup, two-device household sync, real UK receipts, offline reconnect, accessibility, and consent/sign-out isolation.
+5. **Beta pending:** run the closed UK household beta before adding AI or another market.

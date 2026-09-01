@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { DAY_MS, getRestockTiming } from "../lib/restockEngine";
 import { nextLocalDeliveryTime } from "../lib/notificationSchedule";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import {
   internalAction,
   internalMutation,
@@ -13,6 +13,94 @@ import {
 import { internal } from "./_generated/api";
 
 type ReadCtx = QueryCtx | MutationCtx;
+
+interface ExpoPushTicket {
+  status?: string;
+  id?: string;
+  details?: { error?: string };
+}
+
+interface AcceptedPushTicket {
+  ticketId: string;
+  token: string;
+}
+
+interface ExpoPushMessage {
+  title: string;
+  body: string;
+  data: {
+    url: string;
+    kind: "restock_review" | "shop_reminder";
+  };
+}
+
+const expoPushMessageValidator = v.object({
+  title: v.string(),
+  body: v.string(),
+  data: v.object({
+    url: v.string(),
+    kind: v.union(v.literal("restock_review"), v.literal("shop_reminder")),
+  }),
+});
+
+export function pairAcceptedPushTickets(
+  tokens: readonly string[],
+  tickets: readonly ExpoPushTicket[],
+): AcceptedPushTicket[] {
+  return tickets.flatMap((ticket, index) => {
+    const token = tokens[index];
+    return ticket.status === "ok" && ticket.id && token
+      ? [{ ticketId: ticket.id, token }]
+      : [];
+  });
+}
+
+export function pairRateLimitedPushTickets(
+  tokens: readonly string[],
+  tickets: readonly ExpoPushTicket[],
+): string[] {
+  return tickets.flatMap((ticket, index) => {
+    const token = tokens[index];
+    return ticket.details?.error === "MessageRateExceeded" && token
+      ? [token]
+      : [];
+  });
+}
+
+type ReminderStatus = Doc<"notificationReminders">["status"];
+
+export function canRetryPushDelivery(args: {
+  reminderStatus: ReminderStatus | undefined;
+  membershipExists: boolean;
+  notificationsEnabled: boolean;
+  tokenBelongsToRecipient: boolean;
+  tokenEnabled: boolean;
+  unresolvedCandidateCount: number;
+}): boolean {
+  return (
+    (args.reminderStatus === "pending" || args.reminderStatus === "sent") &&
+    args.membershipExists &&
+    args.notificationsEnabled &&
+    args.tokenBelongsToRecipient &&
+    args.tokenEnabled &&
+    args.unresolvedCandidateCount > 0
+  );
+}
+
+function buildPushMessage(args: {
+  kind: "restock_review" | "shop_reminder";
+  candidateCount: number;
+  plannedDay: string;
+}): ExpoPushMessage {
+  return {
+    title: "Your next shop needs a quick check",
+    body: `${args.candidateCount} ${args.candidateCount === 1 ? "thing may" : "things may"} need a quick check before ${args.plannedDay}.`,
+    data: {
+      url: "cartshare://restock-review",
+      kind: args.kind,
+    },
+  };
+}
 
 export function excludeProductsAlreadyPlanned<
   ProductId,
@@ -405,6 +493,84 @@ export const recalculateForHousehold = mutation({
   },
 });
 
+async function inspectReminderDeliveryState(
+  ctx: ReadCtx,
+  reminder: Doc<"notificationReminders">,
+  now: number,
+) {
+  const membership = await ctx.db
+    .query("householdMembers")
+    .withIndex("by_household_and_user", (index) =>
+      index
+        .eq("householdId", reminder.householdId)
+        .eq("userId", reminder.userId),
+    )
+    .unique();
+  const preference = await ctx.db
+    .query("userPreferences")
+    .withIndex("by_user", (index) => index.eq("userId", reminder.userId))
+    .unique();
+  if (!membership || !preference?.restockNotificationsEnabled) {
+    return {
+      membershipExists: membership !== null,
+      notificationsEnabled:
+        preference?.restockNotificationsEnabled === true,
+      preference,
+      household: null,
+      activeList: null,
+      candidateCount: 0,
+    };
+  }
+  const household = await ctx.db.get(reminder.householdId);
+  const activeListRecord = household?.activeListId
+    ? await ctx.db.get(household.activeListId)
+    : null;
+  const activeList = activeListRecord?.isArchived ? null : activeListRecord;
+  const products = household
+    ? await ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_status", (index) =>
+          index.eq("householdId", household._id).eq("status", "active"),
+        )
+        .collect()
+    : [];
+  const activeItems = activeList
+    ? await ctx.db
+        .query("items")
+        .withIndex("by_list", (index) => index.eq("listId", activeList._id))
+        .collect()
+    : [];
+  const candidates = household
+    ? excludeProductsAlreadyPlanned(products, activeItems).filter((product) => {
+        const timing = getRestockTiming({
+          id: product._id,
+          displayName: product.displayName,
+          status: product.status,
+          cadenceDays: product.cadenceDays,
+          lastPurchasedAt: product.lastPurchasedAt,
+          activatedAt: product.createdAt,
+          reviewAfter: product.reviewAfter,
+          purchaseObservationCount: product.purchaseObservationCount,
+        });
+        const horizon =
+          (activeList?.plannedFor ??
+            now + Math.min(household.shoppingCadenceDays ?? 7, 7) * DAY_MS) +
+          DAY_MS;
+        return timing.reviewAt <= now && timing.expectedDueAt <= horizon;
+      })
+    : [];
+
+  return {
+    membershipExists: membership !== null,
+    notificationsEnabled:
+      preference?.restockNotificationsEnabled === true,
+    preference,
+    household,
+    activeList,
+    candidateCount: candidates.length,
+  };
+}
+
 export const getDueDeliveries = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
@@ -417,72 +583,14 @@ export const getDueDeliveries = internalQuery({
 
     return await Promise.all(
       reminders.map(async (reminder) => {
-        const membership = await ctx.db
-          .query("householdMembers")
-          .withIndex("by_household_and_user", (index) =>
-            index
-              .eq("householdId", reminder.householdId)
-              .eq("userId", reminder.userId),
-          )
-          .unique();
-        const preference = await ctx.db
-          .query("userPreferences")
-          .withIndex("by_user", (index) =>
-            index.eq("userId", reminder.userId),
-          )
-          .unique();
-        if (!membership || !preference?.restockNotificationsEnabled) {
-          return { reminderId: reminder._id, action: "cancel" as const };
-        }
-
-        const household = await ctx.db.get(reminder.householdId);
-        const activeListRecord = household?.activeListId
-          ? await ctx.db.get(household.activeListId)
-          : null;
-        const activeList = activeListRecord?.isArchived
-          ? null
-          : activeListRecord;
-        const products = household
-          ? await ctx.db
-              .query("householdProducts")
-              .withIndex("by_household_and_status", (index) =>
-                index
-                  .eq("householdId", household._id)
-                  .eq("status", "active"),
-              )
-              .collect()
-          : [];
-        const activeItems = activeList
-          ? await ctx.db
-              .query("items")
-              .withIndex("by_list", (index) =>
-                index.eq("listId", activeList._id),
-              )
-              .collect()
-          : [];
-        const candidates = household
-          ? excludeProductsAlreadyPlanned(products, activeItems).filter(
-              (product) => {
-              const timing = getRestockTiming({
-                id: product._id,
-                displayName: product.displayName,
-                status: product.status,
-                cadenceDays: product.cadenceDays,
-                lastPurchasedAt: product.lastPurchasedAt,
-                activatedAt: product.createdAt,
-                reviewAfter: product.reviewAfter,
-                purchaseObservationCount: product.purchaseObservationCount,
-              });
-              const horizon =
-                (activeList?.plannedFor ??
-                  now +
-                    Math.min(household.shoppingCadenceDays ?? 7, 7) * DAY_MS) +
-                DAY_MS;
-              return timing.reviewAt <= now && timing.expectedDueAt <= horizon;
-              },
-            )
-          : [];
-        if (!household || candidates.length === 0) {
+        const state = await inspectReminderDeliveryState(ctx, reminder, now);
+        if (
+          !state.membershipExists ||
+          !state.notificationsEnabled ||
+          !state.household ||
+          !state.preference ||
+          state.candidateCount === 0
+        ) {
           return { reminderId: reminder._id, action: "cancel" as const };
         }
 
@@ -499,26 +607,63 @@ export const getDueDeliveries = internalQuery({
           return { reminderId: reminder._id, action: "cancel" as const };
         }
 
-        const plannedDay = activeList?.plannedFor
+        const plannedDay = state.activeList?.plannedFor
           ? new Intl.DateTimeFormat("en-GB", {
               weekday: "long",
-              timeZone: preference.notificationTimeZone,
-            }).format(activeList.plannedFor)
+              timeZone: state.preference.notificationTimeZone,
+            }).format(state.activeList.plannedFor)
           : "your next shop";
         return {
           reminderId: reminder._id,
           action: "send" as const,
           kind: reminder.kind,
           tokens: activeTokens,
-          candidateCount: candidates.length,
+          candidateCount: state.candidateCount,
           plannedDay,
           attemptCount: reminder.attemptCount ?? 0,
-          analyticsConsent: preference.analyticsConsent,
+          analyticsConsent: state.preference.analyticsConsent,
           userId: reminder.userId,
           householdId: reminder.householdId,
         };
       }),
     );
+  },
+});
+
+export const authorizeDeliveryRetry = internalQuery({
+  args: {
+    reminderId: v.id("notificationReminders"),
+    token: v.string(),
+    now: v.number(),
+  },
+  handler: async (ctx, { reminderId, token, now }) => {
+    const reminder = await ctx.db.get(reminderId);
+    if (!reminder) return null;
+    const pushToken = await ctx.db
+      .query("pushTokens")
+      .withIndex("by_token", (index) => index.eq("token", token))
+      .unique();
+    const state = await inspectReminderDeliveryState(ctx, reminder, now);
+    const authorized = canRetryPushDelivery({
+      reminderStatus: reminder.status,
+      membershipExists: state.membershipExists,
+      notificationsEnabled: state.notificationsEnabled,
+      tokenBelongsToRecipient: pushToken?.userId === reminder.userId,
+      tokenEnabled: pushToken !== null && pushToken.disabledAt === undefined,
+      unresolvedCandidateCount: state.candidateCount,
+    });
+    if (!authorized || !state.preference) return null;
+    const plannedDay = state.activeList?.plannedFor
+      ? new Intl.DateTimeFormat("en-GB", {
+          weekday: "long",
+          timeZone: state.preference.notificationTimeZone,
+        }).format(state.activeList.plannedFor)
+      : "your next shop";
+    return {
+      kind: reminder.kind,
+      candidateCount: state.candidateCount,
+      plannedDay,
+    };
   },
 });
 
@@ -534,11 +679,20 @@ export const cancelDueReminder = internalMutation({
   },
 });
 
+const PUSH_RECEIPT_RETRY_BASE_MS = 15 * 60 * 1000;
+const PUSH_RECEIPT_MAX_RETRIES = 3;
+const PUSH_RATE_LIMIT_FINALIZE_MS =
+  PUSH_RECEIPT_RETRY_BASE_MS * (2 ** PUSH_RECEIPT_MAX_RETRIES);
+const PUSH_RATE_LIMIT_CRON_HOLD_MS =
+  PUSH_RATE_LIMIT_FINALIZE_MS + PUSH_RECEIPT_RETRY_BASE_MS;
+
 export const recordDeliveryResult = internalMutation({
   args: {
     reminderId: v.id("notificationReminders"),
     accepted: v.boolean(),
     transient: v.boolean(),
+    scheduledTokenRetry: v.optional(v.boolean()),
+    retryHoldUntil: v.optional(v.number()),
     expoTicketId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -552,6 +706,15 @@ export const recordDeliveryResult = internalMutation({
         expoTicketId: args.expoTicketId,
         attemptCount,
         sentAt: now,
+        updatedAt: now,
+      });
+      return;
+    }
+    if (args.scheduledTokenRetry) {
+      await ctx.db.patch(reminder._id, {
+        attemptCount,
+        scheduledFor:
+          args.retryHoldUntil ?? now + PUSH_RATE_LIMIT_CRON_HOLD_MS,
         updatedAt: now,
       });
       return;
@@ -572,6 +735,67 @@ export const recordDeliveryResult = internalMutation({
   },
 });
 
+export const recordRateLimitedDeliveryAccepted = internalMutation({
+  args: {
+    reminderId: v.id("notificationReminders"),
+    expoTicketId: v.string(),
+  },
+  handler: async (ctx, { reminderId, expoTicketId }) => {
+    const reminder = await ctx.db.get(reminderId);
+    if (!reminder || reminder.status === "cancelled") return;
+    const now = Date.now();
+    await ctx.db.patch(reminderId, {
+      status: "sent",
+      expoTicketId,
+      sentAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const recordRateLimitedReceiptRetryStarted = internalMutation({
+  args: {
+    reminderId: v.id("notificationReminders"),
+    retryHoldUntil: v.number(),
+  },
+  handler: async (ctx, { reminderId, retryHoldUntil }) => {
+    const reminder = await ctx.db.get(reminderId);
+    if (!reminder || reminder.status === "cancelled") return;
+    await ctx.db.patch(reminderId, {
+      status: "pending",
+      scheduledFor: retryHoldUntil,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const finalizeRateLimitedDelivery = internalMutation({
+  args: {
+    reminderId: v.id("notificationReminders"),
+    now: v.number(),
+    expectedScheduledFor: v.number(),
+  },
+  handler: async (ctx, { reminderId, now, expectedScheduledFor }) => {
+    const reminder = await ctx.db.get(reminderId);
+    if (
+      !reminder ||
+      reminder.status !== "pending" ||
+      reminder.scheduledFor !== expectedScheduledFor
+    ) {
+      return;
+    }
+    const state = await inspectReminderDeliveryState(ctx, reminder, now);
+    const status =
+      state.membershipExists &&
+      state.notificationsEnabled &&
+      state.household &&
+      state.candidateCount > 0
+        ? "failed"
+        : "cancelled";
+    await ctx.db.patch(reminderId, { status, updatedAt: now });
+  },
+});
+
 export const disableTokenInternal = internalMutation({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -588,6 +812,23 @@ export const disableTokenInternal = internalMutation({
   },
 });
 
+export function buildServerAnalyticsPayload(
+  apiKey: string,
+  event: string,
+  distinctId: string,
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    api_key: apiKey,
+    event,
+    distinct_id: distinctId,
+    properties: {
+      ...properties,
+      $geoip_disable: true,
+    },
+  };
+}
+
 async function captureServerAnalytics(
   event: string,
   distinctId: string,
@@ -599,37 +840,241 @@ async function captureServerAnalytics(
   await fetch(`${host.replace(/\/$/, "")}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: apiKey,
-      event,
-      distinct_id: distinctId,
-      properties,
-    }),
+    body: JSON.stringify(
+      buildServerAnalyticsPayload(apiKey, event, distinctId, properties),
+    ),
   });
 }
 
-export const checkDeliveryReceipt = internalAction({
-  args: { ticketId: v.string(), token: v.string() },
-  handler: async (ctx, { ticketId, token }) => {
-    const response = await fetch(
-      "https://exp.host/--/api/v2/push/getReceipts",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [ticketId] }),
-      },
+async function scheduleDeliveryReceiptRetry(
+  ctx: ActionCtx,
+  args: {
+    ticketId: string;
+    token: string;
+    reminderId?: Id<"notificationReminders">;
+    attempt: number;
+    message?: ExpoPushMessage;
+    finalizeReminderOnRateLimit?: boolean;
+  },
+): Promise<void> {
+  if (args.attempt >= PUSH_RECEIPT_MAX_RETRIES) return;
+  await ctx.scheduler.runAfter(
+    PUSH_RECEIPT_RETRY_BASE_MS * 2 ** args.attempt,
+    internal.notifications.checkDeliveryReceipt,
+    { ...args, attempt: args.attempt + 1 },
+  );
+}
+
+async function scheduleRateLimitedDeliveryRetry(
+  ctx: ActionCtx,
+  args: {
+    reminderId: Id<"notificationReminders">;
+    token: string;
+    attempt: number;
+    finalizeReminderOnRateLimit?: boolean;
+  },
+): Promise<void> {
+  if (args.attempt >= PUSH_RECEIPT_MAX_RETRIES) return;
+  await ctx.scheduler.runAfter(
+    PUSH_RECEIPT_RETRY_BASE_MS * 2 ** args.attempt,
+    internal.notifications.retryRateLimitedDelivery,
+    { ...args, attempt: args.attempt + 1 },
+  );
+}
+
+export const retryRateLimitedDelivery = internalAction({
+  args: {
+    reminderId: v.id("notificationReminders"),
+    token: v.string(),
+    attempt: v.number(),
+    finalizeReminderOnRateLimit: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    { reminderId, token, attempt, finalizeReminderOnRateLimit },
+  ) => {
+    const retryContext = await ctx.runQuery(
+      internal.notifications.authorizeDeliveryRetry,
+      { reminderId, token, now: Date.now() },
     );
+    if (!retryContext) return;
+    const message = buildPushMessage(retryContext);
+
+    let response: Response;
+    try {
+      response = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify([{ to: token, sound: "default", ...message }]),
+      });
+    } catch {
+      await scheduleRateLimitedDeliveryRetry(ctx, {
+        reminderId,
+        token,
+        attempt,
+        finalizeReminderOnRateLimit,
+      });
+      return;
+    }
+
+    if (response.status === 429 || response.status >= 500) {
+      await scheduleRateLimitedDeliveryRetry(ctx, {
+        reminderId,
+        token,
+        attempt,
+        finalizeReminderOnRateLimit,
+      });
+      return;
+    }
     if (!response.ok) return;
-    const payload = (await response.json()) as {
+
+    const payload = (await response.json()) as { data?: ExpoPushTicket[] };
+    const ticket = payload.data?.[0];
+    if (ticket?.details?.error === "DeviceNotRegistered") {
+      await ctx.runMutation(internal.notifications.disableTokenInternal, {
+        token,
+      });
+      return;
+    }
+    if (ticket?.details?.error === "MessageRateExceeded") {
+      await scheduleRateLimitedDeliveryRetry(ctx, {
+        reminderId,
+        token,
+        attempt,
+        finalizeReminderOnRateLimit,
+      });
+      return;
+    }
+    if (ticket?.status === "ok" && ticket.id) {
+      await ctx.runMutation(
+        internal.notifications.recordRateLimitedDeliveryAccepted,
+        { reminderId, expoTicketId: ticket.id },
+      );
+      await ctx.scheduler.runAfter(
+        PUSH_RECEIPT_RETRY_BASE_MS,
+        internal.notifications.checkDeliveryReceipt,
+        {
+          ticketId: ticket.id,
+          reminderId,
+          token,
+          attempt: 0,
+          finalizeReminderOnRateLimit,
+        },
+      );
+    }
+  },
+});
+
+export const checkDeliveryReceipt = internalAction({
+  args: {
+    ticketId: v.string(),
+    token: v.string(),
+    reminderId: v.optional(v.id("notificationReminders")),
+    attempt: v.optional(v.number()),
+    message: v.optional(expoPushMessageValidator),
+    finalizeReminderOnRateLimit: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    {
+      ticketId,
+      token,
+      reminderId,
+      attempt: rawAttempt,
+      message,
+      finalizeReminderOnRateLimit,
+    },
+  ) => {
+    const attempt = Math.max(0, Math.floor(rawAttempt ?? 0));
+    let payload: {
       data?: Record<
         string,
         { status?: string; details?: { error?: string } }
       >;
     };
-    if (payload.data?.[ticketId]?.details?.error === "DeviceNotRegistered") {
+    try {
+      const response = await fetch(
+        "https://exp.host/--/api/v2/push/getReceipts",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: [ticketId] }),
+        },
+      );
+      if (!response.ok) {
+        await scheduleDeliveryReceiptRetry(ctx, {
+          ticketId,
+          token,
+          reminderId,
+          attempt,
+          message,
+          finalizeReminderOnRateLimit,
+        });
+        return;
+      }
+      payload = (await response.json()) as typeof payload;
+    } catch {
+      await scheduleDeliveryReceiptRetry(ctx, {
+        ticketId,
+        token,
+        reminderId,
+        attempt,
+        message,
+        finalizeReminderOnRateLimit,
+      });
+      return;
+    }
+
+    const receipt = payload.data?.[ticketId];
+    if (!receipt) {
+      await scheduleDeliveryReceiptRetry(ctx, {
+        ticketId,
+        token,
+        reminderId,
+        attempt,
+        message,
+        finalizeReminderOnRateLimit,
+      });
+      return;
+    }
+    if (receipt.details?.error === "DeviceNotRegistered") {
       await ctx.runMutation(internal.notifications.disableTokenInternal, {
         token,
       });
+      return;
+    }
+    if (
+      receipt.details?.error === "MessageRateExceeded" &&
+      reminderId
+    ) {
+      await scheduleRateLimitedDeliveryRetry(ctx, {
+        reminderId,
+        token,
+        attempt: 0,
+        finalizeReminderOnRateLimit,
+      });
+      if (finalizeReminderOnRateLimit) {
+        const retryStartedAt = Date.now();
+        const retryHoldUntil =
+          retryStartedAt + PUSH_RATE_LIMIT_CRON_HOLD_MS;
+        await ctx.runMutation(
+          internal.notifications.recordRateLimitedReceiptRetryStarted,
+          { reminderId, retryHoldUntil },
+        );
+        await ctx.scheduler.runAfter(
+          PUSH_RATE_LIMIT_FINALIZE_MS,
+          internal.notifications.finalizeRateLimitedDelivery,
+          {
+            reminderId,
+            now: retryStartedAt + PUSH_RATE_LIMIT_FINALIZE_MS,
+            expectedScheduledFor: retryHoldUntil,
+          },
+        );
+      }
     }
   },
 });
@@ -649,8 +1094,9 @@ export const sendDueReminders = internalAction({
         continue;
       }
 
-      const body = `${delivery.candidateCount} ${delivery.candidateCount === 1 ? "thing may" : "things may"} need a quick check before ${delivery.plannedDay}.`;
-      let acceptedTicketId: string | undefined;
+      const message = buildPushMessage(delivery);
+      let acceptedTickets: AcceptedPushTicket[] = [];
+      let rateLimitedTokens: string[] = [];
       let transient = false;
       try {
         const response = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -663,29 +1109,22 @@ export const sendDueReminders = internalAction({
           body: JSON.stringify(
             delivery.tokens.map((token) => ({
               to: token,
-              title: "Your next shop needs a quick check",
-              body,
               sound: "default",
-              data: {
-                url: "cartshare://restock-review",
-                kind: delivery.kind,
-              },
+              ...message,
             })),
           ),
         });
         transient = response.status === 429 || response.status >= 500;
         if (response.ok) {
           const payload = (await response.json()) as {
-            data?: {
-              status?: string;
-              id?: string;
-              details?: { error?: string };
-            }[];
+            data?: ExpoPushTicket[];
           };
           const tickets = payload.data ?? [];
-          acceptedTicketId = tickets.find(
-            (ticket) => ticket.status === "ok" && ticket.id,
-          )?.id;
+          acceptedTickets = pairAcceptedPushTickets(delivery.tokens, tickets);
+          rateLimitedTokens = pairRateLimitedPushTickets(
+            delivery.tokens,
+            tickets,
+          );
           for (const [index, ticket] of tickets.entries()) {
             if (ticket.details?.error === "DeviceNotRegistered") {
               await ctx.runMutation(
@@ -699,25 +1138,70 @@ export const sendDueReminders = internalAction({
         transient = true;
       }
 
-      await ctx.runMutation(internal.notifications.recordDeliveryResult, {
-        reminderId: delivery.reminderId,
-        accepted: acceptedTicketId !== undefined,
-        transient,
-        expoTicketId: acceptedTicketId,
-      });
-      if (acceptedTicketId) {
-        const token = delivery.tokens[0];
+      const scheduledRateLimitedTokens =
+        delivery.attemptCount < 2 ? rateLimitedTokens : [];
+      const retryStartedAt = Date.now();
+      const retryHoldUntil =
+        retryStartedAt + PUSH_RATE_LIMIT_CRON_HOLD_MS;
+      await Promise.all(
+        scheduledRateLimitedTokens.map((token) =>
+          scheduleRateLimitedDeliveryRetry(ctx, {
+            reminderId: delivery.reminderId,
+            token,
+            attempt: 0,
+            finalizeReminderOnRateLimit: delivery.tokens.length === 1,
+          }),
+        ),
+      );
+      if (
+        acceptedTickets.length === 0 &&
+        scheduledRateLimitedTokens.length > 0
+      ) {
         await ctx.scheduler.runAfter(
-          15 * 60 * 1000,
-          internal.notifications.checkDeliveryReceipt,
-          { ticketId: acceptedTicketId, token },
+          PUSH_RATE_LIMIT_FINALIZE_MS,
+          internal.notifications.finalizeRateLimitedDelivery,
+          {
+            reminderId: delivery.reminderId,
+            now: retryStartedAt + PUSH_RATE_LIMIT_FINALIZE_MS,
+            expectedScheduledFor: retryHoldUntil,
+          },
         );
       }
+      await ctx.runMutation(internal.notifications.recordDeliveryResult, {
+        reminderId: delivery.reminderId,
+        accepted: acceptedTickets.length > 0,
+        transient,
+        scheduledTokenRetry: scheduledRateLimitedTokens.length > 0,
+        retryHoldUntil:
+          scheduledRateLimitedTokens.length > 0
+            ? retryHoldUntil
+            : undefined,
+        expoTicketId: acceptedTickets[0]?.ticketId,
+      });
+      await Promise.all(
+        acceptedTickets.map(({ ticketId, token }) =>
+          ctx.scheduler.runAfter(
+            15 * 60 * 1000,
+            internal.notifications.checkDeliveryReceipt,
+            {
+              ticketId,
+              reminderId: delivery.reminderId,
+              token,
+              finalizeReminderOnRateLimit: delivery.tokens.length === 1,
+            },
+          ),
+        ),
+      );
       if (delivery.analyticsConsent === "granted") {
         await captureServerAnalytics("notification sent", delivery.userId, {
           household_id: delivery.householdId,
           kind: delivery.kind,
-          delivery_result: acceptedTicketId ? "accepted" : "failed",
+          delivery_result:
+            acceptedTickets.length > 0
+              ? "accepted"
+              : scheduledRateLimitedTokens.length > 0
+                ? "retry_scheduled"
+                : "failed",
         });
       }
     }
