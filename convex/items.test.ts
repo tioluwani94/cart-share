@@ -1,5 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import { add, setCompleted, update } from "./items";
+import { add, getByList, setCompleted, update } from "./items";
 
 type AddItemHandler = (
   ctx: unknown,
@@ -34,6 +34,14 @@ type UpdateItemHandler = (
 ) => Promise<{ success: true }>;
 
 const updateItem = (update as unknown as { _handler: UpdateItemHandler })
+  ._handler;
+
+type GetItemsHandler = (
+  ctx: unknown,
+  args: { listId: Id<"lists"> },
+) => Promise<unknown[]>;
+
+const getItems = (getByList as unknown as { _handler: GetItemsHandler })
   ._handler;
 
 describe("offline item identity", () => {
@@ -142,5 +150,38 @@ describe("offline item identity", () => {
       itemId,
       expect.objectContaining({ estimatedPricePence: undefined }),
     );
+  });
+});
+
+describe("item attribution", () => {
+  it("labels an item from a deleted account as a former household member", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const itemId = "item_1" as Id<"items">;
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: async (id: string) =>
+          id === listId ? { _id: listId, householdId } : null,
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users" ? { _id: userId } : { householdId, userId },
+            collect: async () =>
+              table === "items"
+                ? [{ _id: itemId, listId, name: "Milk", addedBy: undefined }]
+                : [],
+          }),
+        }),
+      },
+    };
+
+    await expect(getItems(ctx, { listId })).resolves.toEqual([
+      expect.objectContaining({
+        _id: itemId,
+        addedByUser: { name: "Former household member" },
+      }),
+    ]);
   });
 });

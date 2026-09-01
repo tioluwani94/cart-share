@@ -98,16 +98,23 @@ export const getByList = query({
     // Enrich items with addedBy user info
     const itemsWithUser = await Promise.all(
       items.map(async (item) => {
-        let addedByUser = null;
+        let addedByUser: {
+          _id?: Id<"users">;
+          name?: string;
+          imageUrl?: string;
+        } | null = null;
         if (item.addedBy) {
-          const user = await ctx.db.get(item.addedBy);
-          if (user) {
+          const addedBy = await ctx.db.get(item.addedBy);
+          if (addedBy) {
             addedByUser = {
-              _id: user._id,
-              name: user.name,
-              imageUrl: user.imageUrl,
+              _id: addedBy._id,
+              name: addedBy.name,
+              imageUrl: addedBy.imageUrl,
             };
           }
+        }
+        if (!addedByUser) {
+          addedByUser = { name: "Former household member" };
         }
         return {
           ...item,

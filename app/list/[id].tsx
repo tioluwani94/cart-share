@@ -154,7 +154,10 @@ export default function ListDetailScreen() {
 
     // Check if any new item was added by someone other than the current user
     for (const newItem of newItems) {
-      if (newItem.addedByUser && newItem.addedByUser._id !== currentUser._id) {
+      if (
+        newItem.addedByUser?._id &&
+        newItem.addedByUser._id !== currentUser._id
+      ) {
         // Partner added this item!
         setPartnerActivity({
           itemId: newItem._id,

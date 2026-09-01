@@ -7,6 +7,8 @@ import {
   useAnalyticsSession,
 } from "@/lib/AnalyticsContext";
 import { AuthenticatedUserBoundary } from "@/lib/AuthenticatedUserBoundary";
+import { AccountDeletionCleanupBoundary } from "@/lib/AccountDeletionCleanupBoundary";
+import { clerkTokenCache } from "@/lib/clerkTokenCache";
 import { getNotificationHandlingDecision } from "@/lib/notificationHandling";
 import {
   clearLastRestockNotificationResponse,
@@ -34,7 +36,6 @@ import {
   useRouter,
   useSegments,
 } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { Asset } from "expo-asset";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -56,30 +57,6 @@ const convex = new ConvexReactClient(
     unsavedChangesWarning: false,
   },
 );
-
-/**
- * Token cache using SecureStore for persisting auth state across app restarts.
- * SecureStore provides secure, encrypted storage on iOS (Keychain) and Android (Keystore).
- */
-const tokenCache = {
-  async getToken(key: string): Promise<string | null> {
-    try {
-      const item = await SecureStore.getItemAsync(key);
-      return item;
-    } catch (error) {
-      console.error("SecureStore get error:", error);
-      await SecureStore.deleteItemAsync(key);
-      return null;
-    }
-  },
-  async saveToken(key: string, value: string): Promise<void> {
-    try {
-      await SecureStore.setItemAsync(key, value);
-    } catch (error) {
-      console.error("SecureStore save error:", error);
-    }
-  },
-};
 
 // Clerk publishable key from environment variables
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -363,11 +340,16 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <StatusBar style="dark" />
-        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-          <ClerkLoaded>
-            <ConvexClerkLayout />
-          </ClerkLoaded>
-        </ClerkProvider>
+        <AccountDeletionCleanupBoundary>
+          <ClerkProvider
+            publishableKey={publishableKey}
+            tokenCache={clerkTokenCache}
+          >
+            <ClerkLoaded>
+              <ConvexClerkLayout />
+            </ClerkLoaded>
+          </ClerkProvider>
+        </AccountDeletionCleanupBoundary>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );

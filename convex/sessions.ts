@@ -350,7 +350,9 @@ export const getByHousehold = query({
     const sessionsWithInfo = await Promise.all(
       sessions.map(async (session) => {
         const { receiptImageId, ...publicSession } = session;
-        const shopper = await ctx.db.get(session.shopperId);
+        const shopper = session.shopperId
+          ? await ctx.db.get(session.shopperId)
+          : null;
         // Get receipt URL if image exists
         let receiptUrl: string | null = null;
         if (receiptImageId) {
@@ -371,11 +373,14 @@ export const getByHousehold = query({
           session.paidBy === "joint"
             ? "Joint account"
             : session.paidBy
-              ? (await ctx.db.get(session.paidBy))?.name ?? "Household member"
-              : undefined;
+              ? (await ctx.db.get(session.paidBy))?.name ??
+                "Former household member"
+              : session.paidByFormerMember
+                ? "Former household member"
+                : undefined;
         return {
           ...publicSession,
-          shopperName: shopper?.name ?? "Unknown",
+          shopperName: shopper?.name ?? "Former household member",
           shopperImageUrl: shopper?.imageUrl,
           receiptUrl,
           plannedTotalPence,
@@ -445,10 +450,12 @@ export const getByDateRange = query({
     const sessionsWithShopperInfo = await Promise.all(
       sessionsInRange.map(async (session) => {
         const { receiptImageId: _receiptImageId, ...publicSession } = session;
-        const shopper = await ctx.db.get(session.shopperId);
+        const shopper = session.shopperId
+          ? await ctx.db.get(session.shopperId)
+          : null;
         return {
           ...publicSession,
-          shopperName: shopper?.name ?? "Unknown",
+          shopperName: shopper?.name ?? "Former household member",
           shopperImageUrl: shopper?.imageUrl,
         };
       })
@@ -722,12 +729,14 @@ export const getById = query({
     }
 
     // Get shopper info
-    const shopper = await ctx.db.get(session.shopperId);
+    const shopper = session.shopperId
+      ? await ctx.db.get(session.shopperId)
+      : null;
     const { receiptImageId: _receiptImageId, ...publicSession } = session;
 
     return {
       ...publicSession,
-      shopperName: shopper?.name ?? "Unknown",
+      shopperName: shopper?.name ?? "Former household member",
       shopperImageUrl: shopper?.imageUrl,
     };
   },

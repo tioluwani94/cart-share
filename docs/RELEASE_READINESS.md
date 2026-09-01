@@ -21,11 +21,15 @@ apply.
 - Consent-gated PostHog adapter and per-member notification preferences.
 - Reminder scheduling, send-time authorization, generic lock-screen copy,
   token isolation on sign-out, and per-device Expo receipt checks.
+- Explicit account deletion, shared-household ownership transfer, idempotent
+  Clerk webhook cleanup, bounded resumable attribution anonymisation, and
+  final-household receipt storage deletion.
 
-## Checkpoint J — account deletion design
+## Checkpoint J — account deletion implemented locally
 
-Account deletion changes the Clerk/Convex authentication lifecycle, schema,
-and indexes. Do not implement it until the user approves this exact design.
+The user approved this Clerk/Convex authentication-lifecycle, schema, and index
+checkpoint. The source and deterministic local tests are complete; production
+provider configuration and a real-provider deletion pass remain release gates.
 
 ### User experience
 
@@ -35,8 +39,22 @@ and indexes. Do not implement it until the user approves this exact design.
    shared household or deleting the household's final account.
 3. Require an explicit confirmation action. Do not use email support as the
    deletion mechanism.
-4. Delete the Clerk account through Clerk's self-deletion interface, then clear
-   local MMKV data and return to Welcome.
+4. Reset analytics identity on a best-effort basis, delete the Clerk account
+   through Clerk's self-deletion interface, explicitly sign out the local Clerk
+   session, clear MMKV, and return to Welcome. A SecureStore recovery marker is
+   written before the irreversible provider request and is removed only after
+   MMKV erasure and all observed Clerk token-cache keys are removed, so an
+   interrupted flow is completed before any app or authentication provider
+   mounts on the next launch. A blocking recovery screen retries transient local
+   cleanup failures without exposing authenticated content. If post-deletion cleanup
+   cannot be verified, report that the account was deleted and give a local
+   recovery action instead of claiming deletion failed; do not continue to
+   Welcome until a cleanup retry succeeds.
+   A definitive Clerk 4xx refusal cancels the marker and preserves local data.
+   Network, timeout, missing-user, and server failures are treated as ambiguous:
+   the in-memory Clerk session is signed out best-effort, persisted identity is
+   erased conservatively, and the UI does not claim whether the provider deletion
+   completed.
 5. Process Clerk's signed `user.deleted` webhook idempotently so delayed or
    retried webhook delivery cannot leave personal Convex data behind.
 6. Verify that the production Clerk/Apple configuration revokes Sign in with
@@ -54,7 +72,19 @@ and indexes. Do not implement it until the user approves this exact design.
   items, products, sessions, receipt metadata, private receipt storage, user
   preferences, reminders, tokens, membership, and user record.
 - The cleanup mutation must be idempotent and safe when the Clerk webhook is
-  delivered more than once.
+  delivered more than once. Cleanup runs in bounded mutation batches and
+  atomically schedules its continuation while work remains.
+- Delayed `user.created` or `user.updated` events update an existing Convex
+  user only; they cannot recreate a row after deletion has completed.
+- The first deletion batch stores only a domain-separated SHA-256 digest of the
+  Clerk user ID, replaces the live user's Clerk ID with a digest-derived
+  deletion key, and clears email/name/image fields. Existing server
+  authorization lookups therefore stop succeeding while cleanup continues.
+  `ensureCurrent` checks the tombstone before using or creating a user, and the
+  app signs out any still-valid stale session that matches it.
+- Scheduled continuations carry only the digest-derived deletion key. The raw
+  Clerk user ID is never written to durable scheduler arguments or application
+  logs.
 
 ### Exact additive schema/index checkpoint
 
@@ -68,17 +98,50 @@ these existing references optional:
 - `shoppingSessions.shopperId`
 
 `items.completedBy` and `shoppingSessions.paidBy` are already optional and are
-cleared when they reference the deleted user. `households.ownerId` remains
-required and is transferred before an owner is deleted.
+cleared when they reference the deleted user. Add optional
+`shoppingSessions.paidByFormerMember` so cleared payer attribution remains
+distinguishable from a session where no payment source was recorded.
+`households.ownerId` remains required and is transferred before an owner is
+deleted.
 
 Add these indexes for bounded cleanup:
 
 - `receiptUploads.by_uploaded_by` on `uploadedBy`
+- `receiptUploads.by_household` on `householdId`
 - `householdProducts.by_created_by` on `createdBy`
+- `items.by_completed_by` on `completedBy`
+- `shoppingSessions.by_paid_by` on `paidBy`
 
-Migration/backfill behaviour: no production backfill. Existing references stay
-unchanged. Only the deletion path clears attribution. UI readers render missing
-attribution as `Former household member`.
+Add `accountDeletionTombstones` with:
+
+- `clerkIdDigest: string`
+- `deletedAt: number`
+- `by_clerk_id_digest` on `clerkIdDigest`
+
+The tombstone never stores the raw Clerk ID, email, name, or image. It exists
+solely to revoke server access during cleanup and prevent a short-lived JWT
+minted before deletion from recreating the Convex user projection. Bounded
+continuations are scheduled as internal mutations, which Convex persists
+atomically and retries on transient/internal failures.
+
+Migration/backfill behaviour: no production backfill. The tombstone table starts
+empty, and existing references stay unchanged. Only the deletion path writes a
+tombstone and clears attribution. UI readers render known deleted-user
+attribution as `Former household member`; an unrecorded payer remains unlabeled.
+
+### Remaining external verification
+
+- Enable Clerk self-deletion in the production instance.
+- Subscribe the production signed Clerk webhook to `user.deleted` and confirm a
+  successful delivery reaches `/clerk-webhook`.
+- Verify with Clerk and Apple that deleting an Apple-authenticated OurPantry
+  account revokes the Sign in with Apple authorization as required by Apple.
+- Run one shared-member, shared-owner, and final-member deletion against preview
+  services before App Store submission. Confirm preserved household history,
+  ownership transfer, private receipt removal, and safe webhook retry behaviour.
+- Keep a second device signed in while deleting the account on the first. Confirm
+  the stale device is returned to Welcome, its protected server calls are
+  rejected immediately, and it cannot recreate the deleted user projection.
 
 ## Checkpoint K — EAS and production services
 
@@ -151,6 +214,8 @@ PostHog data flows.
   usable and successful completion links the right list/session.
 - Analytics opt-in, withdrawal, sign-out reset, second-user isolation, and
   server-side GeoIP suppression are verified in PostHog EU.
+- Shared-member, owner-transfer, final-member, and retried-webhook account
+  deletion are verified against preview Clerk and Convex services.
 - VoiceOver, Dynamic Type, Reduce Motion, dark appearance, camera denial, and
   notification denial have been manually checked.
 - Closed TestFlight beta is completed before App Store submission.

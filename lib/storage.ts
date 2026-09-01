@@ -128,9 +128,17 @@ export function hasItem(key: string): boolean {
  */
 export function clearAll(): void {
   try {
-    storage.clearAll();
+    clearAllOrThrow();
   } catch (error) {
     console.error("[Storage] Failed to clear all items:", error);
+  }
+}
+
+/** Clear and verify local data for irreversible privacy-sensitive flows. */
+export function clearAllOrThrow(): void {
+  storage.clearAll();
+  if (storage.getAllKeys().length > 0) {
+    throw new Error("Local storage still contains data after clearing");
   }
 }
 

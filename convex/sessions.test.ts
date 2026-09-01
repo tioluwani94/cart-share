@@ -1,5 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import { completeOffline, create } from "./sessions";
+import { completeOffline, create, getByHousehold } from "./sessions";
 
 type CreateSessionHandler = (
   ctx: unknown,
@@ -37,6 +37,15 @@ type CompleteOfflineHandler = (
 
 const completeOfflineShop = (
   completeOffline as unknown as { _handler: CompleteOfflineHandler }
+)._handler;
+
+type GetSessionsHandler = (
+  ctx: unknown,
+  args: { householdId: Id<"households"> },
+) => Promise<unknown[]>;
+
+const getSessions = (
+  getByHousehold as unknown as { _handler: GetSessionsHandler }
 )._handler;
 
 describe("sessions.create", () => {
@@ -240,6 +249,100 @@ describe("sessions.create", () => {
     expect(insert.mock.invocationCallOrder[0]).toBeLessThan(
       patch.mock.invocationCallOrder[0],
     );
+  });
+});
+
+describe("session attribution", () => {
+  it("labels a shopping session from a deleted account", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const sessionId = "session_1" as Id<"shoppingSessions">;
+    const sessions = [
+      {
+        _id: sessionId,
+        householdId,
+        shopperId: undefined,
+        sessionDate: 1,
+        createdAt: 1,
+      },
+    ];
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: jest.fn(),
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users" ? { _id: userId } : { householdId, userId },
+            order: () => ({
+              collect: async () => sessions,
+              take: async () => sessions,
+            }),
+          }),
+        }),
+      },
+      storage: { getUrl: jest.fn() },
+    };
+
+    await expect(getSessions(ctx, { householdId })).resolves.toEqual([
+      expect.objectContaining({
+        _id: sessionId,
+        shopperName: "Former household member",
+      }),
+    ]);
+    expect(ctx.db.get).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes a former payer from a session with no payer recorded", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const sessions = [
+      {
+        _id: "session_former" as Id<"shoppingSessions">,
+        householdId,
+        shopperId: undefined,
+        paidBy: undefined,
+        paidByFormerMember: true,
+        sessionDate: 2,
+        createdAt: 2,
+      },
+      {
+        _id: "session_unknown" as Id<"shoppingSessions">,
+        householdId,
+        shopperId: undefined,
+        paidBy: undefined,
+        sessionDate: 1,
+        createdAt: 1,
+      },
+    ];
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: jest.fn(),
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users" ? { _id: userId } : { householdId, userId },
+            order: () => ({
+              collect: async () => sessions,
+              take: async () => sessions,
+            }),
+          }),
+        }),
+      },
+      storage: { getUrl: jest.fn() },
+    };
+
+    await expect(getSessions(ctx, { householdId })).resolves.toEqual([
+      expect.objectContaining({
+        _id: "session_former",
+        paidByName: "Former household member",
+      }),
+      expect.objectContaining({
+        _id: "session_unknown",
+        paidByName: undefined,
+      }),
+    ]);
   });
 });
 

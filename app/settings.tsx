@@ -12,13 +12,22 @@ import {
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
+import {
+  cancelAccountDeletionCleanup,
+  finishAccountDeletionLocalCleanup,
+  markAccountDeletionCleanupRequired,
+} from "@/lib/accountDeletionCleanup";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
 import {
   getCurrentDeviceId,
   registerForPushNotifications,
 } from "@/lib/pushNotifications";
 import { themeColors } from "@/lib/theme";
-import { useAuth } from "@clerk/clerk-expo";
+import {
+  isClerkAPIResponseError,
+  useAuth,
+  useUser,
+} from "@clerk/clerk-expo";
 import { useMutation, useQuery } from "convex/react";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -34,11 +43,13 @@ import {
   LogOut,
   PiggyBank,
   RotateCcw,
+  Trash2,
   UserPlus,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -54,6 +65,16 @@ function formatReminderTime(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return `${String(hours).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+}
+
+function isDefinitiveDeletionRefusal(error: unknown): boolean {
+  if (!isClerkAPIResponseError(error)) return false;
+  return (
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 404 &&
+    error.status !== 408
+  );
 }
 
 function SettingsLoadingState({ onBack }: { onBack: () => void }) {
@@ -78,6 +99,11 @@ export default function SettingsScreen() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const signOutSheetRef = useRef<GlassBottomSheetRef>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [accountDeletionError, setAccountDeletionError] = useState<
+    string | null
+  >(null);
+  const deleteAccountSheetRef = useRef<GlassBottomSheetRef>(null);
   const [monthlyBudget, setMonthlyBudget] = useState("");
   const [budgetError, setBudgetError] = useState("");
   const [isSavingBudget, setIsSavingBudget] = useState(false);
@@ -90,6 +116,7 @@ export default function SettingsScreen() {
     18 * 60,
   );
   const { signOut } = useAuth();
+  const { user: clerkUser } = useUser();
   const analytics = useAnalytics();
   const household = useQuery(api.households.getCurrentHousehold);
   const preferences = useQuery(api.notifications.getPreferences);
@@ -320,6 +347,131 @@ export default function SettingsScreen() {
     }
   }, [analytics, disablePushDevice, disablePushDevices, signOut]);
 
+  const handleDeleteAccountConfirm = useCallback(async () => {
+    setIsDeletingAccount(true);
+    setAccountDeletionError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    let accountDeleted = false;
+    let cleanupMarked = false;
+    const finishLocalCleanup = async ({
+      onSuccess = () => router.replace("/(auth)/welcome"),
+      failureTitle = "Account deleted",
+      failureMessage = "We couldn't verify that this device's local data was removed. Try again. If it continues, close and reopen OurPantry so cleanup can finish before you sign in again.",
+    }: {
+      onSuccess?: () => void;
+      failureTitle?: string;
+      failureMessage?: string;
+    } = {}): Promise<boolean> => {
+      try {
+        await finishAccountDeletionLocalCleanup();
+      } catch (error) {
+        console.error("Local account cleanup failed:", error);
+        Alert.alert(
+          failureTitle,
+          failureMessage,
+          [
+            {
+              text: "Try again",
+              onPress: () => {
+                void finishLocalCleanup({
+                  onSuccess,
+                  failureTitle,
+                  failureMessage,
+                });
+              },
+            },
+          ],
+        );
+        return false;
+      }
+      onSuccess();
+      return true;
+    };
+    try {
+      if (!clerkUser) throw new Error("Clerk user is unavailable");
+      try {
+        const deviceId = await getCurrentDeviceId();
+        if (deviceId) await disablePushDevice({ deviceId });
+        else await disablePushDevices({});
+      } catch (error) {
+        console.warn("Couldn't disable push tokens before deletion:", error);
+      }
+
+      try {
+        await analytics.reset();
+      } catch (error) {
+        console.warn("Couldn't reset analytics before deletion:", error);
+      }
+
+      await markAccountDeletionCleanupRequired();
+      cleanupMarked = true;
+      await clerkUser.delete();
+      accountDeleted = true;
+      try {
+        await signOut();
+      } catch (error) {
+        console.warn("Couldn't clear the Clerk session after deletion:", error);
+      }
+      await finishLocalCleanup();
+    } catch (error) {
+      const definitiveRefusal =
+        !accountDeleted && isDefinitiveDeletionRefusal(error);
+      if (definitiveRefusal && cleanupMarked) {
+        try {
+          await cancelAccountDeletionCleanup();
+        } catch (cleanupError) {
+          console.warn(
+            "Couldn't cancel the local account-deletion cleanup marker:",
+            cleanupError,
+          );
+        }
+      }
+      if (!accountDeleted && cleanupMarked && !definitiveRefusal) {
+        try {
+          await signOut();
+        } catch (signOutError) {
+          console.warn(
+            "Couldn't clear the in-memory Clerk session after an unconfirmed deletion:",
+            signOutError,
+          );
+        }
+        await finishLocalCleanup({
+          failureTitle: "Deletion status unconfirmed",
+          failureMessage:
+            "The provider did not confirm whether deletion completed, and this device's local data has not been fully removed yet. Try again to finish local cleanup safely.",
+          onSuccess: () => {
+            Alert.alert(
+              "Deletion status unconfirmed",
+              "The provider did not confirm whether deletion completed, so this device's local data and saved sign-in were removed for safety. Sign in again to check; if the account still exists, you can retry deletion.",
+              [
+                {
+                  text: "Continue",
+                  onPress: () => router.replace("/(auth)/welcome"),
+                },
+              ],
+            );
+          },
+        });
+        return;
+      }
+      console.error("Account deletion failed:", error);
+      setAccountDeletionError(
+        accountDeleted
+          ? "Your account was deleted, but this screen could not close. Please restart OurPantry."
+          : "Your account was not deleted. Please try again.",
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setIsDeletingAccount(false);
+    }
+  }, [
+    analytics,
+    clerkUser,
+    disablePushDevice,
+    disablePushDevices,
+    router,
+    signOut,
+  ]);
+
   if (household === undefined) {
     return <SettingsLoadingState onBack={() => router.back()} />;
   }
@@ -329,6 +481,14 @@ export default function SettingsScreen() {
     false: themeColors.disabled,
     true: themeColors.coralSoft,
   };
+  const accountDeletionImpact =
+    !household
+      ? "Your account will be permanently deleted."
+      : household.members.length > 1
+      ? household.userRole === "owner"
+        ? "Your account will leave this household. Ownership will pass to another member, and the household's lists, history, and receipts will stay available to them."
+        : "Your account will leave this household. The household's lists, history, and receipts will stay available to the other member."
+      : "Your account and this household will be permanently deleted, including its lists, shopping history, and receipts.";
 
   return (
     <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
@@ -653,18 +813,37 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <Text className="mb-2 mt-8 text-base font-semibold text-ink">
+          Account
+        </Text>
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             signOutSheetRef.current?.present();
           }}
-          className="mt-8 min-h-14 flex-row items-center justify-center rounded-full border border-separator bg-surface active:bg-warm-gray-50"
+          className="min-h-14 flex-row items-center justify-center rounded-full border border-separator bg-surface active:bg-warm-gray-50"
           accessibilityLabel="Sign out of your account"
           accessibilityRole="button"
         >
           <LogOut size={20} color={themeColors.error} strokeWidth={2} />
           <Text className="ml-2 text-base font-semibold text-red-700">
             Sign out
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setAccountDeletionError(null);
+            deleteAccountSheetRef.current?.present();
+          }}
+          className="mt-3 min-h-14 flex-row items-center justify-center rounded-full border border-red-200 bg-red-50 active:bg-red-100"
+          accessibilityLabel="Delete your account"
+          accessibilityHint="Opens a permanent account deletion confirmation"
+          accessibilityRole="button"
+        >
+          <Trash2 size={20} color={themeColors.error} strokeWidth={2} />
+          <Text className="ml-2 text-base font-semibold text-red-700">
+            Delete account
           </Text>
         </Pressable>
       </ScrollView>
@@ -693,6 +872,49 @@ export default function SettingsScreen() {
               variant="ghost"
               onPress={() => signOutSheetRef.current?.dismiss()}
               disabled={isSigningOut}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </View>
+        </GlassBottomSheetView>
+      </GlassBottomSheet>
+
+      <GlassBottomSheet
+        ref={deleteAccountSheetRef}
+        enableDynamicSizing
+        dismissible={!isDeletingAccount}
+      >
+        <GlassBottomSheetView className="px-6 pb-10 pt-2">
+          <Text className="text-xl font-bold text-ink">
+            Delete your account?
+          </Text>
+          <Text className="mt-2 text-base leading-6 text-ink-secondary">
+            {accountDeletionImpact} This cannot be undone.
+          </Text>
+          {accountDeletionError ? (
+            <Text
+              className="mt-3 text-sm leading-5 text-red-700"
+              accessibilityRole="alert"
+            >
+              {accountDeletionError}
+            </Text>
+          ) : null}
+          <View className="mt-6 gap-2">
+            <Button
+              variant="danger"
+              onPress={handleDeleteAccountConfirm}
+              disabled={isDeletingAccount}
+              loading={isDeletingAccount}
+              className="w-full"
+              accessibilityLabel="Permanently delete your account"
+            >
+              Delete account permanently
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => deleteAccountSheetRef.current?.dismiss()}
+              disabled={isDeletingAccount}
               className="w-full"
             >
               Cancel

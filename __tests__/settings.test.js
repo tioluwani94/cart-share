@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { Linking } from "react-native";
+import { Alert, Linking } from "react-native";
 
 import SettingsScreen from "../app/settings";
 
@@ -9,7 +9,15 @@ const mockRecalculateReminders = jest.fn();
 const mockRegisterForPushNotifications = jest.fn();
 const mockPresentSignOutSheet = jest.fn();
 const mockDismissSignOutSheet = jest.fn();
+const mockDeleteAccount = jest.fn();
+const mockSignOut = jest.fn();
+const mockClearAll = jest.fn();
+const mockMarkCleanupRequired = jest.fn();
+const mockCancelCleanupRequired = jest.fn();
+const mockAnalyticsReset = jest.fn();
+const mockRouterReplace = jest.fn();
 let mockPreferences;
+let mockHousehold;
 
 jest.mock("@/convex/_generated/api", () => ({
   api: {
@@ -35,12 +43,7 @@ jest.mock("@/convex/_generated/api", () => ({
 jest.mock("convex/react", () => ({
   useQuery: (query) => {
     if (query === "getCurrentHousehold") {
-      return {
-        _id: "household_1",
-        name: "Test household",
-        inviteCode: "ABC123",
-        members: [],
-      };
+      return mockHousehold;
     }
     if (query === "getPreferences") {
       return mockPreferences;
@@ -58,12 +61,15 @@ jest.mock("convex/react", () => ({
 }));
 
 jest.mock("@clerk/clerk-expo", () => ({
-  useAuth: () => ({ signOut: jest.fn() }),
+  useAuth: () => ({ signOut: mockSignOut }),
+  useUser: () => ({ user: { delete: mockDeleteAccount } }),
+  isClerkAPIResponseError: (error) =>
+    error?.isClerkAPIResponseError === true,
 }));
 
 jest.mock("@/lib/AnalyticsContext", () => ({
   useAnalytics: () => ({
-    reset: jest.fn(),
+    reset: mockAnalyticsReset,
     setConsent: jest.fn(),
     track: jest.fn(),
   }),
@@ -76,7 +82,19 @@ jest.mock("@/lib/pushNotifications", () => ({
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ back: jest.fn() }),
+  useRouter: () => ({ back: jest.fn(), replace: mockRouterReplace }),
+}));
+
+jest.mock("@/lib/storage", () => ({
+  clearAllOrThrow: (...args) => mockClearAll(...args),
+}));
+
+jest.mock("@/lib/accountDeletionCleanup", () => ({
+  markAccountDeletionCleanupRequired: (...args) =>
+    mockMarkCleanupRequired(...args),
+  cancelAccountDeletionCleanup: (...args) =>
+    mockCancelCleanupRequired(...args),
+  finishAccountDeletionLocalCleanup: (...args) => mockClearAll(...args),
 }));
 
 jest.mock("@/components/ui", () => {
@@ -143,6 +161,19 @@ describe("SettingsScreen", () => {
       notificationTimeMinutesLocal: 18 * 60,
       notificationTimeZone: "Europe/London",
     };
+    mockHousehold = {
+      _id: "household_1",
+      name: "Test household",
+      inviteCode: "ABC123",
+      userRole: "owner",
+      members: [{ _id: "membership_1", userId: "user_1" }],
+    };
+    mockDeleteAccount.mockResolvedValue(undefined);
+    mockSignOut.mockResolvedValue(undefined);
+    mockMarkCleanupRequired.mockResolvedValue(undefined);
+    mockCancelCleanupRequired.mockResolvedValue(undefined);
+    mockClearAll.mockResolvedValue(undefined);
+    mockAnalyticsReset.mockResolvedValue(undefined);
     mockUpdatePreferences.mockResolvedValue({ success: true });
     mockRecalculateReminders.mockResolvedValue({ success: true });
     jest.spyOn(Linking, "openSettings").mockResolvedValue();
@@ -213,5 +244,180 @@ describe("SettingsScreen", () => {
     act(() => signOut.props.onPress());
 
     expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires confirmation before deleting Clerk and local account data", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const deleteAccount = renderer.root.findByProps({
+      accessibilityLabel: "Delete your account",
+    });
+    act(() => deleteAccount.props.onPress());
+    expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
+
+    const confirm = renderer.root.findByProps({
+      accessibilityLabel: "Permanently delete your account",
+    });
+    await act(async () => {
+      await confirm.props.onPress();
+    });
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(mockMarkCleanupRequired).toHaveBeenCalledTimes(1);
+    expect(mockClearAll).toHaveBeenCalledTimes(1);
+    expect(mockMarkCleanupRequired.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteAccount.mock.invocationCallOrder[0],
+    );
+    expect(mockDeleteAccount.mock.invocationCallOrder[0]).toBeLessThan(
+      mockClearAll.mock.invocationCallOrder[0],
+    );
+    expect(mockAnalyticsReset).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(auth)/welcome");
+  });
+
+  it("stays in Settings when Clerk refuses account deletion", async () => {
+    mockDeleteAccount.mockRejectedValueOnce(
+      Object.assign(new Error("Deletion disabled"), {
+        isClerkAPIResponseError: true,
+        status: 403,
+      }),
+    );
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const confirm = renderer.root.findByProps({
+      accessibilityLabel: "Permanently delete your account",
+    });
+    await act(async () => {
+      await confirm.props.onPress();
+    });
+
+    expect(mockClearAll).not.toHaveBeenCalled();
+    expect(mockCancelCleanupRequired).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+    expect(
+      renderer.root.findByProps({ accessibilityRole: "alert" }).props.children,
+    ).toContain("account was not deleted");
+    consoleError.mockRestore();
+  });
+
+  it("removes local identity when provider deletion has an ambiguous result", async () => {
+    mockDeleteAccount.mockRejectedValueOnce(new Error("Network unavailable"));
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const alert = jest.spyOn(Alert, "alert").mockImplementation();
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const confirm = renderer.root.findByProps({
+      accessibilityLabel: "Permanently delete your account",
+    });
+    await act(async () => {
+      await confirm.props.onPress();
+    });
+
+    expect(mockCancelCleanupRequired).not.toHaveBeenCalled();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockClearAll).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Deletion status unconfirmed",
+      expect.stringContaining("local data"),
+      expect.any(Array),
+    );
+    const actions = alert.mock.calls[0][2];
+    act(() => actions[0].onPress());
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(auth)/welcome");
+    alert.mockRestore();
+    consoleError.mockRestore();
+  });
+
+  it("does not claim success when ambiguous deletion also needs a cleanup retry", async () => {
+    mockDeleteAccount.mockRejectedValueOnce(new Error("Network unavailable"));
+    mockClearAll.mockRejectedValueOnce(new Error("MMKV unavailable"));
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const alert = jest.spyOn(Alert, "alert").mockImplementation();
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const confirm = renderer.root.findByProps({
+      accessibilityLabel: "Permanently delete your account",
+    });
+    await act(async () => {
+      await confirm.props.onPress();
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Deletion status unconfirmed",
+      expect.stringContaining("local data"),
+      expect.any(Array),
+    );
+    expect(alert.mock.calls[0][0]).not.toBe("Account deleted");
+    alert.mockRestore();
+    consoleError.mockRestore();
+  });
+
+  it("reports a local cleanup failure accurately after Clerk deletion", async () => {
+    mockClearAll.mockImplementationOnce(() => {
+      throw new Error("MMKV unavailable");
+    });
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const alert = jest.spyOn(Alert, "alert").mockImplementation();
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const confirm = renderer.root.findByProps({
+      accessibilityLabel: "Permanently delete your account",
+    });
+    await act(async () => {
+      await confirm.props.onPress();
+    });
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Account deleted",
+      expect.stringContaining("local data"),
+      expect.any(Array),
+    );
+    const actions = alert.mock.calls[0][2];
+    await act(async () => {
+      await actions[0].onPress();
+    });
+    expect(mockClearAll).toHaveBeenCalledTimes(2);
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(auth)/welcome");
+    alert.mockRestore();
+    consoleError.mockRestore();
+  });
+
+  it("continues deletion when analytics identity reset fails", async () => {
+    mockAnalyticsReset.mockRejectedValueOnce(new Error("PostHog unavailable"));
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation();
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const confirm = renderer.root.findByProps({
+      accessibilityLabel: "Permanently delete your account",
+    });
+    await act(async () => {
+      await confirm.props.onPress();
+    });
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(mockClearAll).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(auth)/welcome");
+    consoleWarn.mockRestore();
   });
 });

@@ -51,7 +51,12 @@ http.route({
     // Handle user events
     const eventType = evt.type;
 
-    if (eventType === "user.created" || eventType === "user.updated") {
+    if (eventType === "user.deleted") {
+      const result = await ctx.runMutation(internal.users.deleteByClerkId, {
+        clerkId: evt.data.id,
+      });
+      console.log("User deletion projection:", result.status);
+    } else if (eventType === "user.created" || eventType === "user.updated") {
       const { id, email_addresses, first_name, last_name, image_url } =
         evt.data;
 
@@ -69,7 +74,7 @@ http.route({
       const name = [first_name, last_name].filter(Boolean).join(" ") || undefined;
 
       // Sync user to Convex
-      await ctx.runMutation(internal.users.createOrUpdate, {
+      await ctx.runMutation(internal.users.syncExistingFromClerk, {
         clerkId: id,
         email: primaryEmail.email_address,
         name,
@@ -84,8 +89,8 @@ http.route({
 });
 
 // Type definitions for Clerk webhook events
-interface ClerkWebhookEvent {
-  type: string;
+interface ClerkUserUpsertWebhookEvent {
+  type: "user.created" | "user.updated";
   data: {
     id: string;
     email_addresses: {
@@ -98,5 +103,18 @@ interface ClerkWebhookEvent {
     image_url: string | null;
   };
 }
+
+interface ClerkUserDeletedWebhookEvent {
+  type: "user.deleted";
+  data: {
+    id: string;
+    deleted: boolean;
+    object: "user";
+  };
+}
+
+type ClerkWebhookEvent =
+  | ClerkUserUpsertWebhookEvent
+  | ClerkUserDeletedWebhookEvent;
 
 export default http;

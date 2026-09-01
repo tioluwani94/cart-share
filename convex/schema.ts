@@ -14,6 +14,13 @@ export default defineSchema({
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
 
+  // Opaque deletion markers prevent short-lived stale Clerk JWTs from
+  // recreating a user after account deletion has completed.
+  accountDeletionTombstones: defineTable({
+    clerkIdDigest: v.string(),
+    deletedAt: v.number(),
+  }).index("by_clerk_id_digest", ["clerkIdDigest"]),
+
   // Households table - a household contains up to 2 members (couple)
   households: defineTable({
     name: v.string(),
@@ -63,7 +70,7 @@ export default defineSchema({
       v.union(v.literal("in_store"), v.literal("online")),
     ),
     isArchived: v.boolean(),
-    createdBy: v.id("users"),
+    createdBy: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -83,7 +90,7 @@ export default defineSchema({
     estimatedPricePence: v.optional(v.number()),
     householdProductId: v.optional(v.id("householdProducts")),
     isCompleted: v.boolean(),
-    addedBy: v.id("users"),
+    addedBy: v.optional(v.id("users")),
     completedBy: v.optional(v.id("users")),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -92,16 +99,19 @@ export default defineSchema({
     .index("by_list", ["listId"])
     .index("by_list_and_client_id", ["listId", "clientId"])
     .index("by_list_and_completed", ["listId", "isCompleted"])
-    .index("by_added_by", ["addedBy"]),
+    .index("by_added_by", ["addedBy"])
+    .index("by_completed_by", ["completedBy"]),
 
   // Receipt uploads - binds private storage objects to a household.
   // storageId is filled after the client completes the direct upload.
   receiptUploads: defineTable({
     householdId: v.id("households"),
-    uploadedBy: v.id("users"),
+    uploadedBy: v.optional(v.id("users")),
     storageId: v.optional(v.id("_storage")),
     createdAt: v.number(),
-  }),
+  })
+    .index("by_uploaded_by", ["uploadedBy"])
+    .index("by_household", ["householdId"]),
 
   // Replenishment memory. This models shopping rhythm, not exact stock.
   householdProducts: defineTable({
@@ -117,11 +127,12 @@ export default defineSchema({
     purchaseObservationCount: v.number(),
     status: v.union(v.literal("active"), v.literal("paused")),
     recentOperationIds: v.optional(v.array(v.string())),
-    createdBy: v.id("users"),
+    createdBy: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_household_and_status", ["householdId", "status"])
+    .index("by_created_by", ["createdBy"])
     .index("by_household_and_normalized_name", [
       "householdId",
       "normalizedName",
@@ -186,8 +197,9 @@ export default defineSchema({
     listId: v.optional(v.id("lists")),
     totalAmount: v.optional(v.number()), // stored in pence (integer)
     storeName: v.optional(v.string()),
-    shopperId: v.id("users"),
+    shopperId: v.optional(v.id("users")),
     paidBy: v.optional(v.union(v.literal("joint"), v.id("users"))),
+    paidByFormerMember: v.optional(v.boolean()),
     receiptImageId: v.optional(v.id("_storage")),
     completionOperationId: v.optional(v.string()),
     sessionDate: v.number(),
@@ -196,6 +208,7 @@ export default defineSchema({
     .index("by_household", ["householdId"])
     .index("by_household_and_date", ["householdId", "sessionDate"])
     .index("by_shopper", ["shopperId"])
+    .index("by_paid_by", ["paidBy"])
     .index("by_list", ["listId"])
     .index("by_list_and_completion_operation", [
       "listId",

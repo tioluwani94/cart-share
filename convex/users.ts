@@ -1,5 +1,11 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  continueAccountDeletionProjection,
+  deleteAccountProjection,
+  hasAccountDeletionTombstone,
+  type AccountDeletionResult,
+} from "./accountDeletion";
 
 /**
  * Ensure an authenticated Clerk user has a matching Convex user record.
@@ -13,6 +19,10 @@ export const ensureCurrent = mutation({
     if (!identity) throw new Error("Not authenticated");
     if (!identity.email) {
       throw new Error("Authenticated user email is unavailable");
+    }
+
+    if (await hasAccountDeletionTombstone(ctx, identity.subject)) {
+      return null;
     }
 
     const existingUser = await ctx.db
@@ -43,10 +53,13 @@ export const ensureCurrent = mutation({
 });
 
 /**
- * Create or update a user from Clerk webhook events.
- * This is an internal mutation called by the HTTP webhook handler.
+ * Refresh an existing user from Clerk webhook events.
+ *
+ * Authenticated `ensureCurrent` is the only path that creates users. Ignoring
+ * an upsert for a missing row prevents delayed events from recreating an
+ * account after a newer `user.deleted` webhook has removed it.
  */
-export const createOrUpdate = internalMutation({
+export const syncExistingFromClerk = internalMutation({
   args: {
     clerkId: v.string(),
     email: v.string(),
@@ -62,28 +75,36 @@ export const createOrUpdate = internalMutation({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
       .unique();
 
-    if (existingUser) {
-      // Update existing user
-      await ctx.db.patch(existingUser._id, {
-        email: args.email,
-        name: args.name,
-        imageUrl: args.imageUrl,
-        updatedAt: now,
-      });
-      return existingUser._id;
-    } else {
-      // Create new user
-      const userId = await ctx.db.insert("users", {
-        clerkId: args.clerkId,
-        email: args.email,
-        name: args.name,
-        imageUrl: args.imageUrl,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return userId;
-    }
+    if (!existingUser) return null;
+
+    await ctx.db.patch(existingUser._id, {
+      email: args.email,
+      name: args.name,
+      imageUrl: args.imageUrl,
+      updatedAt: now,
+    });
+    return existingUser._id;
   },
+});
+
+/**
+ * Remove a Clerk user's Convex projection after a signed user.deleted webhook.
+ * Missing users are successful no-ops because Clerk retries failed webhooks.
+ */
+export const deleteByClerkId = internalMutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, { clerkId }): Promise<AccountDeletionResult> =>
+    deleteAccountProjection(ctx, clerkId),
+});
+
+/** Continue an account deletion that exceeded one bounded mutation batch. */
+export const continueDeletion = internalMutation({
+  args: { deletingClerkId: v.string() },
+  handler: async (
+    ctx,
+    { deletingClerkId },
+  ): Promise<AccountDeletionResult> =>
+    continueAccountDeletionProjection(ctx, deletingClerkId),
 });
 
 /**

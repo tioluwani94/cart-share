@@ -398,8 +398,8 @@ Event names use the `[object] [verb]` convention and live in one typed contract.
 
 Sections 9.1–9.5 were approved in checkpoint B. Sections 9.6–9.8 and the
 additional household fields were approved in checkpoint G. All are implemented.
-The separate account-deletion field/index changes in checkpoint J remain gated
-and are documented in `docs/RELEASE_READINESS.md`.
+The account-deletion field/index changes in checkpoint J are also implemented
+locally and documented in `docs/RELEASE_READINESS.md`.
 
 ### 9.1 New table: `householdProducts`
 
@@ -757,16 +757,13 @@ Approved checkpoints; implementation status is summarised in section 17:
 8. **H — Privacy and consent:** Use PostHog Cloud EU, explicit opt-in, the event/property allow-list, no session replay/autocapture/geolocation, generic push copy, per-member notification preferences, and identity reset/token disable on sign-out.
 9. **I — Market strategy:** Launch UK-first without a country selector, keep the international seams in section 8.12, and defer the pence-to-minor-unit migration until a second currency is actually scheduled.
 
-Release-only checkpoints still require explicit approval because of repository
-rules:
-
-10. **J — Account deletion:** Approve the shared-household deletion and ownership-transfer semantics before changing the Clerk/Convex authentication lifecycle.
-11. **K — Production services:** Approve creation/linking of the EAS project and any production Convex, Clerk, PostHog, APNs, or Google Vision configuration. Approval of the configuration design does not authorize a production deployment.
+10. **J — Account deletion (approved and implemented locally):** Shared-household deletion, ownership transfer, bounded resumable attribution anonymisation, final-household cleanup, signed Clerk webhook handling, and digest tombstones that reject stale authenticated sessions.
+11. **K — Production services (pending):** Approve creation/linking of the EAS project and any production Convex, Clerk, PostHog, APNs, or Google Vision configuration. Approval of the configuration design does not authorize a production deployment.
 
 ## 17. Implementation and release status
 
-1. **Implemented:** stabilisation, deterministic restock engine, additive schema, authenticated Convex interface, activation, household inputs, historical suggestions, analytics consent, notification scheduling, scoped token lifecycle, shared shopping-list modules, Plan, Shop, Spending, Settings, UK defaults, and the approved visual direction.
-2. **Locally verified:** TypeScript, lint, Jest, iOS simulator flows, receipt cancellation, offline replay invariants, and analytics allow-list/identity isolation.
-3. **Release hardening in progress:** legal/account-deletion flow, EAS project and credentials, production environment configuration, App Store privacy declarations, and release-build permission audit.
+1. **Implemented:** stabilisation, deterministic restock engine, additive schema, authenticated Convex interface, activation, household inputs, historical suggestions, analytics consent, notification scheduling, scoped token lifecycle, account deletion, shared shopping-list modules, Plan, Shop, Spending, Settings, UK defaults, and the approved visual direction.
+2. **Locally verified:** TypeScript, lint, Jest, account-deletion invariants, iOS simulator flows, receipt cancellation, offline replay invariants, and analytics allow-list/identity isolation.
+3. **Release hardening in progress:** legal material, external account-deletion configuration, EAS project and credentials, production environment configuration, App Store privacy declarations, and release-build permission audit.
 4. **Physical-device validation pending:** Google and Apple production OAuth, APNs delivery and receipt cleanup, two-device household sync, real UK receipts, offline reconnect, accessibility, and consent/sign-out isolation.
 5. **Beta pending:** run the closed UK household beta before adding AI or another market.

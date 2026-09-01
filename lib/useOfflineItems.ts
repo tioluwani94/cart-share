@@ -31,13 +31,13 @@ interface ItemWithUser {
   category?: string;
   estimatedPricePence?: number;
   isCompleted: boolean;
-  addedBy: Id<"users">;
+  addedBy?: Id<"users">;
   completedBy?: Id<"users">;
   completedAt?: number;
   createdAt: number;
   updatedAt: number;
   addedByUser?: {
-    _id: Id<"users">;
+    _id?: Id<"users">;
     name?: string;
     imageUrl?: string;
   } | null;

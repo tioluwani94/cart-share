@@ -10,7 +10,7 @@ import { useEffect, useState, type PropsWithChildren } from "react";
 export function AuthenticatedUserBoundary({
   children,
 }: PropsWithChildren) {
-  const { isLoaded, isSignedIn, userId } = useAuth();
+  const { isLoaded, isSignedIn, signOut, userId } = useAuth();
   const { isAuthenticated } = useConvexAuth();
   const ensureCurrentUser = useMutation(api.users.ensureCurrent);
   const [readyUserId, setReadyUserId] = useState<string | null>(null);
@@ -26,8 +26,13 @@ export function AuthenticatedUserBoundary({
     let active = true;
     setBootstrapError(null);
     void ensureCurrentUser()
-      .then(() => {
-        if (active) setReadyUserId(userId);
+      .then(async (ensuredUserId) => {
+        if (!active) return;
+        if (!ensuredUserId) {
+          await signOut();
+          return;
+        }
+        setReadyUserId(userId);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -41,7 +46,7 @@ export function AuthenticatedUserBoundary({
     return () => {
       active = false;
     };
-  }, [ensureCurrentUser, isAuthenticated, isLoaded, isSignedIn, userId]);
+  }, [ensureCurrentUser, isAuthenticated, isLoaded, isSignedIn, signOut, userId]);
 
   if (bootstrapError) throw bootstrapError;
   if (isSignedIn && (!isAuthenticated || readyUserId !== userId)) return null;
