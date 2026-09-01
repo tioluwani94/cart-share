@@ -48,6 +48,28 @@ export function formatChartCurrencyFromPence(pence: number): string {
   }).format(pence / 100);
 }
 
+/**
+ * Formats a partially entered GBP amount without forcing trailing decimals.
+ * This keeps typing natural while making larger values easier to scan.
+ */
+export function formatCurrencyInput(value: string): string {
+  const sanitized = value.replace(/[^0-9.]/g, "");
+  if (!sanitized) return "";
+
+  const hasDecimal = sanitized.includes(".");
+  const [rawWhole = "", ...fractionParts] = sanitized.split(".");
+  const normalizedWhole = rawWhole.replace(/^0+(?=\d)/, "") || "0";
+  const groupedWhole = normalizedWhole.replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    ",",
+  );
+
+  if (!hasDecimal) return groupedWhole;
+
+  const fraction = fractionParts.join("").slice(0, 2);
+  return `${groupedWhole}.${fraction}`;
+}
+
 export function parseCurrencyInputToPence(value: string): number | null {
   const normalized = value.replace(/[^0-9.]/g, "");
   if (!normalized || (normalized.match(/\./g)?.length ?? 0) > 1) {

@@ -1,32 +1,32 @@
 import { useState, useCallback, useMemo, forwardRef, useEffect } from "react";
-import { View, Text, Pressable, TextInput, Keyboard } from "react-native";
-import { Pencil, Minus, Plus, Trash2 } from "lucide-react-native";
+import { View, Text, Pressable, Keyboard } from "react-native";
+import { Check, Pencil, Minus, Plus, Trash2 } from "lucide-react-native";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
+  AmountInput,
   Button,
   GlassBottomSheet,
   GlassBottomSheetScrollView,
+  GlassSheetHeader,
   type GlassBottomSheetRef,
   Input,
 } from "@/components/ui";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
-  withSequence,
-  withTiming,
-  Easing,
 } from "react-native-reanimated";
 import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
+import { themeColors } from "@/lib/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedText = Animated.createAnimatedComponent(Text);
 
 /**
  * Common unit options for items.
@@ -56,6 +56,7 @@ function UnitChip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -63,11 +64,25 @@ function UnitChip({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.92, { damping: 15, stiffness: 400 });
+    if (!reduceMotion) {
+      scale.value = withSpring(0.97, {
+        damping: 28,
+        stiffness: 520,
+        mass: 0.7,
+        overshootClamping: true,
+      });
+    }
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = reduceMotion
+      ? 1
+      : withSpring(1, {
+          damping: 28,
+          stiffness: 520,
+          mass: 0.7,
+          overshootClamping: true,
+        });
   };
 
   const handlePress = () => {
@@ -84,23 +99,33 @@ function UnitChip({
       accessibilityLabel={`${label} unit${selected ? ", selected" : ""}`}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      className={`mr-2 mb-2 rounded-full px-4 py-2 ${
-        selected ? "bg-teal" : "border border-warm-gray-200 bg-white"
+      className={`mb-2 mr-2 min-h-12 flex-row items-center rounded-full border px-4 ${
+        selected
+          ? "border-coral/30 bg-coral-soft"
+          : "border-separator bg-surface"
       }`}
     >
       <Text
-        className={`font-medium ${
-          selected ? "text-white" : "text-warm-gray-700"
+        className={`font-semibold ${
+          selected ? "text-coral" : "text-ink-secondary"
         }`}
       >
         {label}
       </Text>
+      {selected ? (
+        <Check
+          size={15}
+          color={themeColors.coral}
+          strokeWidth={2.5}
+          style={{ marginLeft: 7 }}
+        />
+      ) : null}
     </AnimatedPressable>
   );
 }
 
 /**
- * Quantity stepper component with playful number animation.
+ * Compact quantity stepper with restrained, shared button feedback.
  */
 function QuantityStepper({
   value,
@@ -109,73 +134,53 @@ function QuantityStepper({
   value: number;
   onChange: (value: number) => void;
 }) {
-  const numberScale = useSharedValue(1);
-  const numberOpacity = useSharedValue(1);
-
-  const animatedNumberStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: numberScale.value }],
-    opacity: numberOpacity.value,
-  }));
-
-  const animateNumber = () => {
-    numberScale.value = withSequence(
-      withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),
-      withSpring(1, { damping: 12, stiffness: 300 }),
-    );
-  };
-
   const handleDecrement = () => {
     if (value > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      animateNumber();
       onChange(value - 1);
     }
   };
 
   const handleIncrement = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    animateNumber();
     onChange(value + 1);
   };
 
   return (
     <View className="flex-row items-center">
-      {/* Decrement button */}
-      <Pressable
+      <Button
         onPress={handleDecrement}
         disabled={value <= 0}
-        className={`h-12 w-12 items-center justify-center rounded-full ${
-          value <= 0 ? "bg-warm-gray-100" : "bg-warm-gray-200"
-        }`}
+        variant="outline"
+        size="sm"
+        iconOnly
         accessibilityLabel="Decrease quantity"
-        accessibilityRole="button"
       >
         <Minus
           size={20}
-          color={value <= 0 ? "#D4D2CC" : "#57534E"}
+          color={value <= 0 ? themeColors.disabled : themeColors.secondaryInk}
           strokeWidth={2.5}
         />
-      </Pressable>
+      </Button>
 
-      {/* Quantity display */}
       <View className="mx-4 min-w-[60px] items-center">
-        <AnimatedText
-          style={animatedNumberStyle}
-          className="text-3xl font-bold text-warm-gray-900"
+        <Text
+          className="text-3xl text-ink"
+          style={{ fontFamily: "Nunito_900Black" }}
         >
           {value}
-        </AnimatedText>
+        </Text>
       </View>
 
-      {/* Increment button */}
-      <Pressable
+      <Button
         onPress={handleIncrement}
-        className="h-12 w-12 items-center justify-center rounded-full bg-teal"
+        variant="tonal"
+        size="sm"
+        iconOnly
         accessibilityLabel="Increase quantity"
-        accessibilityRole="button"
       >
-        <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
-      </Pressable>
+        <Plus size={20} color={themeColors.coral} strokeWidth={2.5} />
+      </Button>
     </View>
   );
 }
@@ -268,6 +273,13 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
       },
       [onClose, resetForm],
     );
+
+    const dismissSheet = useCallback(() => {
+      if (isSaving || isDeleting) return;
+      if (ref && typeof ref !== "function") {
+        ref.current?.dismiss();
+      }
+    }, [isDeleting, isSaving, ref]);
 
     const handleSave = async () => {
       Keyboard.dismiss();
@@ -363,13 +375,16 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
         <GlassBottomSheetScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
         >
-          {/* Header */}
-          <View className="mb-6 flex-row items-center justify-center">
-            <Pencil size={20} color="#FF6B6B" strokeWidth={2} />
-            <Text className="ml-2 text-lg font-semibold text-warm-gray-900">
-              Edit Item
-            </Text>
-          </View>
+          <GlassSheetHeader
+            title="Edit item"
+            description="Update the details your household sees in this shop."
+            icon={
+              <Pencil size={21} color={themeColors.coral} strokeWidth={2} />
+            }
+            onClose={dismissSheet}
+            closeDisabled={isSaving || isDeleting}
+            closeAccessibilityLabel="Close item editor"
+          />
 
           {/* Item name input */}
           <Input
@@ -387,7 +402,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
 
           {/* Quantity stepper */}
           <View className="mb-6">
-            <Text className="mb-3 text-base font-medium text-warm-gray-700">
+            <Text className="mb-3 text-[15px] font-semibold leading-5 text-ink">
               Quantity
             </Text>
             <QuantityStepper value={quantity} onChange={setQuantity} />
@@ -395,7 +410,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
 
           {/* Unit picker */}
           <View className="mb-6">
-            <Text className="mb-3 text-base font-medium text-warm-gray-700">
+            <Text className="mb-3 text-[15px] font-semibold leading-5 text-ink">
               Unit (optional)
             </Text>
             <View className="flex-row flex-wrap">
@@ -413,7 +428,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
           </View>
 
           {/* Notes textarea */}
-          <Input
+          <AmountInput
             label="Estimated price (optional)"
             value={estimatedPrice}
             onChangeText={(value) => {
@@ -421,31 +436,22 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
               setEstimatedPriceError("");
             }}
             error={estimatedPriceError}
-            placeholder="e.g. £2.50"
-            keyboardType="decimal-pad"
+            placeholder="e.g. 2.50"
           />
 
-          {/* Notes textarea */}
-          <View className="mb-6">
-            <Text className="mb-3 text-base font-medium text-warm-gray-700">
-              Notes (optional)
-            </Text>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Any special instructions..."
-              placeholderTextColor="#A9A69E"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              className="min-h-[100px] rounded-2xl border-2 border-warm-gray-200 bg-white px-4 py-3 text-base text-warm-gray-900"
-              accessibilityLabel="Notes"
-            />
-          </View>
+          <Input
+            label="Notes (optional)"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Any special instructions…"
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            className="min-h-[100px] py-3"
+          />
 
           {/* Action buttons */}
-          <View className="gap-3 flex-row">
-            {/* Save button */}
+          <View>
             <Button
               onPress={handleSave}
               variant="primary"
@@ -453,29 +459,33 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
               loading={isSaving}
               disabled={!name.trim() || isDeleting}
               accessibilityLabel="Save changes"
-              className="flex-1"
+              className="w-full"
             >
-              Save Changes
+              Save changes
             </Button>
 
-            {/* Delete button */}
-            <Pressable
+            <Button
               onPress={handleDelete}
               disabled={isSaving || isDeleting}
-              className={`min-h-[56px] flex-row items-center justify-center rounded-2xl border-2 w-16 ${
-                isSaving || isDeleting
-                  ? "border-warm-gray-200"
-                  : "border-red-500"
-              }`}
+              loading={isDeleting}
+              variant="ghost"
+              size="lg"
+              className="mt-2 w-full"
               accessibilityLabel="Delete item"
-              accessibilityRole="button"
             >
               <Trash2
                 size={18}
-                color={isSaving || isDeleting ? "#A3A096" : "#EF4444"}
+                color={
+                  isSaving || isDeleting
+                    ? themeColors.disabled
+                    : themeColors.error
+                }
                 strokeWidth={2}
               />
-            </Pressable>
+              <Text className="ml-2 text-base font-semibold text-red-700">
+                Delete item
+              </Text>
+            </Button>
           </View>
         </GlassBottomSheetScrollView>
       </GlassBottomSheet>

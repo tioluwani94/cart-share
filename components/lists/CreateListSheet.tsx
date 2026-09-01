@@ -1,7 +1,9 @@
 import {
+  AmountInput,
   Button,
   GlassBottomSheet,
   GlassBottomSheetScrollView,
+  GlassSheetHeader,
   type GlassBottomSheetRef,
   Input,
 } from "@/components/ui";
@@ -9,9 +11,9 @@ import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ListPlus, X } from "lucide-react-native";
+import { ListPlus } from "lucide-react-native";
 import { forwardRef, useCallback, useMemo, useState } from "react";
-import { Keyboard, Pressable, Text, View } from "react-native";
+import { Keyboard, Text, View } from "react-native";
 import { SuccessCelebration } from "./SuccessCelebration";
 import { CATEGORIES, CategoryChip } from "./CategoryChip";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
@@ -152,28 +154,20 @@ export const CreateListSheet = forwardRef<
             <SuccessCelebration listName={listName.trim()} />
           ) : (
             <>
-              <View className="mb-7 flex-row items-start">
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-coral-soft">
-                  <ListPlus size={23} color={themeColors.coral} strokeWidth={2} />
-                </View>
-                <View className="ml-3 flex-1 pr-3">
-                  <Text className="text-2xl font-bold tracking-tight text-ink">
-                    {setAsNextShop ? "New Next shop" : "New shopping list"}
-                  </Text>
-                  <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-                    Name the shop, then add a budget or category if useful.
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={dismissSheet}
-                  disabled={isCreating}
-                  className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100 active:opacity-70 disabled:opacity-40"
-                  accessibilityLabel="Close new shopping list"
-                  accessibilityRole="button"
-                >
-                  <X size={20} color={themeColors.secondaryInk} />
-                </Pressable>
-              </View>
+              <GlassSheetHeader
+                title={setAsNextShop ? "New Next shop" : "New shopping list"}
+                description="Name the shop, then add optional details."
+                icon={
+                  <ListPlus
+                    size={21}
+                    color={themeColors.coral}
+                    strokeWidth={2}
+                  />
+                }
+                onClose={dismissSheet}
+                closeDisabled={isCreating}
+                closeAccessibilityLabel="Close new shopping list"
+              />
 
               <Input
                 label="List name"
@@ -189,7 +183,7 @@ export const CreateListSheet = forwardRef<
                 onSubmitEditing={handleCreate}
               />
 
-              <Input
+              <AmountInput
                 label="Trip budget (optional)"
                 value={tripBudget}
                 onChangeText={(value) => {
@@ -197,13 +191,12 @@ export const CreateListSheet = forwardRef<
                   setTripBudgetError("");
                 }}
                 error={tripBudgetError}
-                placeholder="£0.00"
-                keyboardType="decimal-pad"
+                placeholder="0.00"
                 returnKeyType="done"
               />
 
               <View className="mt-1">
-                <Text className="mb-3 text-sm font-semibold text-ink">
+                <Text className="mb-3 text-[15px] font-semibold leading-5 text-ink">
                   Category (optional)
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
@@ -222,7 +215,7 @@ export const CreateListSheet = forwardRef<
                 </View>
               </View>
 
-              <View className="mt-6">
+              <View className="mt-7">
                 <Button
                   onPress={handleCreate}
                   variant="primary"

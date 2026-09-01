@@ -49,9 +49,12 @@
 - **Backgrounds**: Off-white (#FAFAFA) light mode, rich charcoal (#1A1A2E) dark mode
 
 ### Typography
-- Headings: Rounded, friendly sans-serif (SF Rounded, Nunito)
+- Headings: `font-heading` (preloaded `Nunito_900Black`) for every screen, sheet, card, and empty-state heading
+- Buttons: use the shared `Button`, which owns `Nunito_800ExtraBold`
 - Body: Clean, highly legible sans-serif
 - Numbers: Tabular figures for prices/quantities
+
+Do not use a plain `font-bold` system face for heading-sized text. Body copy and compact labels remain in the platform system family. Short household/account forms should use `components/onboarding/OnboardingFormScreen.tsx` so the back control, 144 pt artwork, keyboard-safe content, and one-action footer stay consistent.
 
 ### Component Guidelines
 - Cards: 16-20px padding, 12-16px border radius, subtle warm shadows

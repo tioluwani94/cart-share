@@ -69,6 +69,17 @@ describe("account deletion local cleanup", () => {
     expect(mockedSecureStore.deleteItemAsync).toHaveBeenCalledTimes(1);
   });
 
+  it("uses a SecureStore-compatible recovery key", async () => {
+    mockedSecureStore.getItemAsync.mockImplementation(async (key) => {
+      if (!/^[A-Za-z0-9._-]+$/.test(key)) {
+        throw new Error("Invalid SecureStore key");
+      }
+      return null;
+    });
+
+    await expect(recoverPendingAccountDeletionCleanup()).resolves.toBe(false);
+  });
+
   it("keeps the recovery marker when MMKV erasure fails", async () => {
     mockedSecureStore.getItemAsync.mockResolvedValue("required");
     mockedClearAllOrThrow.mockImplementationOnce(() => {

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Text, Image, Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
@@ -11,6 +12,7 @@ import {
   GlassBottomSheetView,
   type GlassBottomSheetRef,
 } from "./GlassBottomSheet";
+import { GlassSheetHeader } from "./GlassSheetHeader";
 
 // Fun gradient color pairs for initials backgrounds
 const GRADIENT_COLORS = [
@@ -61,10 +63,12 @@ export function UserAvatar({
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
   const infoSheetRef = useRef<GlassBottomSheetRef>(null);
+  const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
 
   const initials = getInitials(name);
   const [primaryColor] = getColorForName(name);
+  const isInteractive = Boolean(onPress || showTooltip);
 
   const handleLongPress = useCallback(() => {
     if (showTooltip) {
@@ -78,12 +82,26 @@ export function UserAvatar({
   }, [showTooltip]);
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
-  }, [scale]);
+    if (!reduceMotion) {
+      scale.value = withSpring(0.97, {
+        damping: 28,
+        stiffness: 520,
+        mass: 0.7,
+        overshootClamping: true,
+      });
+    }
+  }, [reduceMotion, scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-  }, [scale]);
+    scale.value = reduceMotion
+      ? 1
+      : withSpring(1, {
+          damping: 28,
+          stiffness: 520,
+          mass: 0.7,
+          overshootClamping: true,
+        });
+  }, [reduceMotion, scale]);
 
   const dismissTooltip = useCallback(() => {
     infoSheetRef.current?.dismiss();
@@ -99,9 +117,9 @@ export function UserAvatar({
     <>
       <Pressable
         onPress={onPress}
-        onLongPress={handleLongPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        onLongPress={showTooltip ? handleLongPress : undefined}
+        onPressIn={isInteractive ? handlePressIn : undefined}
+        onPressOut={isInteractive ? handlePressOut : undefined}
         delayLongPress={300}
         accessibilityLabel={
           accessibilityLabel ?? `${tooltipPrefix} ${name}`
@@ -152,12 +170,15 @@ export function UserAvatar({
       {showTooltip ? (
         <GlassBottomSheet ref={infoSheetRef} enableDynamicSizing>
           <GlassBottomSheetView className="px-6 pb-10 pt-2">
-            <View className="flex-row items-center">
+            <GlassSheetHeader
+              title={name}
+              description={tooltipPrefix}
+              icon={
               <View
                 style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
                   backgroundColor: primaryColor,
                   overflow: "hidden",
                   alignItems: "center",
@@ -167,34 +188,20 @@ export function UserAvatar({
                 {imageUrl && !imageError ? (
                   <Image
                     source={{ uri: imageUrl }}
-                    style={{ width: 48, height: 48 }}
+                      style={{ width: 32, height: 32 }}
                     accessibilityLabel={`${name}'s avatar`}
                   />
                 ) : (
-                  <Text className="text-lg font-semibold text-white">
+                    <Text className="text-sm font-semibold text-white">
                     {initials}
                   </Text>
                 )}
               </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-sm text-warm-gray-500">
-                  {tooltipPrefix}
-                </Text>
-                <Text className="mt-0.5 text-lg font-semibold text-warm-gray-900">
-                  {name}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              onPress={dismissTooltip}
-              className="mt-6 min-h-12 items-center justify-center rounded-full bg-white/60 px-5 active:bg-warm-gray-100"
-              accessibilityLabel="Close profile details"
-              accessibilityRole="button"
-            >
-              <Text className="text-base font-semibold text-warm-gray-700">
-                Done
-              </Text>
-            </Pressable>
+              }
+              tone="neutral"
+              onClose={dismissTooltip}
+              closeAccessibilityLabel="Close profile details"
+            />
           </GlassBottomSheetView>
         </GlassBottomSheet>
       ) : null}

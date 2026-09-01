@@ -1,30 +1,27 @@
-import { useState, useRef, useEffect } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  Image,
-  Dimensions,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { Button, PageHeader } from "@/components/ui";
+import { themeColors } from "@/lib/theme";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { Camera, Check, RotateCcw } from "lucide-react-native";
-import { PageHeader } from "@/components/ui";
 import * as Haptics from "expo-haptics";
+import { router, useLocalSearchParams } from "expo-router";
+import { Camera, Check, RotateCcw } from "lucide-react-native";
+import { useRef, useState } from "react";
+import {
+  Dimensions,
+  Image,
+  Platform,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
-  useSharedValue,
+  ReduceMotion,
   useAnimatedStyle,
+  useSharedValue,
   withSpring,
-  withRepeat,
   withSequence,
   withTiming,
-  Easing,
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const GUIDE_FRAME_WIDTH = SCREEN_WIDTH * 0.85;
@@ -44,40 +41,12 @@ export default function ScanReceiptScreen() {
   // Animation values
   const captureScale = useSharedValue(1);
   const flashOpacity = useSharedValue(0);
-  const guideFrameScale = useSharedValue(1);
-  const guideFrameOpacity = useSharedValue(0.8);
-
-  // Pulsing guide frame animation
-  useEffect(() => {
-    guideFrameScale.value = withRepeat(
-      withSequence(
-        withTiming(1.02, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      true,
-    );
-    guideFrameOpacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.7, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      true,
-    );
-  }, [guideFrameOpacity, guideFrameScale]);
-
-  const guideFrameAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: guideFrameScale.value }],
-    opacity: guideFrameOpacity.value,
-  }));
-
   const captureAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: captureScale.value }],
+    transform: [{ scale: captureScale.get() }],
   }));
 
   const flashAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: flashOpacity.value,
+    opacity: flashOpacity.get(),
   }));
 
   const handleCapture = async () => {
@@ -87,16 +56,11 @@ export default function ScanReceiptScreen() {
     // Haptic feedback
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Scale animation on capture button
-    captureScale.value = withSequence(
-      withSpring(0.85, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 10, stiffness: 400 }),
-    );
-
-    // Flash effect
-    flashOpacity.value = withSequence(
-      withTiming(1, { duration: 100 }),
-      withTiming(0, { duration: 200 }),
+    flashOpacity.set(
+      withSequence(
+        withTiming(1, { duration: 100, reduceMotion: ReduceMotion.System }),
+        withTiming(0, { duration: 160, reduceMotion: ReduceMotion.System }),
+      ),
     );
 
     try {
@@ -139,7 +103,7 @@ export default function ScanReceiptScreen() {
       <SafeAreaView className="flex-1 bg-background-light">
         <PageHeader title="Scan receipt" onBack={() => router.back()} />
         <View className="flex-1 items-center justify-center">
-          <Text className="text-warm-gray-600">Loading camera...</Text>
+          <Text className="text-ink-secondary">Loading camera…</Text>
         </View>
       </SafeAreaView>
     );
@@ -151,41 +115,38 @@ export default function ScanReceiptScreen() {
       <SafeAreaView className="flex-1 bg-background-light">
         <PageHeader title="Scan receipt" onBack={() => router.back()} />
 
-        <Animated.View
-          entering={FadeInDown.duration(400)}
-          className="flex-1 items-center justify-center px-8"
-        >
-          <View className="h-24 w-24 items-center justify-center rounded-full bg-coral/20">
-            <Camera size={48} color="#FF6B6B" strokeWidth={1.5} />
+        <View className="flex-1 items-center justify-center px-6 pb-10">
+          <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
+            <Camera size={30} color={themeColors.coral} strokeWidth={2} />
           </View>
 
-          <Text className="mt-6 text-center text-2xl font-bold text-warm-gray-900">
+          <Text className="mt-5 text-center text-3xl font-heading tracking-tight text-ink">
             Camera access needed
           </Text>
 
-          <Text className="mt-3 text-center text-base text-warm-gray-600">
-            We need camera permission to scan your receipts and help you track
-            spending.
+          <Text className="mt-3 max-w-sm text-center text-[17px] leading-6 text-ink-secondary">
+            Allow camera access to scan a receipt and add the total to this trip.
           </Text>
 
-          <Pressable
+          <Button
             onPress={requestPermission}
-            className="mt-8 rounded-full bg-coral px-8 py-4"
+            size="lg"
+            className="mt-8 w-full"
             accessibilityLabel="Grant camera access"
           >
-            <Text className="text-base font-semibold text-white">
-              Enable camera
-            </Text>
-          </Pressable>
+            Enable camera
+          </Button>
 
-          <Pressable
+          <Button
+            variant="ghost"
+            size="md"
             onPress={() => router.back()}
-            className="mt-4 px-8 py-3"
+            className="mt-4"
             accessibilityLabel="Go back without enabling camera"
           >
-            <Text className="text-base text-warm-gray-500">Maybe later</Text>
-          </Pressable>
-        </Animated.View>
+            Maybe later
+          </Button>
+        </View>
       </SafeAreaView>
     );
   }
@@ -204,9 +165,8 @@ export default function ScanReceiptScreen() {
 
         {/* Photo Preview */}
         <View className="flex-1 items-center justify-center px-4">
-          <Animated.View
-            entering={FadeInUp.duration(400).springify()}
-            className="overflow-hidden rounded-3xl"
+          <View
+            className="overflow-hidden rounded-3xl border border-white/20 bg-black"
             style={{
               width: GUIDE_FRAME_WIDTH,
               height: GUIDE_FRAME_HEIGHT,
@@ -220,23 +180,20 @@ export default function ScanReceiptScreen() {
               }}
               resizeMode="cover"
             />
-          </Animated.View>
+          </View>
 
-          <Animated.Text
-            entering={FadeInDown.delay(200).duration(400)}
-            className="mt-6 text-center text-base text-warm-gray-300"
-          >
+          <Text className="mt-6 text-center text-[17px] leading-6 text-white/75">
             Make sure the total is visible and clear
-          </Animated.Text>
+          </Text>
         </View>
 
         {/* Action Buttons */}
         <View className="flex-row items-center justify-center gap-6 px-6 pb-8">
           {/* Retake Button */}
-          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <View>
             <Pressable
               onPress={handleRetake}
-              className="h-16 w-16 items-center justify-center rounded-full bg-white/10"
+              className="h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10 active:opacity-70"
               accessibilityLabel="Retake photo"
             >
               <RotateCcw size={28} color="#FFFFFF" strokeWidth={2} />
@@ -244,28 +201,21 @@ export default function ScanReceiptScreen() {
             <Text className="mt-2 text-center text-sm text-warm-gray-400">
               Retake
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Confirm Button */}
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          <View>
             <Pressable
               onPress={handleConfirm}
-              className="h-20 w-20 items-center justify-center rounded-full bg-coral"
-              style={{
-                shadowColor: "#FF6B6B",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.4,
-                shadowRadius: 12,
-                elevation: 8,
-              }}
+              className="h-20 w-20 items-center justify-center rounded-full bg-coral active:opacity-80"
               accessibilityLabel="Confirm photo"
             >
               <Check size={36} color="#FFFFFF" strokeWidth={2.5} />
             </Pressable>
             <Text className="mt-2 text-center text-sm text-white font-medium">
-              Use Photo
+              Use photo
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Spacer for alignment */}
           <View className="h-16 w-16" />
@@ -287,30 +237,24 @@ export default function ScanReceiptScreen() {
 
           {/* Guide Frame */}
           <View className="flex-1 items-center justify-center">
-            <Animated.View
-              entering={FadeIn.delay(200).duration(500)}
-              style={[
-                guideFrameAnimatedStyle,
-                {
-                  width: GUIDE_FRAME_WIDTH,
-                  height: GUIDE_FRAME_HEIGHT,
-                  borderWidth: 3,
-                  borderColor: "#FFFFFF",
-                  borderRadius: 24,
-                  borderStyle: "dashed",
-                },
-              ]}
+            <View
+              style={{
+                width: GUIDE_FRAME_WIDTH,
+                height: GUIDE_FRAME_HEIGHT,
+                borderWidth: 2,
+                borderColor: "rgba(255,255,255,0.78)",
+                borderRadius: 24,
+              }}
             >
               {/* Corner accents */}
               <View className="absolute -left-1 -top-1 h-8 w-8 border-l-4 border-t-4 border-coral rounded-tl-lg" />
               <View className="absolute -right-1 -top-1 h-8 w-8 border-r-4 border-t-4 border-coral rounded-tr-lg" />
               <View className="absolute -bottom-1 -left-1 h-8 w-8 border-b-4 border-l-4 border-coral rounded-bl-lg" />
               <View className="absolute -bottom-1 -right-1 h-8 w-8 border-b-4 border-r-4 border-coral rounded-br-lg" />
-            </Animated.View>
+            </View>
 
-            <Animated.Text
-              entering={FadeInDown.delay(400).duration(500)}
-              className="mt-6 text-center text-base text-white font-medium px-8"
+            <Text
+              className="mt-6 px-8 text-center text-[17px] font-semibold leading-6 text-white"
               style={{
                 textShadowColor: "rgba(0, 0, 0, 0.5)",
                 textShadowOffset: { width: 0, height: 1 },
@@ -318,26 +262,34 @@ export default function ScanReceiptScreen() {
               }}
             >
               Line up your receipt inside the frame
-            </Animated.Text>
+            </Text>
           </View>
 
           {/* Capture Button */}
           <View className="items-center pb-10">
-            <Animated.View
-              entering={FadeInUp.delay(300).duration(500).springify()}
-              style={captureAnimatedStyle}
-            >
+            <Animated.View style={captureAnimatedStyle}>
               <Pressable
                 onPress={handleCapture}
+                onPressIn={() =>
+                  captureScale.set(
+                    withSpring(0.96, {
+                      duration: 160,
+                      dampingRatio: 1,
+                      reduceMotion: ReduceMotion.System,
+                    }),
+                  )
+                }
+                onPressOut={() =>
+                  captureScale.set(
+                    withSpring(1, {
+                      duration: 160,
+                      dampingRatio: 1,
+                      reduceMotion: ReduceMotion.System,
+                    }),
+                  )
+                }
                 disabled={isCapturing}
                 className="h-20 w-20 items-center justify-center rounded-full bg-coral"
-                style={{
-                  shadowColor: "#FF6B6B",
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 12,
-                  elevation: 8,
-                }}
                 accessibilityLabel="Take photo"
                 accessibilityHint="Double tap to capture your receipt"
               >
@@ -347,12 +299,9 @@ export default function ScanReceiptScreen() {
               </Pressable>
             </Animated.View>
 
-            <Animated.Text
-              entering={FadeInUp.delay(500).duration(400)}
-              className="mt-4 text-sm text-white/70"
-            >
+            <Text className="mt-4 text-sm text-white/70">
               Tap to capture
-            </Animated.Text>
+            </Text>
           </View>
 
           {/* Camera Flash Effect */}

@@ -1,3 +1,4 @@
+import emptyBasketArtwork from "@/assets/empty-states/empty-basket.png";
 import {
   AddItemInput,
   ArchiveConfirmDialog,
@@ -8,11 +9,15 @@ import {
   PartnerActivityToast,
 } from "@/components/lists";
 import {
+  AmountInput,
   Button,
+  EmptyStateCard,
   GlassBottomSheet,
   GlassBottomSheetView,
+  GlassSheetHeader,
   type GlassBottomSheetRef,
-  Input,
+  PageHeader,
+  ProgressBar,
   Toast,
 } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
@@ -28,7 +33,12 @@ import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronDown, ChevronLeft, CloudOff } from "lucide-react-native";
+import {
+  ChevronDown,
+  CloudOff,
+  PoundSterling,
+  SearchX,
+} from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -39,7 +49,6 @@ import {
 } from "react-native";
 import Animated, {
   FadeIn,
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -335,9 +344,10 @@ export default function ListDetailScreen() {
   if (list === undefined || (items === undefined && itemsLoading)) {
     return (
       <SafeAreaView className="flex-1 bg-background-light">
+        <PageHeader title="Shopping list" onBack={() => router.back()} />
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FF6B6B" />
-          <Text className="mt-4 text-warm-gray-500">Loading list...</Text>
+          <ActivityIndicator size="large" color="#C94A4A" />
+          <Text className="mt-4 text-ink-secondary">Loading list…</Text>
         </View>
       </SafeAreaView>
     );
@@ -347,72 +357,32 @@ export default function ListDetailScreen() {
   if (list === null) {
     return (
       <SafeAreaView className="flex-1 bg-background-light">
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-6xl">🔍</Text>
-          <Text className="mt-4 text-center text-xl font-semibold text-warm-gray-800">
-            List not found
-          </Text>
-          <Text className="mt-2 text-center text-warm-gray-600">
-            This list may have been deleted or you don't have access to it.
-          </Text>
-          <Pressable
-            onPress={() => router.back()}
-            className="mt-6 rounded-full bg-coral px-6 py-3"
-          >
-            <Text className="font-semibold text-white">Go Back</Text>
-          </Pressable>
-        </View>
+        <PageHeader title="Shopping list" onBack={() => router.back()} />
+        <EmptyStateCard
+          title="List not found"
+          description="This list may have been deleted, or it may belong to another household."
+          icon={<SearchX size={30} color="#C94A4A" strokeWidth={2} />}
+          actionLabel="Go back"
+          onAction={() => router.back()}
+          variant="embedded"
+          className="flex-1 justify-center pb-10"
+        />
       </SafeAreaView>
     );
   }
 
-  // Category emoji mapping
-  const categoryEmojis: Record<string, string> = {
-    groceries: "🛒",
-    tesco: "🛍️",
-    sainsburys: "🧺",
-    pharmacy: "💊",
-    other: "📝",
-  };
-  const categoryEmoji =
-    categoryEmojis[list.category?.toLowerCase() || "other"] || "🛒";
-
   return (
     <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
-      {/* Header */}
-      <Animated.View
-        entering={FadeInDown.duration(400)}
-        className="border-b border-warm-gray-100 bg-white px-4 pb-4 pt-2"
-      >
-        {/* Back button and title row */}
-        <View className="flex-row items-center">
-          <Pressable
-            onPress={() => router.back()}
-            className="flex-row items-center gap-3 flex-1"
-            accessibilityLabel="Go back"
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100">
-              <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
-            </View>
-            <View className="flex-1">
-              <View className="flex-row items-center">
-                <Text className="mr-2 text-2xl">{categoryEmoji}</Text>
-                <Text
-                  className="flex-1 text-2xl font-bold text-warm-gray-900"
-                  numberOfLines={1}
-                >
-                  {list.name}
-                </Text>
-              </View>
-            </View>
-          </Pressable>
-          <HeaderMenu onArchive={handleArchivePress} />
-        </View>
+      <PageHeader
+        title={list.name}
+        onBack={() => router.back()}
+        trailing={<HeaderMenu onArchive={handleArchivePress} />}
+      />
 
-        {/* Progress summary */}
-        <View className="mt-4">
+      <View className="border-b border-separator px-6 pb-4 pt-2">
+        <View>
           <View className="flex-row items-center justify-between">
-            <Text className="text-base text-warm-gray-600">
+            <Text className="text-[15px] text-ink-secondary">
               {completedCount} of {totalItems} items
             </Text>
             {progressPercent === 100 && totalItems > 0 && (
@@ -427,11 +397,13 @@ export default function ListDetailScreen() {
             )}
           </View>
 
-          {/* Progress bar */}
-          <View className="mt-2 h-3 overflow-hidden rounded-full bg-warm-gray-200">
-            <Animated.View
-              className="h-full rounded-full bg-teal"
-              style={{ width: `${progressPercent}%` }}
+          <View className="mt-2 flex-row">
+            <ProgressBar
+              value={completedCount}
+              max={totalItems}
+              size="compact"
+              accessibilityLabel="Shopping progress"
+              accessibilityText={`${completedCount} of ${totalItems} items complete`}
             />
           </View>
 
@@ -461,7 +433,6 @@ export default function ListDetailScreen() {
             </Pressable>
           </View>
 
-          {/* Cached data indicator */}
           {isFromCache && (
             <Animated.View
               entering={FadeIn.duration(300)}
@@ -474,7 +445,7 @@ export default function ListDetailScreen() {
             </Animated.View>
           )}
         </View>
-      </Animated.View>
+      </View>
 
       {/* Items list */}
       <FlashList
@@ -513,15 +484,13 @@ export default function ListDetailScreen() {
         }
         ListEmptyComponent={
           completedItems.length === 0 ? (
-            <View className="flex-1 items-center justify-center py-16">
-              <Text className="text-5xl">📝</Text>
-              <Text className="mt-4 text-center text-lg font-medium text-warm-gray-600">
-                No items yet
-              </Text>
-              <Text className="mt-1 text-center text-warm-gray-500">
-                Add some items to get started!
-              </Text>
-            </View>
+            <EmptyStateCard
+              title="No items yet"
+              description="Add the first thing you need for this shop."
+              artworkSource={emptyBasketArtwork}
+              variant="embedded"
+              className="py-12"
+            />
           ) : null
         }
         ListFooterComponent={
@@ -590,13 +559,17 @@ export default function ListDetailScreen() {
         dismissible={!isSavingTripBudget}
       >
         <GlassBottomSheetView className="px-6 pb-10 pt-2">
-          <Text className="text-xl font-bold text-warm-gray-900">
-            Trip budget
-          </Text>
-          <Text className="mb-5 mt-1 text-warm-gray-500">
-            Leave this empty to remove the budget.
-          </Text>
-          <Input
+          <GlassSheetHeader
+            title="Trip budget"
+            description="Set a calm spending guide for this shop. Leave it empty to remove the budget."
+            icon={
+              <PoundSterling size={21} color="#C94A4A" strokeWidth={2} />
+            }
+            onClose={() => budgetSheetRef.current?.dismiss()}
+            closeAccessibilityLabel="Close trip budget"
+            closeDisabled={isSavingTripBudget}
+          />
+          <AmountInput
             label="Budget in pounds"
             value={tripBudgetInput}
             onChangeText={(value) => {
@@ -604,25 +577,15 @@ export default function ListDetailScreen() {
               setTripBudgetError("");
             }}
             error={tripBudgetError}
-            placeholder="e.g. £60"
-            keyboardType="decimal-pad"
+            placeholder="e.g. 60"
           />
-          <View className="mt-2 flex-row gap-3">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onPress={() => budgetSheetRef.current?.dismiss()}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onPress={handleSaveTripBudget}
-              loading={isSavingTripBudget}
-            >
-              Save
-            </Button>
-          </View>
+          <Button
+            className="mt-2 w-full"
+            onPress={handleSaveTripBudget}
+            loading={isSavingTripBudget}
+          >
+            Save budget
+          </Button>
         </GlassBottomSheetView>
       </GlassBottomSheet>
 

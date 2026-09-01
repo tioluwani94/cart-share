@@ -1,8 +1,12 @@
+import emptyBasketArtwork from "@/assets/empty-states/empty-basket.png";
 import { AddItemInput, ListItem } from "@/components/lists";
 import {
   Button,
+  EmptyStateCard,
   GlassBottomSheet,
   GlassBottomSheetView,
+  GlassSheetHeader,
+  ProgressBar,
   type GlassBottomSheetRef,
 } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -36,7 +40,6 @@ import {
   Receipt,
   Share2,
   ShoppingBasket,
-  X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -73,19 +76,14 @@ export default function ShopScreen() {
 
   if (!household || !review.activeList) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-background-light px-8">
-        <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
-          <ShoppingBasket size={30} color={themeColors.coral} />
-        </View>
-        <Text className="mt-5 text-center text-2xl font-bold text-ink">
-          No shop is planned yet
-        </Text>
-        <Text className="mt-2 text-center text-base leading-6 text-ink-secondary">
-          Choose a Next shop on Plan, then come back when you're ready to shop.
-        </Text>
-        <Button onPress={() => router.replace("/(tabs)" as Href)} className="mt-6">
-          Go to Plan
-        </Button>
+      <SafeAreaView className="flex-1 justify-center bg-background-light px-6">
+        <EmptyStateCard
+          title="No shop is planned yet"
+          description="Choose a Next shop on Plan, then come back when you're ready to shop."
+          artworkSource={emptyBasketArtwork}
+          actionLabel="Go to Plan"
+          onAction={() => router.replace("/(tabs)" as Href)}
+        />
       </SafeAreaView>
     );
   }
@@ -141,7 +139,6 @@ function ActiveShop({
     completeShop,
     completedCount,
     totalItems: totalCount,
-    progress,
     plannedTotalPence,
   } = useShoppingList(list._id, householdId);
   const finishSheetRef = useRef<GlassBottomSheetRef>(null);
@@ -279,14 +276,14 @@ function ActiveShop({
         className="flex-1 bg-background-light px-6"
         edges={["top"]}
       >
-        <Text className="pt-4 text-4xl font-bold tracking-tight text-ink">
+        <Text className="pt-4 text-4xl font-heading tracking-tight text-ink">
           Shop
         </Text>
         <View className="flex-1 items-center justify-center pb-24">
           <View className="h-20 w-20 items-center justify-center rounded-full bg-teal-soft">
             <Check size={36} color={themeColors.teal} strokeWidth={2.5} />
           </View>
-          <Text className="mt-6 text-center text-2xl font-bold text-ink">
+          <Text className="mt-6 text-center text-2xl font-heading text-ink">
             Shop saved
           </Text>
           <Text className="mt-2 max-w-sm text-center text-base leading-6 text-ink-secondary">
@@ -322,7 +319,7 @@ function ActiveShop({
       <View className="border-b border-separator px-6 pb-4 pt-4">
         <View className="flex-row items-start justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-4xl font-bold tracking-tight text-ink">
+            <Text className="text-4xl font-heading tracking-tight text-ink">
               Shop
             </Text>
             <Text className="mt-2 text-lg font-semibold text-ink">
@@ -357,10 +354,13 @@ function ActiveShop({
           </Button>
         </View>
 
-        <View className="mt-5 h-2 overflow-hidden rounded-full bg-warm-gray-200">
-          <View
-            className="h-full rounded-full bg-teal"
-            style={{ width: `${progress * 100}%` }}
+        <View className="mt-5 flex-row">
+          <ProgressBar
+            value={completedCount}
+            max={totalCount}
+            size="compact"
+            accessibilityLabel="Shopping progress"
+            accessibilityText={`${completedCount} of ${totalCount} picked up`}
           />
         </View>
         <View className="mt-2 flex-row items-center justify-between">
@@ -388,7 +388,9 @@ function ActiveShop({
 
       {shoppingMode === "online" && (
         <View className="mx-6 mt-4 rounded-2xl border border-teal/20 bg-teal-soft p-4">
-          <Text className="text-lg font-bold text-ink">Ready to order online</Text>
+          <Text className="font-heading text-lg text-ink">
+            Ready to order online
+          </Text>
           <Text className="mt-1 text-sm leading-5 text-ink-secondary">
             Share or copy what is still needed, then paste it into your retailer's
             app or website.
@@ -442,7 +444,7 @@ function ActiveShop({
             <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
               <ShoppingBasket size={28} color={themeColors.coral} />
             </View>
-            <Text className="mt-4 text-center text-2xl font-bold text-ink">
+            <Text className="mt-4 text-center text-2xl font-heading text-ink">
               Add the first thing you need
             </Text>
             <Text className="mt-2 text-center text-base leading-6 text-ink-secondary">
@@ -481,43 +483,33 @@ function ActiveShop({
         dismissible={!isFinishing}
       >
         <GlassBottomSheetView className="px-6 pb-10 pt-2">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-bold text-ink">
-              Finish this shop
-            </Text>
-            <Pressable
-              onPress={() => finishSheetRef.current?.dismiss()}
-              className="h-12 w-12 items-center justify-center rounded-full bg-warm-gray-100"
-              accessibilityLabel="Close finish shop options"
-              accessibilityRole="button"
-            >
-              <X size={20} color={themeColors.secondaryInk} />
-            </Pressable>
-          </View>
-          <Text className="mt-2 text-base leading-6 text-ink-secondary">
-            {canScanReceipt
-              ? "Add what you spent, or skip it for now. Your list stays available until the trip saves."
-              : "Adding spend needs a connection. You can finish without it and sync later."}
-          </Text>
+          <GlassSheetHeader
+            title="Finish this shop"
+            description={
+              canScanReceipt
+                ? "Add what you spent, or skip it for now. Your list stays available until the trip saves."
+                : "Adding spend needs a connection. You can finish without it and sync later."
+            }
+            icon={<Check size={21} color={themeColors.coral} strokeWidth={2.5} />}
+            onClose={() => finishSheetRef.current?.dismiss()}
+            closeDisabled={isFinishing}
+            closeAccessibilityLabel="Close finish shop options"
+          />
 
-          <View className="mt-4 flex-row rounded-2xl bg-warm-gray-100 px-4 py-3">
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-ink">{completedCount}</Text>
-              <Text className="text-sm text-ink-secondary">
-                {completedCount === 1 ? "product purchased" : "products purchased"}
-              </Text>
-            </View>
-            <View className="w-px bg-separator" />
-            <View className="flex-1 pl-4">
-              <Text className="text-lg font-bold text-ink">
-                {Math.max(0, totalCount - completedCount)}
-              </Text>
-              <Text className="text-sm text-ink-secondary">
-                {totalCount - completedCount === 1
-                  ? "product left"
-                  : "products left"}
-              </Text>
-            </View>
+          <View className="-mt-1 flex-row items-center">
+            <Text className="font-heading text-lg text-ink">
+              {completedCount}
+            </Text>
+            <Text className="ml-1 text-sm font-semibold text-ink-secondary">
+              purchased
+            </Text>
+            <View className="mx-3 h-1 w-1 rounded-full bg-warm-gray-400" />
+            <Text className="font-heading text-lg text-ink">
+              {Math.max(0, totalCount - completedCount)}
+            </Text>
+            <Text className="ml-1 text-sm font-semibold text-ink-secondary">
+              left
+            </Text>
           </View>
 
           <Pressable
@@ -526,7 +518,8 @@ function ActiveShop({
               router.push(getReceiptCaptureRoute(list._id));
             }}
             disabled={!canScanReceipt}
-            className="mt-5 min-h-16 flex-row items-center rounded-xl bg-coral p-4 disabled:opacity-50"
+            pressRetentionOffset={12}
+            className="mt-5 min-h-20 flex-row items-center rounded-2xl border border-white/25 bg-coral p-4 active:opacity-90 disabled:opacity-50"
             accessibilityLabel="Scan a receipt"
             accessibilityRole="button"
           >
@@ -543,53 +536,64 @@ function ActiveShop({
             </View>
           </Pressable>
 
-          <Pressable
-            onPress={() => {
-              finishSheetRef.current?.dismiss();
-              router.push(getManualReceiptEntryRoute(list._id));
-            }}
-            disabled={!canAddSpend}
-            className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator bg-white/60 p-4 disabled:opacity-50"
-            accessibilityLabel="Enter shopping total"
-            accessibilityHint="Opens a form to add the total, store, and payment source"
-            accessibilityRole="button"
-          >
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-teal-soft">
-              <PoundSterling size={22} color={themeColors.teal} />
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-base font-bold text-ink">Enter total</Text>
-              <Text className="mt-0.5 text-sm text-ink-secondary">
-                Add spend without taking a photo
-              </Text>
-            </View>
-          </Pressable>
+          <Text className="mb-2 mt-5 text-[15px] font-semibold leading-5 text-ink">
+            Other ways to finish
+          </Text>
+          <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
+            <Pressable
+              onPress={() => {
+                finishSheetRef.current?.dismiss();
+                router.push(getManualReceiptEntryRoute(list._id));
+              }}
+              disabled={!canAddSpend}
+              pressRetentionOffset={12}
+              className="min-h-20 flex-row items-center px-4 py-3 active:bg-white/45 disabled:opacity-50"
+              accessibilityLabel="Enter shopping total"
+              accessibilityHint="Opens a form to add the total, store, and payment source"
+              accessibilityRole="button"
+            >
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-teal-soft">
+                <PoundSterling size={22} color={themeColors.teal} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-semibold text-ink">
+                  Enter total
+                </Text>
+                <Text className="mt-0.5 text-sm text-ink-secondary">
+                  Add spend without taking a photo
+                </Text>
+              </View>
+            </Pressable>
 
-          <Pressable
-            onPress={() => void finishWithoutReceipt()}
-            disabled={!canFinish}
-            className="mt-3 min-h-16 flex-row items-center rounded-xl border border-separator p-4 disabled:opacity-50"
-            accessibilityLabel="Finish without a receipt"
-            accessibilityRole="button"
-          >
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
-              {isFinishing ? (
-                <ActivityIndicator color={themeColors.secondaryInk} />
-              ) : (
-                <Receipt size={22} color={themeColors.secondaryInk} />
-              )}
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-base font-bold text-ink">
-                Skip for now
-              </Text>
-              <Text className="mt-0.5 text-sm text-ink-secondary">
-                Save the trip without financial details
-              </Text>
-            </View>
-          </Pressable>
+            <View className="mx-4 h-px bg-separator" />
 
-          <Text className="mt-4 text-sm leading-5 text-ink-secondary">
+            <Pressable
+              onPress={() => void finishWithoutReceipt()}
+              disabled={!canFinish}
+              pressRetentionOffset={12}
+              className="min-h-20 flex-row items-center px-4 py-3 active:bg-white/45 disabled:opacity-50"
+              accessibilityLabel="Finish without a receipt"
+              accessibilityRole="button"
+            >
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
+                {isFinishing ? (
+                  <ActivityIndicator color={themeColors.secondaryInk} />
+                ) : (
+                  <Receipt size={22} color={themeColors.secondaryInk} />
+                )}
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-semibold text-ink">
+                  Skip for now
+                </Text>
+                <Text className="mt-0.5 text-sm text-ink-secondary">
+                  Save the trip without financial details
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          <Text className="mt-5 text-sm leading-5 text-ink-secondary">
             We'll use purchased recurring products to prepare the next shop.
           </Text>
 

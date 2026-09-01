@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui";
-import { Receipt, RotateCcw } from "lucide-react-native";
+import { Receipt } from "lucide-react-native";
 import { Text, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 interface UploadErrorProps {
   /** Error message to display */
@@ -17,18 +18,17 @@ export const UploadError = ({
   handleSkip,
 }: UploadErrorProps) => {
   return (
-    <Animated.View entering={FadeInDown.duration(400)} className="items-center">
-      {/* Error illustration */}
-      <View className="mb-6 h-24 w-24 items-center justify-center rounded-full bg-coral/20">
-        <Receipt size={48} color="#FF6B6B" strokeWidth={1.5} />
+    <Animated.View entering={RECEIPT_STATE_ENTER} className="w-full items-center">
+      <View className="mb-5 h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
+        <Receipt size={30} color="#D14D4D" strokeWidth={2} />
       </View>
 
-      <Text className="text-center text-2xl font-bold text-warm-gray-900">
-        Oops! Something went wrong
+      <Text className="text-center text-3xl font-heading tracking-tight text-ink">
+        Receipt upload failed
       </Text>
 
-      <Text className="mt-2 text-center text-base text-warm-gray-600">
-        {errorMessage || "We couldn't upload your receipt. Let's try again!"}
+      <Text className="mt-3 max-w-sm text-center text-[17px] leading-6 text-ink-secondary">
+        {errorMessage || "We couldn’t upload your receipt. Try again when you’re ready."}
       </Text>
 
       {/* Retry button */}
@@ -38,12 +38,7 @@ export const UploadError = ({
         onPress={handleTryAgain}
         className="mt-8 w-full"
       >
-        <View className="flex-row items-center">
-          <RotateCcw size={20} color="white" strokeWidth={2} />
-          <Text className="ml-2 text-base font-semibold text-white">
-            Try Again
-          </Text>
-        </View>
+        Try again
       </Button>
 
       {/* Skip option */}

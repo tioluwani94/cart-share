@@ -1,5 +1,6 @@
-import { Button } from "@/components/ui";
+import planCompleteArtwork from "@/assets/empty-states/plan-complete.png";
 import { AlreadyAddedRestocks } from "@/components/restocks/AlreadyAddedRestocks";
+import { Button, EmptyStateCard, PageHeader } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatDateWithWeekday, formatFriendlyDate } from "@/lib/formatters";
@@ -10,10 +11,15 @@ import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { useAuth } from "@clerk/clerk-expo";
 import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Check, ChevronLeft, Pause, ShoppingBasket } from "lucide-react-native";
+import { Pause, ShoppingBasket } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import Animated, { Easing, FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const EXPLANATION_ENTER = FadeIn.duration(160).easing(
+  Easing.bezier(0.23, 1, 0.32, 1),
+);
 
 export default function RestockReviewScreen() {
   const router = useRouter();
@@ -75,31 +81,11 @@ export default function RestockReviewScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background-light">
-      <View className="flex-row items-center px-4 py-3">
-        <Pressable
-          onPress={() => router.replace("/(tabs)")}
-          className="h-11 w-11 items-center justify-center rounded-full bg-white"
-          accessibilityLabel="Back to Plan"
-          accessibilityRole="button"
-        >
-          <ChevronLeft size={24} color="#1A1917" />
-        </Pressable>
-        <View className="ml-3">
-          <Text className="text-xl font-bold text-warm-gray-900">
-            Review restocks
-          </Text>
-          <Text
-            className="text-sm text-warm-gray-500"
-            accessibilityLabel={`${visibleCandidates.length} ${
-              visibleCandidates.length === 1 ? "thing" : "things"
-            } need a quick check`}
-          >
-            {visibleCandidates.length}{" "}
-            {visibleCandidates.length === 1 ? "thing" : "things"} need a quick
-            check
-          </Text>
-        </View>
-      </View>
+      <PageHeader
+        title="Review restocks"
+        onBack={() => router.replace("/(tabs)")}
+        backLabel="Back to Plan"
+      />
 
       <FlashList
         data={visibleCandidates}
@@ -114,6 +100,21 @@ export default function RestockReviewScreen() {
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
           <View>
+            <Text className="text-3xl font-heading tracking-tight text-ink">
+              A quick household check
+            </Text>
+            <Text
+              className="mb-5 mt-2 text-[17px] leading-6 text-ink-secondary"
+              accessibilityLabel={`${visibleCandidates.length} ${
+                visibleCandidates.length === 1 ? "thing" : "things"
+              } need a quick check`}
+            >
+              {visibleCandidates.length === 0
+                ? "Nothing needs a decision right now."
+                : `${visibleCandidates.length} ${
+                    visibleCandidates.length === 1 ? "product may" : "products may"
+                  } need adding to the next shop.`}
+            </Text>
             {isFromCache && (
               <View className="mb-3 rounded-xl bg-yellow/20 px-3 py-2">
                 <Text className="text-sm leading-5 text-yellow-800">
@@ -136,20 +137,14 @@ export default function RestockReviewScreen() {
           </View>
         }
         ListEmptyComponent={
-          <View className="mt-16 items-center px-8">
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-teal/10">
-              <Check size={30} color="#297D76" />
-            </View>
-            <Text className="mt-5 text-center text-2xl font-bold text-warm-gray-900">
-              Your plan is up to date
-            </Text>
-            <Text className="mt-2 text-center leading-6 text-warm-gray-600">
-              We'll check again when something may need attention.
-            </Text>
-            <Button onPress={() => router.replace("/(tabs)")} className="mt-6">
-              Back to Plan
-            </Button>
-          </View>
+          <EmptyStateCard
+            title="Your plan is up to date"
+            description="We'll check again when something may need attention."
+            artworkSource={planCompleteArtwork}
+            actionLabel="Back to Plan"
+            onAction={() => router.replace("/(tabs)")}
+            className="mt-10"
+          />
         }
         renderItem={({ item: candidate }) => {
           const isBusy = pendingProductIds.has(candidate.householdProductId);
@@ -157,7 +152,7 @@ export default function RestockReviewScreen() {
             <View className="rounded-2xl border border-warm-gray-200 bg-white p-4">
               <View className="flex-row items-start justify-between">
                 <View className="flex-1 pr-4">
-                  <Text className="text-lg font-bold text-warm-gray-900">
+                  <Text className="font-heading text-lg text-warm-gray-900">
                     {candidate.displayName}
                   </Text>
                   <Text className="mt-1 text-sm leading-5 text-warm-gray-500">
@@ -199,7 +194,10 @@ export default function RestockReviewScreen() {
                 </Text>
               </Pressable>
               {whyProductId === candidate.householdProductId && (
-                <View className="mb-2 rounded-xl bg-warm-gray-50 p-3">
+                <Animated.View
+                  entering={EXPLANATION_ENTER}
+                  className="mb-2 rounded-xl bg-warm-gray-50 p-3"
+                >
                   <Text className="text-sm leading-5 text-warm-gray-600">
                     {`You chose a ${candidate.cadenceDays}-day rhythm. Based on the saved dates, it may be due around ${formatDateWithWeekday(
                       candidate.expectedDueAt,
@@ -209,7 +207,7 @@ export default function RestockReviewScreen() {
                       },
                     )}.`}
                   </Text>
-                </View>
+                </Animated.View>
               )}
 
               <Button

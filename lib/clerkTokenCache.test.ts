@@ -48,4 +48,15 @@ describe("Clerk token cache", () => {
       expect.stringContaining("token-cache-keys"),
     );
   });
+
+  it("uses only SecureStore-compatible bookkeeping keys", async () => {
+    mockedSecureStore.getItemAsync.mockImplementation(async (key) => {
+      if (!/^[A-Za-z0-9._-]+$/.test(key)) {
+        throw new Error("Invalid SecureStore key");
+      }
+      return null;
+    });
+
+    await expect(clearClerkTokenCache()).resolves.toBeUndefined();
+  });
 });

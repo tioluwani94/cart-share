@@ -1,21 +1,21 @@
 import { AnimatedDot } from "@/components/receipt-confirm/AnimatedDot";
+import { themeColors } from "@/lib/theme";
 import { ShoppingCart } from "lucide-react-native";
 import { Text, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 export const SavingSession = () => {
   return (
-    <Animated.View entering={FadeIn.duration(300)} className="items-center">
-      {/* Saving animation */}
-      <View className="mb-6 h-24 w-24 items-center justify-center rounded-full bg-teal/20">
-        <ShoppingCart size={48} color="#4ECDC4" strokeWidth={1.5} />
+    <Animated.View entering={RECEIPT_STATE_ENTER} className="items-center">
+      <View className="mb-6 h-16 w-16 items-center justify-center rounded-2xl bg-teal-soft">
+        <ShoppingCart size={30} color={themeColors.teal} strokeWidth={2} />
       </View>
 
-      <Text className="text-center text-xl font-bold text-warm-gray-900">
-        Saving your trip...
+      <Text className="text-center text-2xl font-heading text-ink">
+        Saving your trip…
       </Text>
 
-      {/* Animated dots */}
       <View className="mt-4 flex-row">
         {[0, 1, 2].map((i) => (
           <AnimatedDot key={i} delay={i * 200} />

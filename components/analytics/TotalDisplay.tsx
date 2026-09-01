@@ -27,7 +27,7 @@ export function TotalDisplay({
         Spent in {monthName}
       </Text>
       <Text
-        className="mt-1 text-4xl font-bold tracking-tight text-ink"
+        className="mt-1 text-4xl font-heading tracking-tight text-ink"
         accessibilityLabel={`${formatAmount(amount)} spent in ${monthName}`}
       >
         {formatAmount(amount)}

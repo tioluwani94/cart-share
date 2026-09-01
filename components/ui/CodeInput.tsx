@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import {
   View,
   TextInput,
@@ -6,13 +6,6 @@ import {
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-} from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 
 interface CodeInputProps {
   value: string;
@@ -33,26 +26,6 @@ export function CodeInput({
 }: CodeInputProps) {
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  // Animation for error shake
-  const shakeX = useSharedValue(0);
-  const shakeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeX.value }],
-  }));
-
-  // Trigger shake animation when error changes to true
-  useEffect(() => {
-    if (error) {
-      shakeX.value = withSequence(
-        withSpring(-10, { damping: 8, stiffness: 400 }),
-        withSpring(10, { damping: 8, stiffness: 400 }),
-        withSpring(-8, { damping: 8, stiffness: 400 }),
-        withSpring(8, { damping: 8, stiffness: 400 }),
-        withSpring(0, { damping: 8, stiffness: 400 })
-      );
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [error, shakeX]);
-
   const handleChange = (text: string, index: number) => {
     // Only allow alphanumeric characters
     const cleanText = text.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -71,7 +44,6 @@ export function CodeInput({
       // Focus last filled input or last input
       const focusIndex = Math.min(pastedValue.length, length - 1);
       inputRefs.current[focusIndex]?.focus();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
 
@@ -84,7 +56,6 @@ export function CodeInput({
     if (index < length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleKeyPress = (
@@ -101,18 +72,12 @@ export function CodeInput({
     }
   };
 
-  const handleFocus = (index: number) => {
-    // Light haptic on focus
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
   const focusInput = (index: number) => {
     inputRefs.current[index]?.focus();
   };
 
   return (
-    <Animated.View
-      style={shakeStyle}
+    <View
       className="flex-row justify-center gap-2"
       accessibilityLabel={`Invite code input, ${value.length} of ${length} characters entered`}
       accessibilityRole="none"
@@ -142,14 +107,17 @@ export function CodeInput({
                 value={char}
                 onChangeText={(text) => handleChange(text, index)}
                 onKeyPress={(e) => handleKeyPress(e, index)}
-                onFocus={() => handleFocus(index)}
                 maxLength={1}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 keyboardType="default"
                 textContentType="oneTimeCode"
-                className="text-center text-2xl font-bold text-warm-gray-900"
-                style={{ width: "100%", height: "100%" }}
+                className="text-center text-2xl text-warm-gray-900"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  fontFamily: "Nunito_800ExtraBold",
+                }}
                 accessibilityElementsHidden
                 importantForAccessibility="no"
               />
@@ -157,6 +125,6 @@ export function CodeInput({
           </Pressable>
         );
       })}
-    </Animated.View>
+    </View>
   );
 }

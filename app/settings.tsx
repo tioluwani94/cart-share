@@ -2,13 +2,19 @@ import {
   Button,
   GlassBottomSheet,
   GlassBottomSheetView,
+  GlassSheetHeader,
   type GlassBottomSheetRef,
-  GlassSegmentedControl,
-  Input,
   PageHeader,
   Toast,
   UserAvatar,
 } from "@/components/ui";
+import {
+  BudgetEditSheet,
+  ReminderTimeSheet,
+  SettingsRow,
+  SettingsSection,
+  SettingsToggleRow,
+} from "@/components/settings";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
@@ -17,7 +23,10 @@ import {
   finishAccountDeletionLocalCleanup,
   markAccountDeletionCleanupRequired,
 } from "@/lib/accountDeletionCleanup";
-import { parseCurrencyInputToPence } from "@/lib/formatters";
+import {
+  formatCurrencyFromPence,
+  parseCurrencyInputToPence,
+} from "@/lib/formatters";
 import {
   getCurrentDeviceId,
   registerForPushNotifications,
@@ -37,7 +46,7 @@ import {
   BarChart3,
   Bell,
   Check,
-  ChevronDown,
+  Clock3,
   Copy,
   Home,
   LogOut,
@@ -51,9 +60,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Pressable,
   ScrollView,
-  Switch,
   Text,
   View,
 } from "react-native";
@@ -108,8 +115,13 @@ export default function SettingsScreen() {
   const [budgetError, setBudgetError] = useState("");
   const [isSavingBudget, setIsSavingBudget] = useState(false);
   const [showBudgetToast, setShowBudgetToast] = useState(false);
+  const budgetSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
+  const [reminderTimeError, setReminderTimeError] = useState<string | null>(
+    null,
+  );
+  const reminderTimeSheetRef = useRef<GlassBottomSheetRef>(null);
   const [showNotificationSettingsLink, setShowNotificationSettingsLink] =
     useState(false);
   const [notificationTimeMinutes, setNotificationTimeMinutes] = useState(
@@ -192,6 +204,16 @@ export default function SettingsScreen() {
     }
   }, [household?.inviteCode]);
 
+  const openBudgetEditor = useCallback(() => {
+    setMonthlyBudget(
+      household?.monthlyBudgetPence === undefined
+        ? ""
+        : (household.monthlyBudgetPence / 100).toFixed(2),
+    );
+    setBudgetError("");
+    budgetSheetRef.current?.present();
+  }, [household?.monthlyBudgetPence]);
+
   const handleSaveBudget = useCallback(async () => {
     const budgetPence = monthlyBudget.trim()
       ? parseCurrencyInputToPence(monthlyBudget)
@@ -207,6 +229,10 @@ export default function SettingsScreen() {
       await saveMonthlyBudget({
         monthlyBudgetPence: budgetPence ?? undefined,
       });
+      budgetSheetRef.current?.dismiss();
+      void Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      );
       setShowBudgetToast(true);
     } catch (error) {
       console.error("Failed to save monthly budget:", error);
@@ -305,25 +331,47 @@ export default function SettingsScreen() {
         nextTime >= 20 * 60 ||
         nextTime === notificationTimeMinutes
       ) {
-        return;
+        return false;
       }
 
       const previousTime = notificationTimeMinutes;
       setNotificationTimeMinutes(nextTime);
       setIsSavingPreferences(true);
-      setPreferenceError(null);
+      setReminderTimeError(null);
       try {
         await updatePreferences({ notificationTimeMinutesLocal: nextTime });
         await recalculateReminders({});
+        void Haptics.selectionAsync();
+        return true;
       } catch (error) {
         console.error("Couldn't update reminder time:", error);
         setNotificationTimeMinutes(previousTime);
-        setPreferenceError("We couldn't update your reminder time. Please try again.");
+        setReminderTimeError(
+          "We couldn't update your reminder time. Please try again.",
+        );
+        return false;
       } finally {
         setIsSavingPreferences(false);
       }
     },
     [notificationTimeMinutes, recalculateReminders, updatePreferences],
+  );
+
+  const openReminderTimeEditor = useCallback(() => {
+    setReminderTimeError(null);
+    reminderTimeSheetRef.current?.present();
+  }, []);
+
+  const handleReminderTimeSelection = useCallback(
+    async (value: string) => {
+      if (value === String(notificationTimeMinutes)) {
+        reminderTimeSheetRef.current?.dismiss();
+        return;
+      }
+      const didSave = await handleReminderTimeChange(value);
+      if (didSave) reminderTimeSheetRef.current?.dismiss();
+    },
+    [handleReminderTimeChange, notificationTimeMinutes],
   );
 
   const handleSignOutConfirm = useCallback(async () => {
@@ -477,10 +525,10 @@ export default function SettingsScreen() {
   }
 
   const archivedCount = archivedLists?.length ?? 0;
-  const switchTrack = {
-    false: themeColors.disabled,
-    true: themeColors.coralSoft,
-  };
+  const formattedMonthlyBudget =
+    household?.monthlyBudgetPence === undefined
+      ? "Not set"
+      : formatCurrencyFromPence(household.monthlyBudgetPence);
   const accountDeletionImpact =
     !household
       ? "Your account will be permanently deleted."
@@ -500,353 +548,308 @@ export default function SettingsScreen() {
       >
         {household && (
           <>
-            <Text className="mb-2 mt-3 text-base font-semibold text-ink">
-              Household
-            </Text>
-            <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
-              <View className="flex-row items-center px-4 py-4">
-                <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
-                  <Home size={23} color={themeColors.coral} strokeWidth={2} />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text className="text-lg font-bold text-ink">
+            <SettingsSection title="Household" className="mt-3">
+              <SettingsRow
+                icon={
+                  <Home size={20} color={themeColors.coral} strokeWidth={2} />
+                }
+                iconTone="coral"
+                title={
+                  <Text className="font-heading text-lg leading-6 text-ink">
                     {household.name}
                   </Text>
-                  <Text className="mt-0.5 text-sm text-ink-secondary">
-                    {household.members.length} household {household.members.length === 1 ? "member" : "members"}
-                  </Text>
-                </View>
-              </View>
+                }
+                subtitle={`${household.members.length} household ${
+                  household.members.length === 1 ? "member" : "members"
+                }`}
+              />
 
-              <View className="border-t border-separator px-4">
-                {household.members.map((member) => (
-                  <View
-                    key={member._id}
-                    className="min-h-16 flex-row items-center border-b border-separator py-3"
-                  >
+              {household.members.map((member) => (
+                <SettingsRow
+                  key={member._id}
+                  leading={
                     <UserAvatar
                       name={member.user?.name || "User"}
                       imageUrl={member.user?.imageUrl}
                       size={40}
                       showTooltip={false}
                     />
-                    <View className="ml-3 flex-1">
-                      <Text className="text-base font-semibold text-ink">
-                        {member.user?.name || "Unknown"}
-                      </Text>
-                      <Text className="text-sm text-ink-secondary">
-                        {member.role === "owner" ? "Household owner" : "Member"}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
+                  }
+                  title={member.user?.name || "Unknown"}
+                  subtitle={
+                    member.role === "owner" ? "Household owner" : "Member"
+                  }
+                />
+              ))}
 
-              <Pressable
-                onPress={handleCopyInviteCode}
-                className="min-h-16 flex-row items-center px-4 py-3 active:bg-warm-gray-50"
-                accessibilityLabel={`Copy invite code ${household.inviteCode}`}
-                accessibilityRole="button"
-                accessibilityHint="Copies the household invite code"
-              >
-                <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
+              <SettingsRow
+                icon={
                   <UserPlus
-                    size={21}
+                    size={19}
                     color={themeColors.secondaryInk}
                     strokeWidth={2}
                   />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-semibold text-ink">
-                    Invite another member
-                  </Text>
-                  <Text className="mt-0.5 font-mono text-sm font-semibold tracking-widest text-coral">
-                    {household.inviteCode}
-                  </Text>
-                </View>
-                {codeCopied ? (
-                  <View className="flex-row items-center">
-                    <Check size={18} color={themeColors.teal} strokeWidth={2.5} />
-                    <Text className="ml-1 text-sm font-semibold text-teal">
-                      Copied
-                    </Text>
-                  </View>
-                ) : (
-                  <Copy size={20} color={themeColors.secondaryInk} strokeWidth={2} />
-                )}
-              </Pressable>
-            </View>
-
-            <Text className="mb-2 mt-7 text-base font-semibold text-ink">
-              Grocery budget
-            </Text>
-            <View className="rounded-2xl border border-separator bg-surface p-4">
-              <View className="mb-4 flex-row items-center">
-                <View className="h-11 w-11 items-center justify-center rounded-xl bg-teal-soft">
-                  <PiggyBank size={21} color={themeColors.teal} strokeWidth={2} />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-semibold text-ink">
-                    Monthly guide
-                  </Text>
-                  <Text className="mt-0.5 text-sm text-ink-secondary">
-                    Shared by everyone in your household
-                  </Text>
-                </View>
-              </View>
-              <Input
-                label="Budget in pounds"
-                value={monthlyBudget}
-                onChangeText={(value) => {
-                  setMonthlyBudget(value);
-                  setBudgetError("");
-                }}
-                error={budgetError}
-                placeholder="e.g. £400"
-                keyboardType="decimal-pad"
-                containerClassName="mb-3"
+                }
+                title="Invite another member"
+                subtitle={household.inviteCode}
+                subtitleClassName="font-mono font-semibold tracking-widest text-coral"
+                trailing={
+                  codeCopied ? (
+                    <View className="flex-row items-center">
+                      <Check
+                        size={18}
+                        color={themeColors.teal}
+                        strokeWidth={2.5}
+                      />
+                      <Text className="ml-1 text-sm font-semibold text-teal">
+                        Copied
+                      </Text>
+                    </View>
+                  ) : (
+                    <Copy
+                      size={20}
+                      color={themeColors.secondaryInk}
+                      strokeWidth={2}
+                    />
+                  )
+                }
+                onPress={handleCopyInviteCode}
+                isLast
+                accessibilityLabel={`Copy invite code ${household.inviteCode}`}
+                accessibilityHint="Copies the household invite code"
               />
-              <Button
-                variant="tonal"
-                onPress={handleSaveBudget}
-                loading={isSavingBudget}
-                className="w-full"
-                accessibilityLabel="Save monthly grocery budget"
-              >
-                Save budget
-              </Button>
-            </View>
+            </SettingsSection>
+
+            <SettingsSection title="Planning">
+              <SettingsRow
+                icon={
+                  <PiggyBank
+                    size={19}
+                    color={themeColors.teal}
+                    strokeWidth={2}
+                  />
+                }
+                iconTone="teal"
+                title="Monthly grocery budget"
+                subtitle="Shared by your household"
+                trailingValue={formattedMonthlyBudget}
+                disclosure
+                onPress={openBudgetEditor}
+                accessibilityLabel={`Edit monthly grocery budget, ${
+                  household.monthlyBudgetPence === undefined
+                    ? "currently not set"
+                    : `current value ${formattedMonthlyBudget}`
+                }`}
+                accessibilityHint="Opens the monthly budget editor"
+              />
+
+              <SettingsRow
+                icon={
+                  <Archive
+                    size={19}
+                    color={themeColors.secondaryInk}
+                    strokeWidth={2}
+                  />
+                }
+                title="Archived lists"
+                subtitle={
+                  archivedLists === undefined
+                    ? "Loading archived lists"
+                    : archivedCount === 0
+                      ? "No archived lists"
+                      : `${archivedCount} archived ${
+                          archivedCount === 1 ? "list" : "lists"
+                        }`
+                }
+                trailing={
+                  archivedLists === undefined ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={themeColors.secondaryInk}
+                    />
+                  ) : undefined
+                }
+                disclosure={archivedCount > 0}
+                expanded={archivedCount > 0 ? archivedExpanded : undefined}
+                onPress={archivedCount > 0 ? toggleArchivedSection : undefined}
+                isLast={!archivedExpanded}
+                accessibilityLabel={
+                  archivedCount > 0
+                    ? `${archivedExpanded ? "Collapse" : "Expand"} archived lists`
+                    : undefined
+                }
+                accessibilityState={
+                  archivedCount > 0
+                    ? { expanded: archivedExpanded }
+                    : undefined
+                }
+              />
+
+              {archivedExpanded && archivedLists
+                ? archivedLists.map((list, index) => (
+                    <SettingsRow
+                      key={list._id}
+                      title={list.name}
+                      subtitle={`${list.totalItems} ${
+                        list.totalItems === 1 ? "item" : "items"
+                      }`}
+                      className="pl-16"
+                      isLast={index === archivedLists.length - 1}
+                      trailing={
+                        <Button
+                          variant="tonal"
+                          size="sm"
+                          forceSolid
+                          onPress={() => handleRestoreList(list._id)}
+                          loading={restoringListId === list._id}
+                          disabled={restoringListId === list._id}
+                          accessibilityLabel={`Restore ${list.name}`}
+                        >
+                          <RotateCcw
+                            size={16}
+                            color={themeColors.teal}
+                            strokeWidth={2}
+                          />
+                          <Text className="ml-2 text-sm font-semibold text-teal">
+                            Restore
+                          </Text>
+                        </Button>
+                      }
+                    />
+                  ))
+                : null}
+            </SettingsSection>
           </>
         )}
 
-        <Text className="mb-2 mt-7 text-base font-semibold text-ink">
-          Reminders and privacy
-        </Text>
-        <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
-          <View className="min-h-20 flex-row items-center px-4 py-3">
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-coral-soft">
-              <Bell size={21} color={themeColors.coral} strokeWidth={2} />
-            </View>
-            <View className="ml-3 flex-1 pr-3">
-              <Text className="text-base font-semibold text-ink">
-                Restock reminders
-              </Text>
-              <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
-                Quiet prompts with no item names on the lock screen
-              </Text>
-            </View>
-            <Switch
-              value={preferences?.restockNotificationsEnabled ?? false}
-              onValueChange={(value) => void handleNotificationChange(value)}
-              disabled={isSavingPreferences || preferences === undefined}
-              trackColor={switchTrack}
-              thumbColor={
-                preferences?.restockNotificationsEnabled
-                  ? themeColors.coral
-                  : themeColors.surface
-              }
-              accessibilityLabel="Restock reminders"
-            />
-          </View>
+        <SettingsSection title="Notifications & privacy">
+          <SettingsToggleRow
+            icon={<Bell size={19} color={themeColors.coral} strokeWidth={2} />}
+            iconTone="coral"
+            title="Restock reminders"
+            subtitle="Quiet prompts with no item names on the lock screen"
+            value={preferences?.restockNotificationsEnabled ?? false}
+            onValueChange={(value) => void handleNotificationChange(value)}
+            disabled={isSavingPreferences || preferences === undefined}
+            accessibilityLabel="Restock reminders"
+          />
 
-          {preferences?.restockNotificationsEnabled && (
-            <>
-              <View className="mx-4 h-px bg-separator" />
-              <View className="px-4 py-4">
-                <Text className="text-sm font-semibold text-ink">
-                  Reminder time
-                </Text>
-                <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-                  We use {preferences.notificationTimeZone} and keep 20:00–08:00
-                  quiet.
-                </Text>
-                <GlassSegmentedControl
-                  value={String(notificationTimeMinutes)}
-                  options={reminderTimeOptions}
-                  onValueChange={(value) => void handleReminderTimeChange(value)}
-                  disabled={isSavingPreferences}
-                  accessibilityLabel="Restock reminder time"
-                  className="mt-3"
+          {preferences?.restockNotificationsEnabled ? (
+            <SettingsRow
+              icon={
+                <Clock3
+                  size={19}
+                  color={themeColors.secondaryInk}
+                  strokeWidth={2}
                 />
-              </View>
-            </>
-          )}
-
-          <View className="mx-4 h-px bg-separator" />
-
-          <View className="min-h-20 flex-row items-center px-4 py-3">
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-teal-soft">
-              <BarChart3 size={21} color={themeColors.teal} strokeWidth={2} />
-            </View>
-            <View className="ml-3 flex-1 pr-3">
-              <Text className="text-base font-semibold text-ink">
-                Share usage analytics
-              </Text>
-              <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
-                Never includes item names, receipt text or grocery amounts
-              </Text>
-            </View>
-            <Switch
-              value={preferences?.analyticsConsent === "granted"}
-              onValueChange={(value) => void handleAnalyticsChange(value)}
-              disabled={isSavingPreferences || preferences === undefined}
-              trackColor={{
-                false: themeColors.disabled,
-                true: themeColors.tealSoft,
-              }}
-              thumbColor={
-                preferences?.analyticsConsent === "granted"
-                  ? themeColors.teal
-                  : themeColors.surface
               }
-              accessibilityLabel="Share usage analytics"
+              title="Reminder time"
+              subtitle={`Quiet hours 20:00–08:00 · ${preferences.notificationTimeZone}`}
+              trailingValue={formatReminderTime(notificationTimeMinutes)}
+              disclosure
+              onPress={openReminderTimeEditor}
+              accessibilityLabel={`Change reminder time, current time ${formatReminderTime(
+                notificationTimeMinutes,
+              )}`}
+              accessibilityHint="Opens the reminder time picker"
             />
-          </View>
+          ) : null}
 
-          {preferenceError && (
+          <SettingsToggleRow
+            icon={
+              <BarChart3 size={19} color={themeColors.teal} strokeWidth={2} />
+            }
+            iconTone="teal"
+            title="Share usage analytics"
+            subtitle="Never includes item names, receipt text or grocery amounts"
+            value={preferences?.analyticsConsent === "granted"}
+            onValueChange={(value) => void handleAnalyticsChange(value)}
+            disabled={isSavingPreferences || preferences === undefined}
+            accessibilityLabel="Share usage analytics"
+            switchTint="teal"
+            isLast={!preferenceError}
+          />
+
+          {preferenceError ? (
             <View className="border-t border-separator px-4 py-3">
               <Text
                 className="text-sm leading-5 text-red-700"
                 accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
               >
                 {preferenceError}
               </Text>
-              {showNotificationSettingsLink && (
-                <Pressable
+              {showNotificationSettingsLink ? (
+                <Button
+                  variant="tonal"
+                  size="sm"
+                  forceSolid
                   onPress={() => void openNotificationSettings()}
-                  className="mt-2 min-h-11 self-start justify-center rounded-full bg-coral-soft px-4 active:opacity-70"
+                  className="mt-3 self-start"
                   accessibilityLabel="Open device notification settings"
                   accessibilityHint="Opens this app's notification permissions in device settings"
-                  accessibilityRole="button"
                 >
-                  <Text className="text-sm font-semibold text-coral">
-                    Open device settings
-                  </Text>
-                </Pressable>
-              )}
+                  Open device settings
+                </Button>
+              ) : null}
             </View>
-          )}
-        </View>
+          ) : null}
+        </SettingsSection>
 
-        <Text className="mb-2 mt-7 text-base font-semibold text-ink">
-          Lists
-        </Text>
-        <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
-          <Pressable
-            onPress={toggleArchivedSection}
-            className="min-h-16 flex-row items-center px-4 py-3 active:bg-warm-gray-50"
-            accessibilityRole="button"
-            accessibilityLabel={`${archivedExpanded ? "Collapse" : "Expand"} archived lists`}
-            accessibilityState={{ expanded: archivedExpanded }}
-          >
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
-              <Archive
-                size={21}
-                color={themeColors.secondaryInk}
-                strokeWidth={2}
-              />
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-base font-semibold text-ink">
-                Archived lists
-              </Text>
-              <Text className="mt-0.5 text-sm text-ink-secondary">
-                {archivedCount === 0
-                  ? "No archived lists"
-                  : `${archivedCount} archived ${archivedCount === 1 ? "list" : "lists"}`}
-              </Text>
-            </View>
-            <ChevronDown
-              size={20}
-              color={themeColors.secondaryInk}
-              strokeWidth={2}
-              style={{ transform: [{ rotate: archivedExpanded ? "180deg" : "0deg" }] }}
-            />
-          </Pressable>
-
-          {archivedExpanded && (
-            <View className="border-t border-separator px-4">
-              {archivedLists === undefined ? (
-                <View className="items-center py-5">
-                  <ActivityIndicator size="small" color={themeColors.coral} />
-                </View>
-              ) : archivedLists.length === 0 ? (
-                <Text className="py-5 text-center text-sm text-ink-secondary">
-                  Lists you archive will appear here.
-                </Text>
-              ) : (
-                archivedLists.map((list) => (
-                  <View
-                    key={list._id}
-                    className="min-h-16 flex-row items-center border-b border-separator py-3"
-                  >
-                    <View className="flex-1 pr-3">
-                      <Text className="text-base font-semibold text-ink" numberOfLines={1}>
-                        {list.name}
-                      </Text>
-                      <Text className="text-sm text-ink-secondary">
-                        {list.totalItems} {list.totalItems === 1 ? "item" : "items"}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => handleRestoreList(list._id)}
-                      disabled={restoringListId === list._id}
-                      className="min-h-12 flex-row items-center rounded-full bg-teal-soft px-3 py-2 disabled:opacity-50"
-                      accessibilityLabel={`Restore ${list.name}`}
-                      accessibilityRole="button"
-                    >
-                      {restoringListId === list._id ? (
-                        <ActivityIndicator size="small" color={themeColors.teal} />
-                      ) : (
-                        <>
-                          <RotateCcw size={16} color={themeColors.teal} strokeWidth={2} />
-                          <Text className="ml-2 text-sm font-semibold text-teal">
-                            Restore
-                          </Text>
-                        </>
-                      )}
-                    </Pressable>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
-        </View>
-
-        <Text className="mb-2 mt-8 text-base font-semibold text-ink">
-          Account
-        </Text>
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            signOutSheetRef.current?.present();
-          }}
-          className="min-h-14 flex-row items-center justify-center rounded-full border border-separator bg-surface active:bg-warm-gray-50"
-          accessibilityLabel="Sign out of your account"
-          accessibilityRole="button"
+        <SettingsSection
+          title="Account"
+          footer="Deleting your account is permanent. We’ll explain exactly what will be removed before you confirm."
         >
-          <LogOut size={20} color={themeColors.error} strokeWidth={2} />
-          <Text className="ml-2 text-base font-semibold text-red-700">
-            Sign out
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setAccountDeletionError(null);
-            deleteAccountSheetRef.current?.present();
-          }}
-          className="mt-3 min-h-14 flex-row items-center justify-center rounded-full border border-red-200 bg-red-50 active:bg-red-100"
-          accessibilityLabel="Delete your account"
-          accessibilityHint="Opens a permanent account deletion confirmation"
-          accessibilityRole="button"
-        >
-          <Trash2 size={20} color={themeColors.error} strokeWidth={2} />
-          <Text className="ml-2 text-base font-semibold text-red-700">
-            Delete account
-          </Text>
-        </Pressable>
+          <SettingsRow
+            icon={
+              <LogOut size={19} color={themeColors.error} strokeWidth={2} />
+            }
+            title="Sign out"
+            destructive
+            onPress={() => signOutSheetRef.current?.present()}
+            accessibilityLabel="Sign out of your account"
+            accessibilityHint="Opens a sign-out confirmation"
+          />
+          <SettingsRow
+            icon={
+              <Trash2 size={19} color={themeColors.error} strokeWidth={2} />
+            }
+            iconTone="danger"
+            title="Delete account"
+            destructive
+            onPress={() => {
+              setAccountDeletionError(null);
+              deleteAccountSheetRef.current?.present();
+            }}
+            isLast
+            accessibilityLabel="Delete your account"
+            accessibilityHint="Opens a permanent account deletion confirmation"
+          />
+        </SettingsSection>
       </ScrollView>
+
+      <BudgetEditSheet
+        ref={budgetSheetRef}
+        value={monthlyBudget}
+        onChangeText={(value) => {
+          setMonthlyBudget(value);
+          setBudgetError("");
+        }}
+        onSave={handleSaveBudget}
+        onClose={() => budgetSheetRef.current?.dismiss()}
+        error={budgetError}
+        isSaving={isSavingBudget}
+      />
+
+      <ReminderTimeSheet
+        ref={reminderTimeSheetRef}
+        value={String(notificationTimeMinutes)}
+        options={reminderTimeOptions}
+        onValueChange={(value) => void handleReminderTimeSelection(value)}
+        onClose={() => reminderTimeSheetRef.current?.dismiss()}
+        error={reminderTimeError}
+        isSaving={isSavingPreferences}
+      />
 
       <GlassBottomSheet
         ref={signOutSheetRef}
@@ -854,11 +857,16 @@ export default function SettingsScreen() {
         dismissible={!isSigningOut}
       >
         <GlassBottomSheetView className="px-6 pb-10 pt-2">
-          <Text className="text-xl font-bold text-ink">Sign out?</Text>
-          <Text className="mt-2 text-base leading-6 text-ink-secondary">
-            Your household data stays safe. You can sign back in at any time.
-          </Text>
-          <View className="mt-6 gap-2">
+          <GlassSheetHeader
+            title="Sign out?"
+            description="Your household data stays safe. You can sign back in at any time."
+            icon={<LogOut size={21} color={themeColors.secondaryInk} strokeWidth={2} />}
+            tone="neutral"
+            onClose={() => signOutSheetRef.current?.dismiss()}
+            closeDisabled={isSigningOut}
+            closeAccessibilityLabel="Cancel sign out"
+          />
+          <View className="gap-2">
             <Button
               variant="danger"
               onPress={handleSignOutConfirm}
@@ -886,21 +894,24 @@ export default function SettingsScreen() {
         dismissible={!isDeletingAccount}
       >
         <GlassBottomSheetView className="px-6 pb-10 pt-2">
-          <Text className="text-xl font-bold text-ink">
-            Delete your account?
-          </Text>
-          <Text className="mt-2 text-base leading-6 text-ink-secondary">
-            {accountDeletionImpact} This cannot be undone.
-          </Text>
+          <GlassSheetHeader
+            title="Delete your account?"
+            description={`${accountDeletionImpact} This cannot be undone.`}
+            icon={<Trash2 size={21} color={themeColors.error} strokeWidth={2} />}
+            tone="danger"
+            onClose={() => deleteAccountSheetRef.current?.dismiss()}
+            closeDisabled={isDeletingAccount}
+            closeAccessibilityLabel="Cancel account deletion"
+          />
           {accountDeletionError ? (
             <Text
-              className="mt-3 text-sm leading-5 text-red-700"
+              className="mb-4 text-sm leading-5 text-red-700"
               accessibilityRole="alert"
             >
               {accountDeletionError}
             </Text>
           ) : null}
-          <View className="mt-6 gap-2">
+          <View className="gap-2">
             <Button
               variant="danger"
               onPress={handleDeleteAccountConfirm}

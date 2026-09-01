@@ -1,6 +1,7 @@
 import { UploadProgressRing } from "@/components/ui";
 import { Image, Text, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 interface UploadingReceiptProps {
   /** URI of the receipt photo to display */
@@ -14,10 +15,9 @@ export const UploadingReceipt = ({
   uploadProgress,
 }: UploadingReceiptProps) => {
   return (
-    <Animated.View entering={FadeIn.duration(400)} className="items-center">
-      {/* Receipt preview thumbnail */}
+    <Animated.View entering={RECEIPT_STATE_ENTER} className="items-center">
       {photoUri && (
-        <View className="mb-8 h-32 w-32 overflow-hidden rounded-2xl shadow-md">
+        <View className="mb-8 h-32 w-32 overflow-hidden rounded-2xl border border-separator bg-surface">
           <Image
             source={{ uri: photoUri }}
             style={{ width: "100%", height: "100%" }}
@@ -26,7 +26,6 @@ export const UploadingReceipt = ({
         </View>
       )}
 
-      {/* Progress Ring */}
       <UploadProgressRing
         progress={uploadProgress}
         isUploading={true}
@@ -34,8 +33,8 @@ export const UploadingReceipt = ({
         strokeWidth={10}
       />
 
-      <Text className="mt-6 text-center text-sm text-warm-gray-500">
-        Uploading your receipt...
+      <Text className="mt-6 text-center text-[17px] leading-6 text-ink-secondary">
+        Uploading your receipt…
       </Text>
     </Animated.View>
   );

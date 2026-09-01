@@ -3,7 +3,7 @@ import { clearClerkTokenCache } from "./clerkTokenCache";
 import { clearAllOrThrow } from "./storage";
 
 const ACCOUNT_DELETION_CLEANUP_KEY =
-  "ourpantry:account-deletion-cleanup-required";
+  "ourpantry.account-deletion-cleanup-required";
 
 /** Persist deletion intent before the irreversible provider request begins. */
 export async function markAccountDeletionCleanupRequired(): Promise<void> {

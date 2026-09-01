@@ -66,6 +66,17 @@ CartShare is a real-time collaborative grocery shopping mobile app for couples. 
 5. Test on iOS simulator
 6. Run typecheck before considering complete
 
+### UI Implementation Rules:
+
+1. Use NativeWind's `font-heading` token (`Nunito_900Black`) for every heading-sized text element; body copy remains in the platform system font.
+2. Use the shared `Button` for text actions so labels inherit `Nunito_800ExtraBold` and the standard press response.
+3. Use `OnboardingFormScreen` for short household/account forms. Keep one primary footer action, a top-left Back control, and generated onboarding artwork hidden from assistive technology.
+4. Let Expo Router's native stack own screen transitions. Do not add staggered child entrances on top of route movement; respect Reduce Motion for retained state feedback.
+5. Generated onboarding icons must follow the one-idea rule in `DESIGN.md`: one dominant object, no loose props or miniature scene, a clear thumbnail silhouette, matte rounded geometry, transparent canvas, and a restrained coral/ivory palette with teal only as a small accent.
+6. Use `EmptyStateCard` for persistent no-data states. Its default material is opaque, never decorative glass; use `embedded` inside an existing card or surface, reserve 3D artwork for meaningful states, and keep routine/recovery states on the Lucide fallback.
+7. Use `AmountInput` for every editable currency value. Do not build screen-local money fields or add a currency symbol to their placeholders; choose `field` for ordinary budgets/prices and `prominent` only for a focused total-entry screen.
+8. Build persistent preferences with `SettingsSection`, `SettingsRow`, and `SettingsToggleRow`. Keep settings groups opaque and use `GlassBottomSheet` only for focused editors or confirmations; do not invent screen-local settings cards, switches, or disclosure treatments.
+
 ### When Debugging:
 1. Check Convex dashboard for backend errors
 2. Review Metro bundler console for frontend errors
@@ -103,6 +114,7 @@ Before marking any task complete:
 4. **Fixed font sizes** - Use relative sizing for Dynamic Type support
 5. **Blocking offline** - Core list operations must work offline
 6. **Missing optimistic updates** - UI should update immediately, sync in background
+7. **System-font headings** - Heading-sized text must use the shared `font-heading` token
 
 ## Testing Scenarios
 

@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui";
 import { ScreenState } from "@/types";
-import { Edit3, Receipt, RotateCcw } from "lucide-react-native";
+import { Receipt } from "lucide-react-native";
 import { Image, Text, TextInput, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 interface OcrErrorProps {
   /** URI of the receipt photo to display */
@@ -28,23 +29,22 @@ export const OcrError = (props: OcrErrorProps) => {
   } = props;
 
   return (
-    <Animated.View entering={FadeInDown.duration(400)} className="items-center">
-      {/* Error illustration */}
-      <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-coral/20">
-        <Receipt size={40} color="#FF6B6B" strokeWidth={1.5} />
+    <Animated.View entering={RECEIPT_STATE_ENTER} className="w-full items-center">
+      <View className="mb-5 h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
+        <Receipt size={30} color="#D14D4D" strokeWidth={2} />
       </View>
 
-      <Text className="text-center text-xl font-bold text-warm-gray-900">
-        We couldn't read that 😅
+      <Text className="text-center text-3xl font-heading tracking-tight text-ink">
+        We couldn’t read the total
       </Text>
 
-      <Text className="mt-2 text-center text-base text-warm-gray-600 px-4">
+      <Text className="mt-3 max-w-sm text-center text-[17px] leading-6 text-ink-secondary">
         {errorMessage || "No worries! You can enter the total manually."}
       </Text>
 
       {/* Receipt preview */}
       {photoUri && (
-        <View className="my-6 h-32 w-32 overflow-hidden rounded-xl shadow-md opacity-60">
+        <View className="my-6 h-28 w-28 overflow-hidden rounded-2xl border border-separator opacity-60">
           <Image
             source={{ uri: photoUri }}
             style={{ width: "100%", height: "100%" }}
@@ -53,7 +53,6 @@ export const OcrError = (props: OcrErrorProps) => {
         </View>
       )}
 
-      {/* Manual entry button */}
       <Button
         variant="primary"
         size="lg"
@@ -63,12 +62,7 @@ export const OcrError = (props: OcrErrorProps) => {
         }}
         className="w-full"
       >
-        <View className="flex-row items-center">
-          <Edit3 size={20} color="white" strokeWidth={2} />
-          <Text className="ml-2 text-base font-semibold text-white">
-            Enter it manually
-          </Text>
-        </View>
+        Enter total manually
       </Button>
 
       {/* Retake option */}
@@ -78,12 +72,7 @@ export const OcrError = (props: OcrErrorProps) => {
         onPress={handleRetake}
         className="mt-4"
       >
-        <View className="flex-row items-center">
-          <RotateCcw size={16} color="#6B6B6B" strokeWidth={2} />
-          <Text className="ml-2 text-base text-warm-gray-600">
-            Retake photo
-          </Text>
-        </View>
+        Retake photo
       </Button>
 
       {/* Skip option */}

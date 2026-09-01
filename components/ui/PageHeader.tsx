@@ -1,6 +1,8 @@
 import { themeColors } from "@/lib/theme";
 import { ChevronLeft, X } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import type { ReactNode } from "react";
+import { Text, View } from "react-native";
+import { Button } from "./Button";
 
 interface PageHeaderProps {
   title: string;
@@ -8,6 +10,7 @@ interface PageHeaderProps {
   appearance?: "light" | "overlay";
   leadingIcon?: "back" | "close";
   backLabel?: string;
+  trailing?: ReactNode;
 }
 
 export function PageHeader({
@@ -16,6 +19,7 @@ export function PageHeader({
   appearance = "light",
   leadingIcon = "back",
   backLabel = "Back",
+  trailing,
 }: PageHeaderProps) {
   const foreground =
     appearance === "overlay" ? themeColors.surface : themeColors.ink;
@@ -27,22 +31,24 @@ export function PageHeader({
         appearance === "light" ? "bg-background-light" : "bg-black/30"
       }`}
     >
-      <Pressable
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
         onPress={onBack}
-        className="h-12 w-12 items-center justify-center rounded-full active:opacity-50"
-        hitSlop={4}
-        accessibilityRole="button"
+        className="-ml-1"
         accessibilityLabel={backLabel}
+        accessibilityHint="Returns to the previous screen"
       >
         <Icon
           size={leadingIcon === "close" ? 23 : 28}
           color={foreground}
           strokeWidth={2.25}
         />
-      </Pressable>
+      </Button>
 
       <Text
-        className={`flex-1 text-center text-lg font-semibold ${
+        className={`font-heading flex-1 text-center text-lg ${
           appearance === "overlay" ? "text-white" : "text-ink"
         }`}
         numberOfLines={1}
@@ -50,7 +56,9 @@ export function PageHeader({
         {title}
       </Text>
 
-      <View className="h-12 w-12" />
+      <View className="h-12 w-12 items-center justify-center">
+        {trailing}
+      </View>
     </View>
   );
 }

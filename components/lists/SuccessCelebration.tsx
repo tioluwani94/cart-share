@@ -47,7 +47,7 @@ export function SuccessCelebration({ listName }: { listName: string }) {
 
         <Animated.Text
           entering={FadeIn.delay(300).duration(400)}
-          className="text-xl font-bold text-warm-gray-900"
+          className="text-xl font-heading text-warm-gray-900"
         >
           List created!
         </Animated.Text>

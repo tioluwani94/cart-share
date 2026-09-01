@@ -8,9 +8,14 @@ const mockDismiss = jest.fn();
 
 jest.mock("@/components/ui", () => {
   const React = require("react");
-  const { View } = require("react-native");
+  const { Pressable, Text, View } = require("react-native");
 
   return {
+    Button: ({ children, onPress, accessibilityLabel }) => (
+      <Pressable onPress={onPress} accessibilityLabel={accessibilityLabel}>
+        {children}
+      </Pressable>
+    ),
     GlassBottomSheet: React.forwardRef(({ children, onDismiss }, ref) => {
       React.useImperativeHandle(ref, () => ({
         present: mockPresent,
@@ -23,6 +28,15 @@ jest.mock("@/components/ui", () => {
       );
     }),
     GlassBottomSheetView: View,
+    GlassSheetHeader: ({ title, onClose, closeAccessibilityLabel }) => (
+      <View>
+        <Text>{title}</Text>
+        <Pressable
+          onPress={onClose}
+          accessibilityLabel={closeAccessibilityLabel}
+        />
+      </View>
+    ),
   };
 });
 

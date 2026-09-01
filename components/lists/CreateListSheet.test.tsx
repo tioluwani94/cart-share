@@ -26,6 +26,9 @@ jest.mock("@/components/ui", () => {
   const { Pressable, Text, TextInput, View } = jest.requireActual<
     typeof import("react-native")
   >("react-native");
+  const { formatCurrencyInput } = jest.requireActual<
+    typeof import("@/lib/formatters")
+  >("@/lib/formatters");
   return {
     Button: ({
       children,
@@ -40,6 +43,22 @@ jest.mock("@/components/ui", () => {
     ),
     GlassBottomSheetScrollView: ({ children }: { children?: ReactNode }) => (
       <View>{children}</View>
+    ),
+    GlassSheetHeader: () => <View />,
+    AmountInput: ({
+      label,
+      onChangeText,
+      value,
+      ...props
+    }: TextInputProps & { label: string }) => (
+      <TextInput
+        accessibilityLabel={label}
+        value={value === undefined ? undefined : formatCurrencyInput(value)}
+        onChangeText={(nextValue) =>
+          onChangeText?.(formatCurrencyInput(nextValue))
+        }
+        {...props}
+      />
     ),
     Input: ({ label, ...props }: TextInputProps & { label: string }) => (
       <TextInput accessibilityLabel={label} {...props} />
@@ -138,5 +157,49 @@ describe("CreateListSheet", () => {
     });
     expect(create.props.disabled).toBe(true);
     expect(mockCreateList).not.toHaveBeenCalled();
+  });
+
+  it("groups the trip budget while preserving its value in pence", async () => {
+    let renderer!: ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<CreateListSheet />);
+    });
+
+    act(() => {
+      const name = renderer.root.findByProps({
+        accessibilityLabel: "List name",
+      });
+      (name.props as { onChangeText: (value: string) => void }).onChangeText(
+        "Monthly shop",
+      );
+
+      const budget = renderer.root.findByProps({
+        accessibilityLabel: "Trip budget (optional)",
+      });
+      (budget.props as { onChangeText: (value: string) => void }).onChangeText(
+        "1234.5",
+      );
+    });
+
+    expect(
+      renderer.root.findByProps({
+        accessibilityLabel: "Trip budget (optional)",
+      }).props.value,
+    ).toBe("1,234.5");
+
+    await act(async () => {
+      const create = renderer.root.findByProps({
+        accessibilityLabel: "Create shopping list",
+      });
+      await (create.props as { onPress: () => Promise<void> }).onPress();
+    });
+
+    expect(mockCreateList).toHaveBeenCalledWith(
+      expect.objectContaining({ tripBudgetPence: 123450 }),
+    );
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
   });
 });

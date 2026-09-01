@@ -73,7 +73,7 @@ jest.mock("@shopify/flash-list", () => {
 });
 
 jest.mock("@/components/ui", () => {
-  const { Pressable, Text } =
+  const { Pressable, Text, View } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
     Button: ({
@@ -84,6 +84,53 @@ jest.mock("@/components/ui", () => {
         {typeof children === "string" ? <Text>{children}</Text> : children}
       </Pressable>
     ),
+    EmptyStateCard: ({
+      title,
+      description,
+      actionLabel,
+      onAction,
+    }: {
+      title: string;
+      description: string;
+      actionLabel?: string;
+      onAction?: () => void;
+    }) => (
+      <View>
+        <Text>{title}</Text>
+        <Text>{description}</Text>
+        {actionLabel && onAction ? (
+          <Pressable onPress={onAction} accessibilityLabel={actionLabel}>
+            <Text>{actionLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    ),
+    PageHeader: ({
+      title,
+      onBack,
+      backLabel,
+    }: {
+      title: string;
+      onBack: () => void;
+      backLabel: string;
+    }) => (
+      <View>
+        <Pressable accessibilityLabel={backLabel} onPress={onBack} />
+        <Text>{title}</Text>
+      </View>
+    ),
+  };
+});
+
+jest.mock("react-native-reanimated", () => {
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  const transition = { easing: () => transition };
+  return {
+    __esModule: true,
+    default: { View },
+    Easing: { bezier: () => jest.fn() },
+    FadeIn: { duration: () => transition },
   };
 });
 

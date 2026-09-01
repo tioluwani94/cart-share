@@ -1,4 +1,3 @@
-import { ConfettiParticle } from "@/components/receipt-confirm/ConfettiParticle";
 import { ManualEntry } from "@/components/receipt-confirm/ManualEntry";
 import { OcrError } from "@/components/receipt-confirm/OcrError";
 import { ProcessingReceipt } from "@/components/receipt-confirm/ProcessingReceipt";
@@ -8,10 +7,15 @@ import { ScanSuccess } from "@/components/receipt-confirm/ScanSuccess";
 import { SessionSaved } from "@/components/receipt-confirm/SessionSaved";
 import { UploadError } from "@/components/receipt-confirm/UploadError";
 import { UploadingReceipt } from "@/components/receipt-confirm/UploadingReceipt";
+import { Button, PageHeader } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { getItemCountBucket } from "@/lib/analytics";
+import {
+  formatCurrencyInput,
+  parseCurrencyInputToPence,
+} from "@/lib/formatters";
 import {
   buildReceiptSessionInput,
   getInitialReceiptScreenState,
@@ -21,29 +25,18 @@ import { ScreenState } from "@/types";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  Pressable,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
-import {
-  Easing,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// Confetti emoji particles for celebration
-const CONFETTI_EMOJIS = ["🎉", "✨", "🎊", "💫", "🌟", "⭐", "🥳", "💸"];
 
 /**
  * Receipt confirmation screen with upload, OCR processing, and celebratory UI.
@@ -65,7 +58,6 @@ export default function ReceiptConfirmScreen() {
     useState<Id<"receiptUploads"> | null>(null);
   const [extractedTotal, setExtractedTotal] = useState<number | null>(null); // In pence
   const [manualAmount, setManualAmount] = useState("");
-  const [showConfetti, setShowConfetti] = useState(false);
   const [monthlySessionCount, setMonthlySessionCount] = useState(0);
   const [paidBy, setPaidBy] = useState<"joint" | Id<"users">>("joint");
   const [storeName, setStoreName] = useState("");
@@ -89,67 +81,22 @@ export default function ReceiptConfirmScreen() {
 
   const inputRef = useRef<TextInput>(null);
 
-  // Animation values
-  const scanLinePosition = useSharedValue(0);
-  const scanOpacity = useSharedValue(0);
-  const successScale = useSharedValue(0);
-  const totalScale = useSharedValue(0);
-
-  // Start scanning animation
-  const startScanningAnimation = useCallback(() => {
-    scanOpacity.value = withTiming(1, { duration: 300 });
-    // Animate scan line up and down repeatedly
-    scanLinePosition.value = withRepeat(
-      withSequence(
-        withTiming(200, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1, // Infinite repeat
-      false, // Don't reverse
-    );
-  }, [scanLinePosition, scanOpacity]);
-
-  // Stop scanning animation
-  const stopScanningAnimation = useCallback(() => {
-    scanOpacity.value = withTiming(0, { duration: 200 });
-    scanLinePosition.value = 0;
-  }, [scanLinePosition, scanOpacity]);
-
   // Process OCR
   const runOCR = useCallback(
     async (authorizedReceiptUploadId: Id<"receiptUploads">) => {
       setScreenState("processing");
-      startScanningAnimation();
 
       try {
         const result = await processReceipt({
           receiptUploadId: authorizedReceiptUploadId,
         });
 
-        stopScanningAnimation();
-
         if (result.success && result.extractedTotal !== null) {
           // Success! Found the total
           setExtractedTotal(result.extractedTotal);
           setScreenState("success");
-          setShowConfetti(true);
-
-          // Animate success elements
-          successScale.value = withSequence(
-            withSpring(1.1, { damping: 8, stiffness: 150 }),
-            withSpring(1, { damping: 10, stiffness: 200 }),
-          );
-
-          totalScale.value = withSequence(
-            withTiming(0, { duration: 0 }),
-            withSpring(1.2, { damping: 6, stiffness: 120 }),
-            withSpring(1, { damping: 8, stiffness: 150 }),
-          );
 
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-          // Hide confetti after 3 seconds
-          setTimeout(() => setShowConfetti(false), 3000);
         } else {
           // OCR worked but couldn't find total, or failed
           setScreenState("ocr_error");
@@ -160,19 +107,12 @@ export default function ReceiptConfirmScreen() {
         }
       } catch (error) {
         console.error("OCR error:", error);
-        stopScanningAnimation();
         setScreenState("ocr_error");
         setErrorMessage("Something went wrong while reading your receipt.");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     },
-    [
-      processReceipt,
-      startScanningAnimation,
-      stopScanningAnimation,
-      successScale,
-      totalScale,
-    ],
+    [processReceipt],
   );
 
   // Upload the receipt image
@@ -327,11 +267,9 @@ export default function ReceiptConfirmScreen() {
       setMonthlySessionCount((monthlyCount?.count ?? 0) + 1);
       setExtractedTotal(totalPence ?? null);
       setScreenState("session_saved");
-      setShowConfetti(true);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => router.replace("/(tabs)/analytics"), 2500);
-      setTimeout(() => setShowConfetti(false), 3000);
     } catch (error) {
       console.error("Error creating session:", error);
       setErrorMessage(
@@ -376,32 +314,17 @@ export default function ReceiptConfirmScreen() {
   // Handle manual entry submission
   const handleManualSubmit = () => {
     setErrorMessage("");
-    const amount = parseFloat(manualAmount.replace(/[^0-9.]/g, ""));
-    if (isNaN(amount) || amount <= 0) {
+    const totalPence = parseCurrencyInputToPence(manualAmount);
+    if (totalPence === null || totalPence <= 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
 
-    const totalPence = Math.round(amount * 100);
     setExtractedTotal(totalPence);
     setScreenState("success");
-    setShowConfetti(true);
-
-    successScale.value = withSequence(
-      withSpring(1.1, { damping: 8, stiffness: 150 }),
-      withSpring(1, { damping: 10, stiffness: 200 }),
-    );
-
-    totalScale.value = withSequence(
-      withTiming(0, { duration: 0 }),
-      withSpring(1.2, { damping: 6, stiffness: 120 }),
-      withSpring(1, { damping: 8, stiffness: 150 }),
-    );
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Keyboard.dismiss();
-
-    setTimeout(() => setShowConfetti(false), 3000);
   };
 
   // Switch to manual entry
@@ -409,7 +332,9 @@ export default function ReceiptConfirmScreen() {
     setScreenState("manual_entry");
     // Pre-fill with extracted amount if available
     if (extractedTotal) {
-      setManualAmount((extractedTotal / 100).toFixed(2));
+      setManualAmount(
+        formatCurrencyInput((extractedTotal / 100).toFixed(2)),
+      );
     }
     setTimeout(() => inputRef.current?.focus(), 300);
   };
@@ -438,33 +363,6 @@ export default function ReceiptConfirmScreen() {
     router.back();
   }, [deleteReceipt, receiptUploadId, screenState]);
 
-  // Render confetti particles
-  const renderConfetti = () => {
-    if (!showConfetti) return null;
-
-    return (
-      <View
-        className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 100 }}
-      >
-        {Array.from({ length: 20 }).map((_, index) => {
-          const emoji = CONFETTI_EMOJIS[index % CONFETTI_EMOJIS.length];
-          const startX = Math.random() * 100;
-          const delay = index * 80;
-
-          return (
-            <ConfettiParticle
-              key={index}
-              emoji={emoji}
-              startX={startX}
-              delay={delay}
-            />
-          );
-        })}
-      </View>
-    );
-  };
-
   const renderScanningOverlay = () => <ScanningOverlay />;
 
   // Render content based on state
@@ -472,20 +370,19 @@ export default function ReceiptConfirmScreen() {
     if (!originatingListId) {
       return (
         <View className="w-full items-center px-4">
-          <Text className="text-center text-xl font-bold text-warm-gray-900">
+          <Text className="text-center text-xl font-heading text-warm-gray-900">
             Trip details missing
           </Text>
           <Text className="mt-2 text-center text-base leading-6 text-warm-gray-600">
             Go back to your shopping list and choose Finish again.
           </Text>
-          <Pressable
+          <Button
             onPress={() => router.back()}
-            className="mt-6 min-h-12 justify-center rounded-full bg-coral px-6"
-            accessibilityRole="button"
+            className="mt-6 w-full"
             accessibilityLabel="Back to shopping list"
           >
-            <Text className="font-semibold text-white">Back to shop</Text>
-          </Pressable>
+            Back to shop
+          </Button>
         </View>
       );
     }
@@ -598,20 +495,20 @@ export default function ReceiptConfirmScreen() {
   const getHeaderTitle = () => {
     switch (screenState) {
       case "uploading":
-        return "Uploading Receipt";
+        return "Uploading receipt";
       case "processing":
-        return "Scanning Receipt";
+        return "Reading receipt";
       case "success":
-        return "Receipt Total";
+        return "Receipt total";
       case "manual_entry":
-        return "Enter Total";
+        return "Enter total";
       case "saving_session":
-        return "Saving Trip";
+        return "Saving trip";
       case "session_saved":
-        return "All Done!";
+        return "Trip saved";
       case "ocr_error":
       case "upload_error":
-        return "Hmm...";
+        return "Receipt help";
       default:
         return "Receipt";
     }
@@ -619,32 +516,25 @@ export default function ReceiptConfirmScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background-light">
-      {/* Confetti overlay */}
-      {renderConfetti()}
+      <PageHeader
+        title={getHeaderTitle()}
+        onBack={handleCancel}
+        backLabel="Back to shopping list"
+      />
 
-      {/* Header */}
-      <View className="flex-row items-center border-b border-warm-gray-100 bg-white px-4 py-3">
-        <Pressable
-          onPress={handleCancel}
-          className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-warm-gray-100"
-          accessibilityLabel="Go back"
-        >
-          <ChevronLeft size={24} color="#57534E" strokeWidth={2} />
-        </Pressable>
-        <Text className="text-xl font-bold text-warm-gray-900">
-          {getHeaderTitle()}
-        </Text>
-      </View>
-
-      {/* Content */}
-      <ScrollView
+      <KeyboardAvoidingView
         className="flex-1"
-        contentContainerClassName="min-h-full items-center justify-center px-8 py-6"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {renderContent()}
-      </ScrollView>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="flex-grow justify-center px-6 pb-10 pt-8"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="w-full max-w-xl self-center">{renderContent()}</View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

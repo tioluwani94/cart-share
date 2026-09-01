@@ -195,8 +195,8 @@ export function Button({
         />
       ) : typeof children === "string" ? (
         <Text
+          style={{ fontFamily: "Nunito_800ExtraBold" }}
           className={cn(
-            "font-semibold",
             material.textClassName,
             sizeTextStyles[size],
             textClassName,

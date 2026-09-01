@@ -1,7 +1,10 @@
+import groceryRhythmArtwork from "@/assets/empty-states/grocery-rhythm.png";
 import {
   Button,
+  EmptyStateCard,
   GlassBottomSheet,
   GlassBottomSheetScrollView,
+  GlassSheetHeader,
   type GlassBottomSheetRef,
   Input,
   PageHeader,
@@ -25,7 +28,6 @@ import {
   Pause,
   Play,
   SlidersHorizontal,
-  X,
 } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -226,7 +228,7 @@ export default function TrackedProductsScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              <Text className="text-3xl font-bold tracking-tight text-ink">
+              <Text className="text-3xl font-heading tracking-tight text-ink">
                 Your grocery rhythm
               </Text>
               <Text className="mt-2 text-base leading-6 text-ink-secondary">
@@ -236,17 +238,12 @@ export default function TrackedProductsScreen() {
             </View>
           }
           ListEmptyComponent={
-            <View className="mt-10 items-center rounded-2xl border border-separator bg-surface px-6 py-10">
-              <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
-                <SlidersHorizontal size={28} color={themeColors.coral} />
-              </View>
-              <Text className="mt-4 text-center text-xl font-bold text-ink">
-                Nothing is being tracked yet
-              </Text>
-              <Text className="mt-2 text-center leading-6 text-ink-secondary">
-                Products you choose during a restock setup will appear here.
-              </Text>
-            </View>
+            <EmptyStateCard
+              title="Nothing is being tracked yet"
+              description="Products you choose during a restock setup will appear here."
+              artworkSource={groceryRhythmArtwork}
+              className="mt-10"
+            />
           }
           renderItem={({ item: row }) => {
             if (row.type === "section") {
@@ -272,30 +269,22 @@ export default function TrackedProductsScreen() {
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="mb-4 flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-sm font-semibold uppercase tracking-wide text-coral">
-                Tracked product
-              </Text>
-              <Text className="mt-1 text-2xl font-bold text-ink">
-                {editingProduct?.displayName ?? "Edit product"}
-              </Text>
-            </View>
-            <Pressable
-              onPress={closeEditor}
-              className="h-11 w-11 items-center justify-center rounded-full bg-warm-gray-100 active:opacity-70"
-              accessibilityLabel="Close product editor"
-              accessibilityRole="button"
-            >
-              <X size={20} color={themeColors.secondaryInk} />
-            </Pressable>
-          </View>
-          <Text className="text-2xl font-bold text-ink">Review timing</Text>
-          <Text className="mt-2 leading-6 text-ink-secondary">
-            This is a reminder rhythm, not a claim that the product has run out.
-          </Text>
+          <GlassSheetHeader
+            title={editingProduct?.displayName ?? "Edit product"}
+            description="Adjust reminder timing and defaults. This rhythm is a reminder, not a claim that the product has run out."
+            icon={
+              <SlidersHorizontal
+                size={21}
+                color={themeColors.coral}
+                strokeWidth={2}
+              />
+            }
+            onClose={closeEditor}
+            closeDisabled={isSaving}
+            closeAccessibilityLabel="Close product editor"
+          />
 
-          <View className="mt-6 rounded-2xl border border-separator bg-surface p-4">
+          <View className="mt-6">
             <Input
               label="Usually needed every (days)"
               value={cadence}

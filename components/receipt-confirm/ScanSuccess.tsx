@@ -1,11 +1,12 @@
-import { Button } from "@/components/ui";
-import { formatAmount } from "@/lib/formatAmount";
-import { cn } from "@/lib/cn";
-import { themeColors } from "@/lib/theme";
-import { CheckCircle2, Edit3 } from "lucide-react-native";
-import { Image, Pressable, Text, TextInput, View } from "react-native";
-import Animated, { FadeInUp, useReducedMotion } from "react-native-reanimated";
+import { Button, Input } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
+import { cn } from "@/lib/cn";
+import { formatAmount } from "@/lib/formatAmount";
+import { themeColors } from "@/lib/theme";
+import { CheckCircle2 } from "lucide-react-native";
+import { Image, Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 interface ScanSuccessProps {
   /** URI of the receipt photo to display */
@@ -41,34 +42,28 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
     errorMessage,
   } = props;
 
-  const reduceMotion = useReducedMotion();
-
   return (
-    <Animated.View
-      entering={reduceMotion ? undefined : FadeInUp.springify().damping(90)}
-      className="items-center"
-    >
-      {/* Success icon */}
-      <Animated.View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-teal/20">
-        <CheckCircle2 size={48} color="#4ECDC4" strokeWidth={2} />
-      </Animated.View>
+    <Animated.View entering={RECEIPT_STATE_ENTER} className="w-full items-center">
+      <View className="mb-5 h-16 w-16 items-center justify-center rounded-2xl bg-teal-soft">
+        <CheckCircle2 size={31} color={themeColors.teal} strokeWidth={2.25} />
+      </View>
 
-      <Text className="text-center text-xl font-bold text-warm-gray-900">
-        Found it! 🎉
+      <Text className="text-center text-3xl font-heading tracking-tight text-ink">
+        Receipt total found
       </Text>
 
       {/* Large extracted total */}
       {extractedTotal !== null && (
-        <Animated.View className="my-6">
-          <Text className="text-center text-5xl font-bold text-coral">
+        <View className="my-6">
+          <Text className="text-center text-5xl font-heading text-coral">
             {formatAmount(extractedTotal)}
           </Text>
-        </Animated.View>
+        </View>
       )}
 
       {/* Receipt thumbnail */}
       {photoUri && (
-        <View className="mb-6 h-28 w-28 overflow-hidden rounded-xl shadow-md">
+        <View className="mb-6 h-28 w-28 overflow-hidden rounded-2xl border border-separator bg-surface">
           <Image
             source={{ uri: photoUri }}
             style={{ width: "100%", height: "100%" }}
@@ -77,29 +72,24 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
         </View>
       )}
 
-      <View className="mb-5 w-full">
-        <Text className="mb-2 text-sm font-medium text-warm-gray-600">
-          Store (optional)
-        </Text>
-        <TextInput
+      <Input
+          label="Store (optional)"
           value={storeName}
           onChangeText={onStoreNameChange}
           placeholder="e.g. Tesco"
-          placeholderTextColor={themeColors.muted}
           autoCapitalize="words"
           autoCorrect={false}
           returnKeyType="done"
           maxLength={80}
-          className="min-h-12 rounded-2xl border border-warm-gray-200 bg-white px-4 text-base text-warm-gray-900"
+          containerClassName="w-full"
           accessibilityLabel="Store name, optional"
-        />
-      </View>
+      />
 
       <View className="mb-5 w-full">
-        <Text className="mb-2 text-center text-sm font-medium text-warm-gray-600">
+        <Text className="mb-2 text-[15px] font-semibold leading-5 text-ink">
           Paid from
         </Text>
-        <View className="flex-row flex-wrap justify-center gap-2">
+        <View className="flex-row flex-wrap gap-2">
           {paymentOptions.map((option) => {
             const selected = paidBy === option.value;
             return (
@@ -107,8 +97,10 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
                 key={option.value}
                 onPress={() => onPaidByChange(option.value)}
                 className={cn(
-                  "min-h-[44px] justify-center rounded-full px-4",
-                  selected ? "bg-teal" : "bg-warm-gray-100",
+                  "min-h-12 justify-center rounded-full border px-4 active:opacity-70",
+                  selected
+                    ? "border-teal bg-teal-soft"
+                    : "border-separator bg-surface",
                 )}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
@@ -116,8 +108,8 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
               >
                 <Text
                   className={cn(
-                    "text-sm font-medium",
-                    selected ? "text-white" : "text-warm-gray-700",
+                    "text-[15px] font-semibold",
+                    selected ? "text-teal" : "text-ink-secondary",
                   )}
                 >
                   {option.label}
@@ -129,37 +121,33 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
       </View>
 
       {errorMessage ? (
-        <Text className="mb-4 w-full text-center text-sm text-red-600">
+        <Text
+          className="mb-4 w-full text-sm leading-5 text-red-700"
+          accessibilityRole="alert"
+        >
           {errorMessage}
         </Text>
       ) : null}
 
-      {/* Confirm button */}
       <Button
         size="lg"
         variant="primary"
         className="w-full"
         onPress={handleConfirm}
+        accessibilityLabel="Save trip with this receipt total"
       >
-        <View className="flex-row items-center">
-          <CheckCircle2 size={20} color="white" strokeWidth={2} />
-          <Text className="ml-2 text-base font-semibold text-white flex-1">
-            That's right!
-          </Text>
-        </View>
+        Save trip
       </Button>
 
-      {/* Edit option */}
-      <Pressable
+      <Button
+        variant="ghost"
+        size="md"
         onPress={handleNotQuite}
-        className="mt-4 flex-row items-center py-2"
+        className="mt-4"
         accessibilityLabel="Edit amount manually"
       >
-        <Edit3 size={16} color="#6B6B6B" strokeWidth={2} />
-        <Text className="ml-2 text-base text-warm-gray-600 underline">
-          Not quite — let me fix it
-        </Text>
-      </Pressable>
+        Edit total
+      </Button>
     </Animated.View>
   );
 };

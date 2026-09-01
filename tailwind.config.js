@@ -47,6 +47,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ["System", "sans-serif"],
+        heading: ["Nunito_900Black"],
       },
       borderRadius: {
         "2xl": "16px",

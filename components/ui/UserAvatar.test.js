@@ -22,6 +22,19 @@ jest.mock("./GlassBottomSheet", () => {
   };
 });
 
+jest.mock("./GlassSheetHeader", () => {
+  const { Pressable } = require("react-native");
+
+  return {
+    GlassSheetHeader: ({ onClose, closeAccessibilityLabel }) => (
+      <Pressable
+        onPress={onClose}
+        accessibilityLabel={closeAccessibilityLabel}
+      />
+    ),
+  };
+});
+
 jest.mock("react-native-reanimated", () => {
   const { View } = require("react-native");
   const transition = { duration: () => transition };
@@ -32,6 +45,7 @@ jest.mock("react-native-reanimated", () => {
     FadeIn: transition,
     FadeOut: transition,
     useAnimatedStyle: (factory) => factory(),
+    useReducedMotion: () => false,
     useSharedValue: (value) => ({ value }),
     withSpring: (value) => value,
   };

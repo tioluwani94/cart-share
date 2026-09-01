@@ -1,17 +1,15 @@
 import * as Haptics from "expo-haptics";
 import { Archive, MoreHorizontal } from "lucide-react-native";
 import { useCallback, useRef } from "react";
-import { Pressable, Text, TouchableOpacity } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { Pressable, Text, View } from "react-native";
 import {
+  Button,
   GlassBottomSheet,
   GlassBottomSheetView,
+  GlassSheetHeader,
   type GlassBottomSheetRef,
 } from "@/components/ui";
+import { themeColors } from "@/lib/theme";
 
 interface HeaderMenuProps {
   onArchive: () => void;
@@ -20,7 +18,6 @@ interface HeaderMenuProps {
 export function HeaderMenu({ onArchive }: HeaderMenuProps) {
   const sheetRef = useRef<GlassBottomSheetRef>(null);
   const archiveAfterDismissRef = useRef(false);
-  const buttonScale = useSharedValue(1);
 
   const openMenu = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -40,33 +37,22 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
     requestAnimationFrame(onArchive);
   }, [onArchive]);
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handlePressIn = () => {
-    buttonScale.value = withSpring(0.9);
-  };
-
-  const handlePressOut = () => {
-    buttonScale.value = withSpring(1);
-  };
-
   return (
     <>
-      {/* Menu button */}
-      <Animated.View style={buttonStyle}>
-        <TouchableOpacity
-          onPress={openMenu}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          className="h-11 w-11 items-center justify-center rounded-full bg-warm-gray-100"
-          accessibilityLabel="More options"
-          accessibilityRole="button"
-        >
-          <MoreHorizontal size={22} color="#57534E" strokeWidth={2} />
-        </TouchableOpacity>
-      </Animated.View>
+      <Button
+        onPress={openMenu}
+        variant="ghost"
+        size="sm"
+        iconOnly
+        className="border border-separator bg-surface"
+        accessibilityLabel="More options"
+      >
+        <MoreHorizontal
+          size={22}
+          color={themeColors.secondaryInk}
+          strokeWidth={2}
+        />
+      </Button>
 
       <GlassBottomSheet
         ref={sheetRef}
@@ -74,19 +60,35 @@ export function HeaderMenu({ onArchive }: HeaderMenuProps) {
         onDismiss={handleDismiss}
       >
         <GlassBottomSheetView className="px-6 pb-10 pt-2">
-          <Text className="mb-3 text-xl font-bold text-warm-gray-900">
-            List options
-          </Text>
+          <GlassSheetHeader
+            title="List options"
+            description="Manage this shopping list."
+            icon={
+              <MoreHorizontal
+                size={21}
+                color={themeColors.secondaryInk}
+                strokeWidth={2}
+              />
+            }
+            tone="neutral"
+            onClose={() => sheetRef.current?.dismiss()}
+            closeAccessibilityLabel="Close list options"
+          />
           <Pressable
             onPress={handleArchive}
-            className="min-h-14 flex-row items-center gap-3 rounded-2xl bg-white/60 px-4 py-3 active:bg-warm-gray-100"
+            className="min-h-16 flex-row items-center border-y border-separator px-1 py-3 active:bg-warm-gray-100"
             accessibilityLabel="Archive list"
             accessibilityRole="button"
           >
-            <Archive size={20} color="#78716C" strokeWidth={2} />
-            <Text className="text-base font-medium text-warm-gray-700">
-              Archive list
-            </Text>
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-coral-soft">
+              <Archive size={20} color={themeColors.coral} strokeWidth={2} />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-semibold text-ink">Archive list</Text>
+              <Text className="mt-0.5 text-sm text-ink-secondary">
+                Move it out of your active lists
+              </Text>
+            </View>
           </Pressable>
         </GlassBottomSheetView>
       </GlassBottomSheet>

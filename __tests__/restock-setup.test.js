@@ -106,6 +106,24 @@ jest.mock("@/components/ui", () => {
       </Pressable>
     ),
     GlassSegmentedControl: () => <View />,
+    ProgressBar: ({
+      value,
+      max,
+      min = 0,
+      accessibilityLabel,
+      accessibilityText,
+    }) => (
+      <View
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="progressbar"
+        accessibilityValue={{
+          min,
+          max,
+          now: value,
+          ...(accessibilityText ? { text: accessibilityText } : {}),
+        }}
+      />
+    ),
   };
 });
 
@@ -150,6 +168,12 @@ jest.mock("lucide-react-native", () => {
   };
 });
 
+function getSetupProgress(renderer) {
+  return renderer.root
+    .findAllByProps({ accessibilityLabel: "Setup progress" })
+    .find((node) => node.props.accessibilityValue);
+}
+
 describe("RestockSetupScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -188,8 +212,7 @@ describe("RestockSetupScreen", () => {
     });
 
     expect(
-      renderer.root.findByProps({ accessibilityLabel: "Setup progress" }).props
-        .accessibilityValue.now,
+      getSetupProgress(renderer).props.accessibilityValue.now,
     ).toBe(1);
   });
 
@@ -200,7 +223,7 @@ describe("RestockSetupScreen", () => {
     });
 
     expect(
-      renderer.root.findByProps({ accessibilityLabel: "Setup progress" }).props,
+      getSetupProgress(renderer).props,
     ).toEqual(
       expect.objectContaining({
         accessibilityValue: { min: 1, max: 4, now: 1, text: "Step 1 of 4" },
@@ -230,8 +253,7 @@ describe("RestockSetupScreen", () => {
       }),
     ).toBeTruthy();
     expect(
-      renderer.root.findByProps({ accessibilityLabel: "Setup progress" }).props
-        .accessibilityValue.now,
+      getSetupProgress(renderer).props.accessibilityValue.now,
     ).toBe(2);
 
     await act(async () => {

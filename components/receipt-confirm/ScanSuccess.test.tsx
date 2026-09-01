@@ -8,7 +8,7 @@ import TestRenderer, {
 import { ScanSuccess } from "./ScanSuccess";
 
 jest.mock("@/components/ui", () => {
-  const { Pressable } =
+  const { Pressable, Text, TextInput, View } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
     Button: ({
@@ -19,8 +19,32 @@ jest.mock("@/components/ui", () => {
         {children}
       </Pressable>
     ),
+    Input: ({
+      accessibilityLabel,
+      label,
+      onChangeText,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      label: string;
+      onChangeText: (value: string) => void;
+      value: string;
+    }) => (
+      <View>
+        <Text>{label}</Text>
+        <TextInput
+          accessibilityLabel={accessibilityLabel ?? label}
+          value={value}
+          onChangeText={onChangeText}
+        />
+      </View>
+    ),
   };
 });
+
+jest.mock("./receiptStateMotion", () => ({
+  RECEIPT_STATE_ENTER: undefined,
+}));
 
 jest.mock("react-native-reanimated", () => {
   const { View } =

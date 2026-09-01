@@ -38,14 +38,15 @@ CartShare should feel **sleek, fun, playful, and interesting**—turning the mun
 - **Backgrounds**: Off-white (#FAFAFA) light mode, rich charcoal (#1A1A2E) dark mode
 
 **Typography:**
-- **Headings**: Rounded, friendly sans-serif (e.g., SF Rounded, Nunito)
+- **Headings**: Nunito Black through the shared `font-heading` token on every platform
+- **Buttons**: Nunito ExtraBold through the shared Button component
 - **Body**: Clean, highly legible sans-serif
 - **Numbers**: Tabular figures for prices/quantities, slightly playful for stats
 
 **Iconography:**
 - Rounded, filled icons with consistent stroke weight
 - Subtle animations on interaction (bounce, wiggle, scale)
-- Custom illustrated icons for empty states and onboarding
+- Custom matte 3D icons for meaningful onboarding choices and household setup; one dominant object, no miniature scenes or loose props, transparent canvas, coral-led palette, small teal accent, no emoji stand-ins
 
 **Illustrations & Graphics:**
 - Friendly, approachable illustration style for onboarding and empty states
@@ -55,12 +56,14 @@ CartShare should feel **sleek, fun, playful, and interesting**—turning the mun
 ### Micro-interactions & Animation
 
 **Essential Animations:**
-- **Check-off celebration**: Satisfying checkmark animation with subtle confetti or sparkle
+- **Check-off feedback**: Satisfying checkmark state change with one light haptic; no per-item confetti
 - **Item add**: Smooth slide-in with gentle bounce
 - **Pull-to-refresh**: Custom branded loading animation
-- **Tab transitions**: Fluid, spring-based navigation
+- **Tab transitions**: Immediate peer navigation with no screen slide; only subtle active-icon feedback
 - **Receipt scan success**: Celebratory animation when total is extracted
 - **Partner activity**: Gentle pulse or glow when partner makes changes
+
+Onboarding routes rely on Expo Router's native stack transition. Form content must be immediately usable and must not replay staggered per-element entrances. Inline validation may fade over 150ms; rare success states may crossfade over 200ms. Reduce Motion keeps only opacity feedback.
 
 **Haptic Feedback:**
 - Light tap on checkbox toggle

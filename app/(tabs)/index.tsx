@@ -229,7 +229,7 @@ export default function PlanScreen() {
     <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
       <View className="flex-row items-center justify-between px-6 pb-5 pt-4">
         <View className="flex-1 pr-4">
-          <Text className="text-4xl font-bold tracking-tight text-ink">Plan</Text>
+          <Text className="text-4xl font-heading tracking-tight text-ink">Plan</Text>
           <Text className="mt-1 text-base text-ink-secondary">
             Keep the next shop easy
           </Text>
@@ -276,7 +276,7 @@ export default function PlanScreen() {
                   Next shop
                 </Text>
                 <Text
-                  className="mt-0.5 text-2xl font-bold text-ink"
+                  className="mt-0.5 text-2xl font-heading text-ink"
                   numberOfLines={2}
                 >
                   {activeList.name}
@@ -410,7 +410,7 @@ export default function PlanScreen() {
 
         <View className="mt-8 flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-xl font-bold text-ink">
+            <Text className="text-xl font-heading text-ink">
               Restock check
             </Text>
             <Text className="mt-1 text-sm leading-5 text-ink-secondary">
@@ -521,7 +521,7 @@ export default function PlanScreen() {
 
         {activeList && otherLists.length > 0 && (
           <View className="mt-7">
-            <Text className="mb-3 text-xl font-bold text-ink">
+            <Text className="mb-3 text-xl font-heading text-ink">
               Other lists
             </Text>
             {otherLists.map((list, index) => (

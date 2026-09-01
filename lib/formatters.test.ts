@@ -1,5 +1,6 @@
 import {
   createMarketFormatters,
+  formatCurrencyInput,
   formatCurrencyFromPence,
   formatDate,
   formatFriendlyDate,
@@ -22,6 +23,15 @@ describe("UK formatters", () => {
   it("parses editable GBP amounts into integer pence", () => {
     expect(parseCurrencyInputToPence("£1,234.56")).toBe(123456);
     expect(parseCurrencyInputToPence("not an amount")).toBeNull();
+  });
+
+  it("groups editable currency amounts without losing partial decimal input", () => {
+    expect(formatCurrencyInput("1234")).toBe("1,234");
+    expect(formatCurrencyInput("1234567.8")).toBe("1,234,567.8");
+    expect(formatCurrencyInput("£01,234.567")).toBe("1,234.56");
+    expect(formatCurrencyInput(".5")).toBe("0.5");
+    expect(formatCurrencyInput("0.")).toBe("0.");
+    expect(formatCurrencyInput("")).toBe("");
   });
 
   it("compares UK calendar days safely across the spring clock change", () => {

@@ -1,7 +1,13 @@
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -197,6 +203,8 @@ function WelcomeShell({
   | "error"
 >) {
   const isBusy = Boolean(loadingActionId);
+  const providerOrder: WelcomeProvider[] =
+    Platform.OS === "ios" ? ["apple", "google"] : ["google", "apple"];
 
   return (
     <View style={{ position: "absolute", inset: 0 }}>
@@ -246,8 +254,10 @@ function WelcomeShell({
             color: "#2A2724",
             fontFamily: "Nunito_900Black",
             fontSize: 59,
-            lineHeight: 63,
+            lineHeight: 72,
             letterSpacing: -2.2,
+            paddingTop: 4,
+            paddingBottom: 4,
             textAlign: "center",
           }}
         >
@@ -265,56 +275,50 @@ function WelcomeShell({
           Plan together, restock on time,{"\n"}and shop without the mental load.
         </Text>
 
-        <WelcomeButton
-          provider="google"
-          label="Continue with Google"
-          accessibilityLabel="Continue with Google"
-          disabled={!interactive || isBusy}
-          loading={
-            interactive && loadingActionId === "ourpantry.continue-google"
-          }
-          placeholder={!interactive}
-          onPress={
-            interactive
-              ? resolveWelcomeActionPress(
-                  "ourpantry.continue-google",
-                  onActionPress,
-                  onPrimary,
-                )
-              : undefined
-          }
-          style={{
-            marginTop: 76,
-            backgroundColor: "#FFFFFF",
-            borderWidth: 2,
-            borderColor: "#D8D4CE",
-          }}
-          textColor="#2A2724"
-        />
-        <WelcomeButton
-          provider="apple"
-          label="Continue with Apple"
-          accessibilityLabel="Continue with Apple"
-          disabled={!interactive || isBusy}
-          loading={
-            interactive && loadingActionId === "ourpantry.continue-apple"
-          }
-          placeholder={!interactive}
-          onPress={
-            interactive
-              ? resolveWelcomeActionPress(
-                  "ourpantry.continue-apple",
-                  onActionPress,
-                  onSecondary,
-                )
-              : undefined
-          }
-          style={{
-            marginTop: 21,
-            backgroundColor: "#000000",
-          }}
-          textColor="#FFFFFF"
-        />
+        {providerOrder.map((provider, index) => {
+          const isGoogle = provider === "google";
+          const actionId: WelcomeActionId = isGoogle
+            ? "ourpantry.continue-google"
+            : "ourpantry.continue-apple";
+          const label = isGoogle
+            ? "Continue with Google"
+            : "Continue with Apple";
+
+          return (
+            <WelcomeButton
+              key={provider}
+              provider={provider}
+              label={label}
+              accessibilityLabel={label}
+              disabled={!interactive || isBusy}
+              loading={interactive && loadingActionId === actionId}
+              placeholder={!interactive}
+              onPress={
+                interactive
+                  ? resolveWelcomeActionPress(
+                      actionId,
+                      onActionPress,
+                      isGoogle ? onPrimary : onSecondary,
+                    )
+                  : undefined
+              }
+              style={
+                isGoogle
+                  ? {
+                      marginTop: index === 0 ? 76 : 21,
+                      backgroundColor: "#FFFFFF",
+                      borderWidth: 2,
+                      borderColor: "#D8D4CE",
+                    }
+                  : {
+                      marginTop: index === 0 ? 76 : 21,
+                      backgroundColor: "#000000",
+                    }
+              }
+              textColor={isGoogle ? "#2A2724" : "#FFFFFF"}
+            />
+          );
+        })}
         {error ? (
           <Text
             accessibilityRole="alert"

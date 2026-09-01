@@ -6,7 +6,7 @@ type ClerkTokenCache = {
 };
 
 const CURRENT_CLERK_NATIVE_TOKEN_KEY = "__clerk_client_jwt";
-const CLERK_TOKEN_KEY_INDEX = "ourpantry:clerk-token-cache-keys";
+const CLERK_TOKEN_KEY_INDEX = "ourpantry.clerk-token-cache-keys";
 
 async function getTrackedTokenKeys(): Promise<string[]> {
   const encodedKeys = await SecureStore.getItemAsync(CLERK_TOKEN_KEY_INDEX);

@@ -46,7 +46,7 @@ export function NextShopChooser({
       <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
         <ShoppingBasket size={23} color={themeColors.coral} />
       </View>
-      <Text className="mt-4 text-2xl font-bold text-ink">
+      <Text className="mt-4 text-2xl font-heading text-ink">
         Choose your next shop
       </Text>
       <Text className="mt-2 text-base leading-6 text-ink-secondary">

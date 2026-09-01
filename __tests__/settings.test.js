@@ -6,6 +6,7 @@ import SettingsScreen from "../app/settings";
 
 const mockUpdatePreferences = jest.fn();
 const mockRecalculateReminders = jest.fn();
+const mockSaveMonthlyBudget = jest.fn();
 const mockRegisterForPushNotifications = jest.fn();
 const mockPresentSignOutSheet = jest.fn();
 const mockDismissSignOutSheet = jest.fn();
@@ -18,6 +19,7 @@ const mockAnalyticsReset = jest.fn();
 const mockRouterReplace = jest.fn();
 let mockPreferences;
 let mockHousehold;
+let mockArchivedLists;
 
 jest.mock("@/convex/_generated/api", () => ({
   api: {
@@ -48,7 +50,7 @@ jest.mock("convex/react", () => ({
     if (query === "getPreferences") {
       return mockPreferences;
     }
-    if (query === "getArchivedByHousehold") return [];
+    if (query === "getArchivedByHousehold") return mockArchivedLists;
     return undefined;
   },
   useMutation: (mutation) => {
@@ -56,6 +58,7 @@ jest.mock("convex/react", () => ({
     if (mutation === "recalculateForHousehold") {
       return mockRecalculateReminders;
     }
+    if (mutation === "setMonthlyBudget") return mockSaveMonthlyBudget;
     return jest.fn();
   },
 }));
@@ -100,6 +103,7 @@ jest.mock("@/lib/accountDeletionCleanup", () => ({
 jest.mock("@/components/ui", () => {
   const React = require("react");
   const { Pressable, Text, TextInput, View } = require("react-native");
+  const { formatCurrencyInput } = jest.requireActual("@/lib/formatters");
   return {
     Button: ({ children, onPress, accessibilityLabel, ...props }) => (
       <Pressable
@@ -132,10 +136,34 @@ jest.mock("@/components/ui", () => {
       return <View testID="sign-out-sheet">{children}</View>;
     }),
     GlassBottomSheetView: View,
+    GlassSheetHeader: ({
+      title,
+      description,
+      onClose,
+      closeAccessibilityLabel,
+    }) => (
+      <View>
+        <Text>{title}</Text>
+        {description ? <Text>{description}</Text> : null}
+        <Pressable
+          onPress={onClose}
+          accessibilityLabel={closeAccessibilityLabel}
+        />
+      </View>
+    ),
     Input: ({ value, onChangeText, accessibilityLabel }) => (
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        accessibilityLabel={accessibilityLabel}
+      />
+    ),
+    AmountInput: ({ value, onChangeText, accessibilityLabel }) => (
+      <TextInput
+        value={value}
+        onChangeText={(nextValue) =>
+          onChangeText(formatCurrencyInput(nextValue))
+        }
         accessibilityLabel={accessibilityLabel}
       />
     ),
@@ -152,6 +180,26 @@ jest.mock("lucide-react-native", () => {
   return new Proxy({}, { get: () => Icon });
 });
 
+jest.mock("react-native-reanimated", () => {
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: { View },
+    Easing: { bezier: () => jest.fn() },
+    LinearTransition: {
+      duration: () => ({ reduceMotion: () => undefined }),
+    },
+    ReduceMotion: { System: "system" },
+    useAnimatedStyle: (factory) => factory(),
+    useReducedMotion: () => true,
+    useSharedValue: (initialValue) => ({
+      get: () => initialValue,
+      set: jest.fn(),
+    }),
+    withTiming: (value) => value,
+  };
+});
+
 describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -166,8 +214,17 @@ describe("SettingsScreen", () => {
       name: "Test household",
       inviteCode: "ABC123",
       userRole: "owner",
-      members: [{ _id: "membership_1", userId: "user_1" }],
+      monthlyBudgetPence: 40_000,
+      members: [
+        {
+          _id: "membership_1",
+          userId: "user_1",
+          role: "owner",
+          user: { name: "Test User" },
+        },
+      ],
     };
+    mockArchivedLists = [];
     mockDeleteAccount.mockResolvedValue(undefined);
     mockSignOut.mockResolvedValue(undefined);
     mockMarkCleanupRequired.mockResolvedValue(undefined);
@@ -176,6 +233,7 @@ describe("SettingsScreen", () => {
     mockAnalyticsReset.mockResolvedValue(undefined);
     mockUpdatePreferences.mockResolvedValue({ success: true });
     mockRecalculateReminders.mockResolvedValue({ success: true });
+    mockSaveMonthlyBudget.mockResolvedValue({ success: true });
     jest.spyOn(Linking, "openSettings").mockResolvedValue();
   });
 
@@ -184,6 +242,13 @@ describe("SettingsScreen", () => {
     await act(async () => {
       renderer = TestRenderer.create(<SettingsScreen />);
     });
+
+    const reminderTime = renderer.root.findByProps({
+      accessibilityLabel: "Change reminder time, current time 18:00",
+    });
+
+    act(() => reminderTime.props.onPress());
+    expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
 
     const morning = renderer.root.findByProps({
       accessibilityLabel: "Send reminders at 09:00",
@@ -197,6 +262,36 @@ describe("SettingsScreen", () => {
       notificationTimeMinutesLocal: 9 * 60,
     });
     expect(mockRecalculateReminders).toHaveBeenCalledWith({});
+  });
+
+  it("edits the monthly budget in a focused sheet", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const budget = renderer.root.findByProps({
+      accessibilityLabel:
+        "Edit monthly grocery budget, current value £400.00",
+    });
+    act(() => budget.props.onPress());
+    expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
+
+    const input = renderer.root.findByProps({
+      accessibilityLabel: "Monthly grocery budget amount",
+    });
+    act(() => input.props.onChangeText("1,234.56"));
+
+    const save = renderer.root.findByProps({
+      accessibilityLabel: "Save monthly grocery budget",
+    });
+    await act(async () => {
+      await save.props.onPress();
+    });
+
+    expect(mockSaveMonthlyBudget).toHaveBeenCalledWith({
+      monthlyBudgetPence: 123_456,
+    });
   });
 
   it("offers device settings after notification permission is denied", async () => {

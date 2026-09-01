@@ -1,7 +1,9 @@
 import { formatAmount } from "@/lib/formatAmount";
+import { themeColors } from "@/lib/theme";
 import { Check } from "lucide-react-native";
 import { Text, View } from "react-native";
-import Animated, { FadeInUp, useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 interface SessionSavedProps {
   /** Extracted total amount in pence */
@@ -14,52 +16,31 @@ export const SessionSaved = ({
   extractedTotal,
   monthlySessionCount,
 }: SessionSavedProps) => {
-  const reduceMotion = useReducedMotion();
-
   return (
-    <Animated.View
-      entering={reduceMotion ? undefined : FadeInUp.springify().damping(90)}
-      className="items-center"
-    >
-      {/* Big animated checkmark */}
-      <View className="mb-6 h-28 w-28 items-center justify-center rounded-full bg-teal">
-        <Check size={64} color="white" strokeWidth={3} />
+    <Animated.View entering={RECEIPT_STATE_ENTER} className="w-full items-center">
+      <View className="mb-5 h-20 w-20 items-center justify-center rounded-3xl bg-teal-soft">
+        <Check size={40} color={themeColors.teal} strokeWidth={2.5} />
       </View>
 
-      {/* Trip saved message */}
-      <Text className="text-center text-3xl font-bold text-warm-gray-900">
-        Trip saved! 🎉
+      <Text className="text-center text-3xl font-heading tracking-tight text-ink">
+        Trip saved
       </Text>
 
       {/* Amount saved */}
       {extractedTotal !== null && (
-        <Text className="mt-2 text-center text-xl text-warm-gray-600">
+        <Text className="mt-2 text-center text-xl font-semibold text-ink-secondary">
           {formatAmount(extractedTotal)}
         </Text>
       )}
 
-      {/* Fun stat - shopping count this month */}
-      <View className="mt-8">
-        <View className="rounded-2xl bg-teal/10 px-6 py-4">
-          <Text className="text-center text-lg text-warm-gray-700">
-            You've shopped{" "}
-            <Text className="font-bold text-teal">
-              {monthlySessionCount}{" "}
-              {monthlySessionCount === 1 ? "time" : "times"}
-            </Text>{" "}
-            this month!
-          </Text>
-          {monthlySessionCount >= 5 && (
-            <Text className="mt-1 text-center text-sm text-warm-gray-500">
-              You're a shopping pro! 🛒✨
-            </Text>
-          )}
-        </View>
+      <View className="mt-8 w-full rounded-2xl bg-teal-soft px-5 py-4">
+        <Text className="text-center text-[16px] leading-6 text-ink-secondary">
+          This is trip {monthlySessionCount} for your household this month.
+        </Text>
       </View>
 
-      {/* Auto-redirect message */}
-      <Text className="mt-6 text-center text-sm text-warm-gray-400">
-        Taking you home...
+      <Text className="mt-6 text-center text-sm text-ink-tertiary">
+        Opening Spending…
       </Text>
     </Animated.View>
   );

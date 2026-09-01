@@ -72,6 +72,37 @@ jest.mock("expo-haptics", () => ({
   notificationAsync: jest.fn(),
 }));
 
+jest.mock("@/components/ui", () => {
+  const { Pressable, Text, View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    Button: ({
+      children,
+      onPress,
+      accessibilityLabel,
+    }: React.PropsWithChildren<{
+      onPress?: () => void;
+      accessibilityLabel?: string;
+    }>) => (
+      <Pressable accessibilityLabel={accessibilityLabel} onPress={onPress}>
+        <Text>{children}</Text>
+      </Pressable>
+    ),
+    PageHeader: ({
+      title,
+      onBack,
+    }: {
+      title: string;
+      onBack: () => void;
+    }) => (
+      <View>
+        <Pressable accessibilityLabel="Back" onPress={onBack} />
+        <Text>{title}</Text>
+      </View>
+    ),
+  };
+});
+
 jest.mock("react-native-reanimated", () => ({
   Easing: {
     ease: jest.fn(),
@@ -257,7 +288,9 @@ describe("ReceiptConfirmScreen manual completion", () => {
     const amount = renderer.root.findByProps({
       accessibilityLabel: "Manual amount",
     });
-    act(() => (amount.props.onChangeText as (value: string) => void)("45.67"));
+    act(() =>
+      (amount.props.onChangeText as (value: string) => void)("1,234.56"),
+    );
     act(() => {
       const onPress = renderer.root
         .findByProps({ accessibilityLabel: "Continue manual amount" })
@@ -289,7 +322,7 @@ describe("ReceiptConfirmScreen manual completion", () => {
       paidBy: "user_2",
       receiptUploadId: undefined,
       storeName: "Tesco Extra",
-      totalAmount: 4567,
+      totalAmount: 123456,
     });
     expect(mockTrack).toHaveBeenCalledWith("shop completed", {
       household_id: "household_1",

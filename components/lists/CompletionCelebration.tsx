@@ -205,7 +205,7 @@ export function CompletionCelebration({
         {/* Message */}
         <Animated.Text
           entering={FadeIn.delay(300).duration(300)}
-          className="mt-4 text-2xl font-bold text-white"
+          className="mt-4 text-2xl font-heading text-white"
         >
           All done! 🎉
         </Animated.Text>

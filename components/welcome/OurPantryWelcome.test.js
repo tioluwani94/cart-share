@@ -1,9 +1,18 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
+import { Platform, StyleSheet } from "react-native";
 
 import { OurPantryWelcome } from "./OurPantryWelcome";
 
 const mockReducedMotion = { current: false };
+const originalPlatformOS = Platform.OS;
+
+function setPlatformOS(os) {
+  Object.defineProperty(Platform, "OS", {
+    configurable: true,
+    value: os,
+  });
+}
 
 jest.mock("expo-image", () => {
   const { View } = require("react-native");
@@ -51,6 +60,75 @@ describe("OurPantryWelcome", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    setPlatformOS(originalPlatformOS);
+  });
+
+  it("prioritises Apple authentication on an Apple device", () => {
+    setPlatformOS("ios");
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <OurPantryWelcome autoplay={false} onActionPress={jest.fn()} />,
+      );
+    });
+
+    const providerLabels = renderer.root
+      .findAll(
+        (node) =>
+          node.props.accessibilityRole === "button" &&
+          typeof node.props.onPress === "function",
+      )
+      .map((node) => node.props.accessibilityLabel);
+
+    expect(providerLabels).toEqual([
+      "Continue with Apple",
+      "Continue with Google",
+    ]);
+  });
+
+  it("prioritises Google authentication on an Android device", () => {
+    setPlatformOS("android");
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <OurPantryWelcome autoplay={false} onActionPress={jest.fn()} />,
+      );
+    });
+
+    const providerLabels = renderer.root
+      .findAll(
+        (node) =>
+          node.props.accessibilityRole === "button" &&
+          typeof node.props.onPress === "function",
+      )
+      .map((node) => node.props.accessibilityLabel);
+
+    expect(providerLabels).toEqual([
+      "Continue with Google",
+      "Continue with Apple",
+    ]);
+  });
+
+  it("gives the welcome headline enough vertical space for dotted letters", () => {
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <OurPantryWelcome autoplay={false} onActionPress={jest.fn()} />,
+      );
+    });
+
+    const headline = renderer.root.findByProps({
+      accessibilityRole: "header",
+    });
+    const style = StyleSheet.flatten(headline.props.style);
+
+    expect(style.lineHeight).toBeGreaterThanOrEqual(70);
+    expect((style.paddingTop ?? 0) + (style.paddingBottom ?? 0)).toBeGreaterThanOrEqual(
+      8,
+    );
   });
 
   it("shows the final state immediately without autoplay and emits semantic actions", () => {

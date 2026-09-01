@@ -1,10 +1,13 @@
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Archive } from "lucide-react-native";
 import {
   Button,
   ControlledGlassBottomSheet,
   GlassBottomSheetView,
+  GlassSheetHeader,
 } from "@/components/ui";
+import { themeColors } from "@/lib/theme";
 
 interface ArchiveConfirmDialogProps {
   visible: boolean;
@@ -39,28 +42,25 @@ export function ArchiveConfirmDialog({
       dismissible={!isLoading}
     >
       <GlassBottomSheetView className="px-6 pb-10 pt-2">
-        <View className="mb-4 items-center">
-          <Text className="text-5xl">📦</Text>
-        </View>
-
-        <Text className="mb-2 text-center text-xl font-bold text-warm-gray-900">
-          Archive this list?
-        </Text>
-
-        <Text className="mb-6 text-center text-base leading-6 text-warm-gray-600">
-          “{listName}” will be moved to your archived lists. You can always
-          restore it later from Settings.
-        </Text>
+        <GlassSheetHeader
+          title="Archive this list?"
+          description={`“${listName}” will move to archived lists. You can restore it later from Settings.`}
+          icon={<Archive size={21} color={themeColors.error} strokeWidth={2} />}
+          tone="danger"
+          onClose={handleCancelPress}
+          closeDisabled={isLoading}
+          closeAccessibilityLabel="Keep list"
+        />
 
         <View className="gap-3">
           <Button
             onPress={handleConfirm}
-            variant="primary"
+            variant="danger"
             size="lg"
             loading={isLoading}
             accessibilityLabel="Confirm archive"
           >
-            Yes, archive it
+            Archive list
           </Button>
           <Button
             onPress={handleCancelPress}
@@ -69,7 +69,7 @@ export function ArchiveConfirmDialog({
             disabled={isLoading}
             accessibilityLabel="Keep list"
           >
-            Keep it
+            Keep list
           </Button>
         </View>
       </GlassBottomSheetView>

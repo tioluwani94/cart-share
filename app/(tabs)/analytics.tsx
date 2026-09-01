@@ -6,7 +6,7 @@ import {
 } from "@/components/analytics";
 import { AnalyticsEmptyState } from "@/components/analytics/EmptyState";
 import { TotalDisplay } from "@/components/analytics/TotalDisplay";
-import { UserAvatar } from "@/components/ui";
+import { EmptyStateCard, UserAvatar } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { themeColors } from "@/lib/theme";
@@ -126,7 +126,7 @@ export default function AnalyticsScreen() {
       >
         <View className="flex-row items-center justify-between px-6 pb-5 pt-4">
           <View className="flex-1 pr-4">
-            <Text className="text-4xl font-bold tracking-tight text-ink">
+            <Text className="text-4xl font-heading tracking-tight text-ink">
               Spending
             </Text>
             <Text className="mt-1 text-base text-ink-secondary">
@@ -163,7 +163,7 @@ export default function AnalyticsScreen() {
 
             {spendingHistory && spendingHistory.some((month) => month.totalPence > 0) && (
               <View className="mt-6">
-                <Text className="mb-3 text-xl font-bold text-ink">
+                <Text className="mb-3 text-xl font-heading text-ink">
                   Six-month view
                 </Text>
                 <View className="items-center overflow-hidden rounded-2xl border border-separator bg-surface px-2 py-4">
@@ -173,7 +173,7 @@ export default function AnalyticsScreen() {
             )}
 
             <View className="mt-7">
-              <Text className="mb-3 text-xl font-bold text-ink">
+              <Text className="mb-3 text-xl font-heading text-ink">
                 Recent trips
               </Text>
               <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
@@ -195,19 +195,19 @@ export default function AnalyticsScreen() {
                     />
                   ))
                 ) : (
-                  <View className="items-center px-6 py-8">
-                    <ReceiptText
-                      size={28}
-                      color={themeColors.secondaryInk}
-                      strokeWidth={2}
-                    />
-                    <Text className="mt-3 text-center text-base font-semibold text-ink">
-                      No trips recorded yet
-                    </Text>
-                    <Text className="mt-1 text-center text-sm text-ink-secondary">
-                      Finished shops will appear here.
-                    </Text>
-                  </View>
+                  <EmptyStateCard
+                    title="No trips recorded yet"
+                    description="Finished shops will appear here."
+                    icon={
+                      <ReceiptText
+                        size={25}
+                        color={themeColors.coral}
+                        strokeWidth={2}
+                      />
+                    }
+                    variant="embedded"
+                    density="compact"
+                  />
                 )}
               </View>
             </View>

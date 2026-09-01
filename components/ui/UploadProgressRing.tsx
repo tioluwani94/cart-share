@@ -145,7 +145,7 @@ export function UploadProgressRing({
             height: size,
           }}
         >
-          <Text className="text-3xl font-bold text-warm-gray-800">
+          <Text className="text-3xl font-heading text-warm-gray-800">
             {Math.round(progress)}%
           </Text>
         </View>

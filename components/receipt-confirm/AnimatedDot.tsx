@@ -1,28 +1,55 @@
+import { themeColors } from "@/lib/theme";
 import { useEffect } from "react";
 import Animated, {
+  cancelAnimation,
+  Easing,
+  ReduceMotion,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
 
 export function AnimatedDot({ delay }: { delay: number }) {
-  const opacity = useSharedValue(0.3);
+  const reduceMotion = useReducedMotion();
+  const opacity = useSharedValue(0.35);
 
   useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 400 }),
-        withTiming(0.3, { duration: 400 }),
+    if (reduceMotion) {
+      opacity.set(0.65);
+      return;
+    }
+
+    opacity.set(
+      withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(1, {
+              duration: 360,
+              easing: Easing.inOut(Easing.ease),
+              reduceMotion: ReduceMotion.System,
+            }),
+            withTiming(0.35, {
+              duration: 360,
+              easing: Easing.inOut(Easing.ease),
+              reduceMotion: ReduceMotion.System,
+            }),
+          ),
+          -1,
+          false,
+        ),
       ),
-      -1,
-      false,
     );
-  }, [opacity]);
+
+    return () => cancelAnimation(opacity);
+  }, [delay, opacity, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
+    opacity: opacity.get(),
   }));
 
   return (
@@ -30,11 +57,11 @@ export function AnimatedDot({ delay }: { delay: number }) {
       style={[
         animatedStyle,
         {
-          marginLeft: delay > 0 ? 8 : 0,
-          height: 12,
-          width: 12,
+          marginLeft: delay > 0 ? 7 : 0,
+          height: 8,
+          width: 8,
           borderRadius: 9999,
-          backgroundColor: "#4ECDC4",
+          backgroundColor: themeColors.teal,
         },
       ]}
     />
