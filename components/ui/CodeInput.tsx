@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import {
+  Keyboard,
   View,
   TextInput,
   Pressable,
@@ -111,6 +112,9 @@ export function CodeInput({
                 autoCapitalize="characters"
                 autoCorrect={false}
                 keyboardType="default"
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onSubmitEditing={Keyboard.dismiss}
                 textContentType="oneTimeCode"
                 className="text-center text-2xl text-warm-gray-900"
                 style={{

@@ -12,6 +12,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { getItemCountBucket } from "@/lib/analytics";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import {
   formatCurrencyInput,
   parseCurrencyInputToPence,
@@ -527,9 +528,9 @@ export default function ReceiptConfirmScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
+          {...keyboardDismissScrollProps}
           className="flex-1"
           contentContainerClassName="flex-grow justify-center px-6 pb-10 pt-8"
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="w-full max-w-xl self-center">{renderContent()}</View>

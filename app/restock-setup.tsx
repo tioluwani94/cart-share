@@ -3,6 +3,7 @@ import { Button } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { getCalendars } from "expo-localization";
@@ -255,10 +256,10 @@ export default function RestockSetupScreen() {
         </View>
 
         <ScrollView
+          {...keyboardDismissScrollProps}
           className="flex-1 px-6"
           contentContainerClassName="flex-grow py-7"
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           {step === 0 && (
             <View className="flex-1 items-center justify-center pb-16">

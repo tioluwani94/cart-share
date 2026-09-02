@@ -48,6 +48,23 @@ describe("Input", () => {
     expect(input.props.placeholderTextColor).toBe(themeColors.muted);
     expect(input.props.selectionColor).toBe(themeColors.coral);
     expect(input.props.accessibilityLabel).toBe("Household name");
+    expect(input.props.returnKeyType).toBe("done");
+    expect(input.props.submitBehavior).toBe("blurAndSubmit");
+  });
+
+  it("keeps Return available for multiline notes while single-line fields dismiss", () => {
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <Input label="Notes" multiline numberOfLines={3} />,
+      );
+    });
+
+    const input = renderer.root.findByType(TextInput);
+
+    expect(input.props.returnKeyType).toBe("default");
+    expect(input.props.submitBehavior).toBe("newline");
   });
 
   it("exposes errors inline and to assistive technology", () => {

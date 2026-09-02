@@ -1,6 +1,12 @@
 import emptyBasketArtwork from "@/assets/empty-states/empty-basket.png";
 import { AddItemInput, ListItem } from "@/components/lists";
 import {
+  CollapsibleTabHeader,
+  CollapsingLargeTitleRegion,
+  useCollapsibleHeader,
+} from "@/components/navigation/CollapsibleTabHeader";
+import { useTabBarChrome } from "@/components/navigation/TabBarChromeContext";
+import {
   Button,
   EmptyStateCard,
   GlassBottomSheet,
@@ -13,6 +19,11 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { getItemCountBucket } from "@/lib/analytics";
 import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
+import {
+  getTabBarDockHeight,
+  TAB_BAR_SHOP_COMPOSER_HEIGHT,
+} from "@/lib/tabBarChrome";
 import {
   getManualReceiptEntryRoute,
   getReceiptCaptureRoute,
@@ -28,9 +39,10 @@ import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useShoppingList } from "@/lib/useShoppingList";
 import { useUser } from "@clerk/clerk-expo";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { FlashList } from "@shopify/flash-list";
 import * as Clipboard from "expo-clipboard";
-import { type Href, useRouter } from "expo-router";
+import { type Href, useFocusEffect, useRouter } from "expo-router";
 import {
   Camera,
   Check,
@@ -39,7 +51,6 @@ import {
   PoundSterling,
   Receipt,
   Share2,
-  ShoppingBasket,
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -49,7 +60,15 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated from "react-native-reanimated";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+
+const AnimatedFlashList = Animated.createAnimatedComponent(
+  FlashList,
+) as typeof FlashList;
 
 function ShopLoadingState() {
   return (
@@ -122,6 +141,14 @@ function ActiveShop({
 }: ActiveShopProps) {
   const router = useRouter();
   const analytics = useAnalytics();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const footerDockHeight = getTabBarDockHeight(
+    tabBarHeight,
+    TAB_BAR_SHOP_COMPOSER_HEIGHT,
+  );
+  const { setFooterAccessory } = useTabBarChrome();
+  const { onScroll, scrollY } = useCollapsibleHeader();
   const {
     items,
     isFromCache,
@@ -207,6 +234,49 @@ function ActiveShop({
       });
     },
     [addItem, analytics, householdId],
+  );
+  const handleAddRef = useRef(handleAdd);
+  useEffect(() => {
+    handleAddRef.current = handleAdd;
+  }, [handleAdd]);
+  const handleDockAdd = useCallback(
+    (name: string) => handleAddRef.current(name),
+    [],
+  );
+  const showDockedComposer = !isLoading && !completionQueued;
+
+  useFocusEffect(
+    useCallback(() => {
+      const clearShopComposer = () => {
+        setFooterAccessory((current) =>
+          current?.id === "shop-add-item" ? null : current,
+        );
+      };
+
+      if (!showDockedComposer) {
+        clearShopComposer();
+        return clearShopComposer;
+      }
+
+      setFooterAccessory({
+        id: "shop-add-item",
+        height: TAB_BAR_SHOP_COMPOSER_HEIGHT,
+        content: (
+          <AddItemInput
+            onAdd={handleDockAdd}
+            keyboardOffset={tabBarHeight}
+            variant="docked"
+          />
+        ),
+      });
+
+      return clearShopComposer;
+    }, [
+      handleDockAdd,
+      setFooterAccessory,
+      showDockedComposer,
+      tabBarHeight,
+    ]),
   );
 
   const shareHandoff = useCallback(async () => {
@@ -314,44 +384,30 @@ function ActiveShop({
     );
   }
 
-  return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
-      <View className="border-b border-separator px-6 pb-4 pt-4">
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-4">
-            <Text className="text-4xl font-heading tracking-tight text-ink">
-              Shop
-            </Text>
-            <Text className="mt-2 text-lg font-semibold text-ink">
-              {list.name}
-            </Text>
-            <Text className="mt-0.5 text-sm text-ink-secondary">
-              {list.plannedFor
-                ? formatDateWithWeekday(list.plannedFor, {
-                    locale,
-                    timeZone: planningTimeZone,
-                  })
-                : "Your focused shopping list"}
-            </Text>
-          </View>
-          <Button
-            onPress={() => {
-              setFinishError(null);
-              finishSheetRef.current?.present();
-            }}
-            disabled={!canFinish}
-            variant="tonal"
-            iconOnly
-            size="sm"
-            accessibilityLabel="Finish shopping"
-            accessibilityHint="Opens receipt and finish options"
+  const shopListHeader = (
+    <>
+      <CollapsingLargeTitleRegion
+        scrollY={scrollY}
+        className="pb-4 pt-4"
+      >
+        <View className="pr-20">
+          <Text
+            accessibilityRole="header"
+            className="text-4xl font-heading tracking-tight text-ink"
           >
-            <Check
-              size={21}
-              color={themeColors.coral}
-              strokeWidth={2.5}
-            />
-          </Button>
+            Shop
+          </Text>
+          <Text className="mt-2 text-lg font-semibold text-ink">
+            {list.name}
+          </Text>
+          <Text className="mt-0.5 text-sm text-ink-secondary">
+            {list.plannedFor
+              ? formatDateWithWeekday(list.plannedFor, {
+                  locale,
+                  timeZone: planningTimeZone,
+                })
+              : "Your focused shopping list"}
+          </Text>
         </View>
 
         <View className="mt-5 flex-row">
@@ -384,10 +440,10 @@ function ActiveShop({
             </Text>
           </View>
         )}
-      </View>
+      </CollapsingLargeTitleRegion>
 
       {shoppingMode === "online" && (
-        <View className="mx-6 mt-4 rounded-2xl border border-teal/20 bg-teal-soft p-4">
+        <View className="mb-4 rounded-2xl border border-teal/20 bg-teal-soft p-4">
           <Text className="font-heading text-lg text-ink">
             Ready to order online
           </Text>
@@ -405,7 +461,9 @@ function ActiveShop({
               accessibilityLabel="Share the remaining shopping list"
             >
               <Share2 size={17} color={themeColors.surface} />
-              <Text className="ml-2 text-sm font-semibold text-white">Share list</Text>
+              <Text className="ml-2 text-sm font-semibold text-white">
+                Share list
+              </Text>
             </Button>
             <Button
               variant="outline"
@@ -437,46 +495,112 @@ function ActiveShop({
           )}
         </View>
       )}
+    </>
+  );
 
-      <View className="flex-1 px-6 pb-20">
-        {totalCount === 0 ? (
-          <View className="flex-1 items-center justify-center px-8 pb-20">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
-              <ShoppingBasket size={28} color={themeColors.coral} />
-            </View>
-            <Text className="mt-4 text-center text-2xl font-heading text-ink">
-              Add the first thing you need
-            </Text>
-            <Text className="mt-2 text-center text-base leading-6 text-ink-secondary">
-              Type below. Everyone in the household will see it.
-            </Text>
+  return (
+    <View className="flex-1 bg-background-light">
+      {totalCount === 0 ? (
+        <Animated.ScrollView
+          {...keyboardDismissScrollProps}
+          className="flex-1"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingTop: insets.top,
+            paddingHorizontal: 24,
+            paddingBottom: footerDockHeight + 24,
+          }}
+          scrollIndicatorInsets={{
+            top: insets.top + 68,
+            bottom: footerDockHeight + 12,
+          }}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+        >
+          {shopListHeader}
+          <View className="min-h-80 flex-1 justify-center">
+            <EmptyStateCard
+              title="Add the first thing you need"
+              description="Type below. Everyone in the household will see it."
+              artworkSource={emptyBasketArtwork}
+              density="compact"
+            />
           </View>
-        ) : (
-          <FlashList
-            data={items ?? []}
-            keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
-              <ListItem
-                id={item._id}
-                name={item.name}
-                quantity={item.quantity}
-                unit={item.unit}
-                notes={item.notes}
-                category={item.category}
-                estimatedPricePence={item.estimatedPricePence}
-                isCompleted={item.isCompleted}
-                addedByUser={item.addedByUser}
-                isPendingSync={item.isPendingSync || isPendingSync(item._id)}
-                onToggle={(itemId) => void toggleComplete(itemId)}
-                onDelete={(itemId) => void removeItem(itemId)}
-              />
-            )}
-            contentContainerStyle={{ paddingTop: 8, paddingBottom: 80 }}
-          />
-        )}
-      </View>
-      <AddItemInput onAdd={handleAdd} />
+        </Animated.ScrollView>
+      ) : (
+        <AnimatedFlashList
+          {...keyboardDismissScrollProps}
+          data={items ?? []}
+          keyExtractor={(item) => item._id}
+          ListHeaderComponent={shopListHeader}
+          renderItem={({ item }) => (
+            <ListItem
+              id={item._id}
+              name={item.name}
+              quantity={item.quantity}
+              unit={item.unit}
+              notes={item.notes}
+              category={item.category}
+              estimatedPricePence={item.estimatedPricePence}
+              isCompleted={item.isCompleted}
+              addedByUser={item.addedByUser}
+              isPendingSync={item.isPendingSync || isPendingSync(item._id)}
+              onToggle={(itemId) => void toggleComplete(itemId)}
+              onDelete={(itemId) => void removeItem(itemId)}
+            />
+          )}
+          contentContainerStyle={{
+            paddingTop: insets.top,
+            paddingHorizontal: 24,
+            paddingBottom: footerDockHeight + 24,
+          }}
+          scrollIndicatorInsets={{
+            top: insets.top + 68,
+            bottom: footerDockHeight + 12,
+          }}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
+      <CollapsibleTabHeader
+        title="Shop"
+        scrollY={scrollY}
+        compactAccessoryHeight={12}
+        compactAccessory={
+          <View className="flex-row">
+            <ProgressBar
+              value={completedCount}
+              max={totalCount}
+              size="compact"
+              accessibilityLabel="Compact shopping progress"
+              accessibilityText={`${completedCount} of ${totalCount} picked up`}
+            />
+          </View>
+        }
+        rightAction={
+          <Button
+            onPress={() => {
+              setFinishError(null);
+              finishSheetRef.current?.present();
+            }}
+            disabled={!canFinish}
+            variant="tonal"
+            iconOnly
+            size="sm"
+            accessibilityLabel="Finish shopping"
+            accessibilityHint="Opens receipt and finish options"
+          >
+            <Check
+              size={21}
+              color={themeColors.coral}
+              strokeWidth={2.5}
+            />
+          </Button>
+        }
+      />
       <GlassBottomSheet
         ref={finishSheetRef}
         snapPoints={["72%"]}
@@ -607,6 +731,6 @@ function ActiveShop({
           )}
         </GlassBottomSheetView>
       </GlassBottomSheet>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -29,6 +29,7 @@ import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
@@ -449,6 +450,7 @@ export default function ListDetailScreen() {
 
       {/* Items list */}
       <FlashList
+        {...keyboardDismissScrollProps}
         ref={flashListRef}
         data={uncompletedItems}
         renderItem={({ item }) => (

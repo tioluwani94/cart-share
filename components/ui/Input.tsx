@@ -23,6 +23,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useSheetTextInput } from "./SheetTextInputContext";
 
 const STATE_TRANSITION_MS = 150;
 const STATE_EASING = Easing.bezier(0.23, 1, 0.32, 1);
@@ -48,6 +49,12 @@ export interface InputProps extends Omit<TextInputProps, "className"> {
   leadingAccessory?: ReactNode;
 }
 
+type AccessibleTextInputProps = TextInputProps & {
+  className?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+};
+
 export const Input = forwardRef<TextInput, InputProps>(function Input(
   {
     label,
@@ -58,6 +65,9 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     leadingAccessory,
     onFocus,
     onBlur,
+    multiline = false,
+    returnKeyType,
+    submitBehavior,
     accessibilityHint,
     accessibilityLabel,
     accessibilityState,
@@ -70,6 +80,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   ref,
 ) {
   const [isFocused, setIsFocused] = useState(false);
+  const SheetTextInput = useSheetTextInput();
   const reduceMotion = useReducedMotion();
   const errorId = `${useId()}-error`;
   const visualState = useSharedValue(error ? 2 : 0);
@@ -105,6 +116,41 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     shadowRadius: interpolate(visualState.get(), [0, 1, 2], [0, 6, 4]),
   }));
 
+  const inputProps: AccessibleTextInputProps = {
+    ...props,
+    className: cn(
+      "rounded-2xl px-4 py-4 text-ink",
+      leadingAccessory && "flex-1",
+      !editable && "text-ink-secondary",
+      className,
+    ),
+    style: [styles.input, style],
+    multiline,
+    returnKeyType: returnKeyType ?? (multiline ? "default" : "done"),
+    submitBehavior:
+      submitBehavior ?? (multiline ? "newline" : "blurAndSubmit"),
+    editable,
+    placeholderTextColor,
+    selectionColor,
+    underlineColorAndroid: "transparent",
+    accessibilityLabel: accessibilityLabel ?? label,
+    accessibilityHint: accessibilityHint ?? error,
+    accessibilityState: {
+      ...accessibilityState,
+      disabled: !editable,
+    },
+    "aria-describedby": error ? errorId : undefined,
+    "aria-invalid": Boolean(error),
+    onFocus: (event) => {
+      setIsFocused(true);
+      onFocus?.(event);
+    },
+    onBlur: (event) => {
+      setIsFocused(false);
+      onBlur?.(event);
+    },
+  };
+
   return (
     <View className={cn("mb-4", containerClassName)}>
       <Text className="mb-2 text-[15px] font-semibold leading-5 text-ink">
@@ -120,37 +166,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       >
         <View className={cn(leadingAccessory && "flex-row items-center")}>
           {leadingAccessory}
-          <TextInput
-            ref={ref}
-            {...props}
-            className={cn(
-              "rounded-2xl px-4 py-4 text-ink",
-              leadingAccessory && "flex-1",
-              !editable && "text-ink-secondary",
-              className,
-            )}
-            style={[styles.input, style]}
-            editable={editable}
-            placeholderTextColor={placeholderTextColor}
-            selectionColor={selectionColor}
-            underlineColorAndroid="transparent"
-            accessibilityLabel={accessibilityLabel ?? label}
-            accessibilityHint={accessibilityHint ?? error}
-            accessibilityState={{
-              ...accessibilityState,
-              disabled: !editable,
-            }}
-            aria-describedby={error ? errorId : undefined}
-            aria-invalid={Boolean(error)}
-            onFocus={(event) => {
-              setIsFocused(true);
-              onFocus?.(event);
-            }}
-            onBlur={(event) => {
-              setIsFocused(false);
-              onBlur?.(event);
-            }}
-          />
+          {SheetTextInput ? (
+            <SheetTextInput ref={ref} {...inputProps} />
+          ) : (
+            <TextInput ref={ref} {...inputProps} />
+          )}
         </View>
       </Animated.View>
       {error && (

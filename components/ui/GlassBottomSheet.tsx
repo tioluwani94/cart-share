@@ -2,6 +2,7 @@ import {
   BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetScrollView,
+  BottomSheetTextInput,
   BottomSheetView,
   type BottomSheetBackdropProps,
   type BottomSheetBackgroundProps,
@@ -9,16 +10,30 @@ import {
   useBottomSheetSpringConfigs,
 } from "@gorhom/bottom-sheet";
 import { BlurView } from "expo-blur";
+import { cssInterop } from "nativewind";
 import React, {
   forwardRef,
   useCallback,
   useMemo,
 } from "react";
-import { Platform, View } from "react-native";
+import {
+  Platform,
+  type GestureResponderEvent,
+  View,
+} from "react-native";
 import Animated, { ReduceMotion } from "react-native-reanimated";
 import { getGlassSheetMaterial } from "@/lib/bottomSheet";
+import { dismissKeyboardForOutsideTouch } from "@/lib/keyboard";
 import { GlassSurfaceProvider } from "./GlassSurfaceContext";
+import {
+  SheetTextInputProvider,
+  type SheetTextInputComponent,
+} from "./SheetTextInputContext";
 import { useReduceTransparency } from "./useReduceTransparency";
+
+const StyledBottomSheetTextInput = cssInterop(BottomSheetTextInput, {
+  className: "style",
+}) as SheetTextInputComponent;
 
 export type GlassBottomSheetRef = React.ElementRef<typeof BottomSheetModal>;
 
@@ -161,12 +176,46 @@ export const GlassBottomSheet = forwardRef<
         backgroundColor: material.handleColor,
       }}
     >
-      <GlassSurfaceProvider value>{children}</GlassSurfaceProvider>
+      <SheetTextInputProvider value={StyledBottomSheetTextInput}>
+        <GlassSurfaceProvider value>{children}</GlassSurfaceProvider>
+      </SheetTextInputProvider>
     </BottomSheetModal>
   );
 });
 
-export {
-  BottomSheetScrollView as GlassBottomSheetScrollView,
-  BottomSheetView as GlassBottomSheetView,
-};
+type GlassBottomSheetScrollViewProps = React.ComponentProps<
+  typeof BottomSheetScrollView
+>;
+
+export function GlassBottomSheetScrollView({
+  onStartShouldSetResponderCapture,
+  ...props
+}: GlassBottomSheetScrollViewProps) {
+  return (
+    <BottomSheetScrollView
+      {...props}
+      onStartShouldSetResponderCapture={(event: GestureResponderEvent) => {
+        dismissKeyboardForOutsideTouch(event);
+        return onStartShouldSetResponderCapture?.(event) ?? false;
+      }}
+    />
+  );
+}
+
+type GlassBottomSheetViewProps = React.ComponentProps<typeof BottomSheetView>;
+
+/** Non-scrolling sheet content gets the same outside-tap escape as screens. */
+export function GlassBottomSheetView({
+  onStartShouldSetResponderCapture,
+  ...props
+}: GlassBottomSheetViewProps) {
+  return (
+    <BottomSheetView
+      {...props}
+      onStartShouldSetResponderCapture={(event) => {
+        dismissKeyboardForOutsideTouch(event);
+        return onStartShouldSetResponderCapture?.(event) ?? false;
+      }}
+    />
+  );
+}

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { Image } from "expo-image";
 import { ChevronLeft } from "lucide-react-native";
 import type { ReactNode } from "react";
@@ -63,9 +64,9 @@ export function OnboardingFormScreen({
         </View>
 
         <ScrollView
+          {...keyboardDismissScrollProps}
           className="flex-1"
           contentContainerClassName="flex-grow px-6 pb-8"
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="items-center">

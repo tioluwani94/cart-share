@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/cn";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 import { FlashList } from "@shopify/flash-list";
 import { ChevronRight, ShoppingBasket } from "lucide-react-native";
@@ -65,6 +66,7 @@ export function NextShopChooser({
           </Text>
           <View className="mt-2" style={{ height: choiceHeight }}>
             <FlashList
+              {...keyboardDismissScrollProps}
               horizontal
               data={existingLists}
               extraData={`${choosingListId ?? ""}:${isOnline}`}

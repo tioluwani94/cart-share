@@ -1,4 +1,7 @@
-import { OfflineIndicator } from "@/components/layout";
+import {
+  KeyboardDismissBoundary,
+  OfflineIndicator,
+} from "@/components/layout";
 import { WELCOME_IMAGE_ASSETS } from "@/components/welcome/OurPantryWelcome";
 import { api } from "@/convex/_generated/api";
 import {
@@ -40,7 +43,7 @@ import { Asset } from "expo-asset";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { Keyboard, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReducedMotion } from "react-native-reanimated";
 import "../global.css";
@@ -104,6 +107,7 @@ function InitialLayout() {
   );
 
   const rootSegment = segments[0] as string | undefined;
+  const routeKey = segments.join("/");
   const offlineQueueScope = useMemo<OfflineScope | null>(
     () =>
       isSignedIn && userId && household
@@ -120,6 +124,10 @@ function InitialLayout() {
     household,
     rootSegment,
   });
+
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, [routeKey]);
 
   useEffect(() => {
     let active = true;
@@ -262,18 +270,20 @@ function InitialLayout() {
 
   return (
     <OfflineQueueProvider scope={offlineQueueScope}>
-      <View style={{ flex: 1 }}>
-        <OfflineIndicator />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: reduceMotion ? "fade" : "default",
-            gestureEnabled: true,
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
-        </Stack>
-      </View>
+      <KeyboardDismissBoundary>
+        <View style={{ flex: 1 }}>
+          <OfflineIndicator />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: reduceMotion ? "fade" : "default",
+              gestureEnabled: true,
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
+          </Stack>
+        </View>
+      </KeyboardDismissBoundary>
     </OfflineQueueProvider>
   );
 }

@@ -24,6 +24,7 @@ import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -373,6 +374,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
         dismissible={!isSaving && !isDeleting}
       >
         <GlassBottomSheetScrollView
+          {...keyboardDismissScrollProps}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
         >
           <GlassSheetHeader

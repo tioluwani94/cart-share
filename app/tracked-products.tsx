@@ -14,6 +14,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 import {
   buildTrackedProductRows,
@@ -217,6 +218,7 @@ export default function TrackedProductsScreen() {
         </View>
       ) : (
         <FlashList
+          {...keyboardDismissScrollProps}
           data={productRows}
           keyExtractor={(row) => row.key}
           getItemType={(row) => row.type}
@@ -266,8 +268,8 @@ export default function TrackedProductsScreen() {
         onDismiss={handleEditorClosed}
       >
         <GlassBottomSheetScrollView
+          {...keyboardDismissScrollProps}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
         >
           <GlassSheetHeader
             title={editingProduct?.displayName ?? "Edit product"}

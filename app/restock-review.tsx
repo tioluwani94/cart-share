@@ -4,6 +4,7 @@ import { Button, EmptyStateCard, PageHeader } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatDateWithWeekday, formatFriendlyDate } from "@/lib/formatters";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { partitionRestockCandidates } from "@/lib/restockReview";
 import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
@@ -88,6 +89,7 @@ export default function RestockReviewScreen() {
       />
 
       <FlashList
+        {...keyboardDismissScrollProps}
         data={visibleCandidates}
         keyExtractor={(candidate) => candidate.householdProductId}
         contentContainerStyle={{

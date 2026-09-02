@@ -17,6 +17,7 @@ import { Keyboard, Text, View } from "react-native";
 import { SuccessCelebration } from "./SuccessCelebration";
 import { CATEGORIES, CategoryChip } from "./CategoryChip";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 import { useIsOnline } from "@/lib/useNetworkStatus";
 
@@ -146,8 +147,8 @@ export const CreateListSheet = forwardRef<
         dismissible={!isCreating}
       >
         <GlassBottomSheetScrollView
+          {...keyboardDismissScrollProps}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 36 }}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {showSuccess ? (

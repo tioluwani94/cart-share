@@ -18,6 +18,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import {
   cancelAccountDeletionCleanup,
   finishAccountDeletionLocalCleanup,
@@ -542,6 +543,7 @@ export default function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
       <PageHeader title="Settings" onBack={() => router.back()} />
       <ScrollView
+        {...keyboardDismissScrollProps}
         className="flex-1"
         contentContainerClassName="px-6 pb-12 pt-2"
         showsVerticalScrollIndicator={false}

@@ -6,17 +6,28 @@ import {
 } from "@/components/analytics";
 import { AnalyticsEmptyState } from "@/components/analytics/EmptyState";
 import { TotalDisplay } from "@/components/analytics/TotalDisplay";
+import {
+  CollapsibleTabHeader,
+  TabLargeTitle,
+  useCollapsibleHeader,
+} from "@/components/navigation/CollapsibleTabHeader";
 import { EmptyStateCard, UserAvatar } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { ReceiptText } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { RefreshControl, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 interface SessionWithReceiptUrl {
   _id: Id<"shoppingSessions">;
@@ -48,6 +59,9 @@ function SpendingLoadingState() {
 export default function AnalyticsScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { onScroll, scrollY } = useCollapsibleHeader();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<SessionWithReceiptUrl | null>(null);
@@ -110,10 +124,20 @@ export default function AnalyticsScreen() {
   const hasBudget = monthlyData.monthlyBudgetPence !== undefined;
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
-      <ScrollView
+    <View className="flex-1 bg-background-light">
+      <Animated.ScrollView
+        {...keyboardDismissScrollProps}
         className="flex-1"
-        contentContainerClassName="pb-10"
+        contentContainerStyle={{
+          paddingTop: insets.top,
+          paddingBottom: tabBarHeight + 24,
+        }}
+        scrollIndicatorInsets={{
+          top: insets.top + 56,
+          bottom: tabBarHeight,
+        }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -121,27 +145,15 @@ export default function AnalyticsScreen() {
             onRefresh={onRefresh}
             tintColor={themeColors.coral}
             colors={[themeColors.coral]}
+            progressViewOffset={insets.top + 56}
           />
         }
       >
-        <View className="flex-row items-center justify-between px-6 pb-5 pt-4">
-          <View className="flex-1 pr-4">
-            <Text className="text-4xl font-heading tracking-tight text-ink">
-              Spending
-            </Text>
-            <Text className="mt-1 text-base text-ink-secondary">
-              Your grocery budget at a glance
-            </Text>
-          </View>
-          <UserAvatar
-            name={user?.fullName ?? "You"}
-            imageUrl={user?.imageUrl}
-            size={48}
-            showTooltip={false}
-            onPress={() => router.push("/settings")}
-            accessibilityLabel="Open settings"
-          />
-        </View>
+        <TabLargeTitle
+          title="Spending"
+          subtitle="Your grocery budget at a glance"
+          scrollY={scrollY}
+        />
 
         {hasSpendingData || hasBudget ? (
           <View className="px-6">
@@ -215,7 +227,22 @@ export default function AnalyticsScreen() {
         ) : (
           <AnalyticsEmptyState />
         )}
-      </ScrollView>
+      </Animated.ScrollView>
+
+      <CollapsibleTabHeader
+        title="Spending"
+        scrollY={scrollY}
+        rightAction={
+          <UserAvatar
+            name={user?.fullName ?? "You"}
+            imageUrl={user?.imageUrl}
+            size={48}
+            showTooltip={false}
+            onPress={() => router.push("/settings")}
+            accessibilityLabel="Open settings"
+          />
+        }
+      />
 
       <ReceiptImageViewer
         visible={receiptViewerVisible}
@@ -224,6 +251,6 @@ export default function AnalyticsScreen() {
         amount={selectedSession?.totalAmount}
         onClose={handleCloseReceiptViewer}
       />
-    </SafeAreaView>
+    </View>
   );
 }

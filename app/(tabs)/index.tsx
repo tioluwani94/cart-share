@@ -1,4 +1,9 @@
 import { CreateListSheet, ListCard } from "@/components/lists";
+import {
+  CollapsibleTabHeader,
+  TabLargeTitle,
+  useCollapsibleHeader,
+} from "@/components/navigation/CollapsibleTabHeader";
 import { NextShopChooser } from "@/components/restocks/NextShopChooser";
 import { RestockQuickDecisionRow } from "@/components/restocks/RestockQuickDecisionRow";
 import {
@@ -14,6 +19,7 @@ import {
   formatDateWithWeekday,
   formatFriendlyDate,
 } from "@/lib/formatters";
+import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { partitionRestockCandidates } from "@/lib/restockReview";
 import {
   getEffectiveShoppingMode,
@@ -24,6 +30,7 @@ import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { themeColors } from "@/lib/theme";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useUser } from "@clerk/clerk-expo";
 import { useMutation } from "convex/react";
 import { type Href, useRouter } from "expo-router";
@@ -41,11 +48,14 @@ import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
-  ScrollView,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated from "react-native-reanimated";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -75,6 +85,9 @@ function nextSaturday(now = new Date()): number {
 export default function PlanScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { onScroll, scrollY } = useCollapsibleHeader();
   const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
@@ -226,36 +239,37 @@ export default function PlanScreen() {
     Date.now() + (review.household.shoppingCadenceDays ?? 7) * DAY_MS;
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
-      <View className="flex-row items-center justify-between px-6 pb-5 pt-4">
-        <View className="flex-1 pr-4">
-          <Text className="text-4xl font-heading tracking-tight text-ink">Plan</Text>
-          <Text className="mt-1 text-base text-ink-secondary">
-            Keep the next shop easy
-          </Text>
-        </View>
-        <UserAvatar
-          name={user?.fullName ?? "You"}
-          imageUrl={user?.imageUrl}
-          size={48}
-          showTooltip={false}
-          onPress={() => router.push("/settings")}
-          accessibilityLabel="Open settings"
-        />
-      </View>
-
-      <ScrollView
-        className="flex-1 px-6"
+    <View className="flex-1 bg-background-light">
+      <Animated.ScrollView
+        {...keyboardDismissScrollProps}
+        className="flex-1"
+        contentContainerStyle={{
+          paddingTop: insets.top,
+          paddingBottom: tabBarHeight + 24,
+        }}
+        scrollIndicatorInsets={{
+          top: insets.top + 56,
+          bottom: tabBarHeight,
+        }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={themeColors.coral}
+            progressViewOffset={insets.top + 56}
           />
         }
-        contentContainerClassName="pb-10"
       >
+        <TabLargeTitle
+          title="Plan"
+          subtitle="Keep the next shop easy"
+          scrollY={scrollY}
+        />
+
+        <View className="px-6">
         {isFromCache && (
           <View className="mb-3 flex-row items-center rounded-xl bg-yellow/20 px-3 py-2">
             <CloudOff size={16} color={themeColors.warningInk} />
@@ -266,7 +280,7 @@ export default function PlanScreen() {
         )}
 
         {activeList ? (
-          <View className="rounded-2xl border border-separator bg-surface p-5">
+          <View className="rounded-2xl border border-separator bg-white p-5 shadow-warm">
             <View className="flex-row items-start">
               <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
                 <ShoppingBasket size={23} color={themeColors.coral} />
@@ -558,11 +572,27 @@ export default function PlanScreen() {
             </Text>
           </Pressable>
         )}
-      </ScrollView>
+        </View>
+      </Animated.ScrollView>
+
+      <CollapsibleTabHeader
+        title="Plan"
+        scrollY={scrollY}
+        rightAction={
+          <UserAvatar
+            name={user?.fullName ?? "You"}
+            imageUrl={user?.imageUrl}
+            size={48}
+            showTooltip={false}
+            onPress={() => router.push("/settings")}
+            accessibilityLabel="Open settings"
+          />
+        }
+      />
       <CreateListSheet
         ref={bottomSheetRef}
         setAsNextShop={createAsNextShop}
       />
-    </SafeAreaView>
+    </View>
   );
 }
