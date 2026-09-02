@@ -27,7 +27,10 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useSheetTextInput } from "./SheetTextInputContext";
+import {
+  useSheetInputFocusRequester,
+  useSheetTextInput,
+} from "./SheetTextInputContext";
 
 const STATE_TRANSITION_MS = 150;
 const STATE_EASING = Easing.bezier(0.23, 1, 0.32, 1);
@@ -87,6 +90,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const [isFocused, setIsFocused] = useState(false);
   const SheetTextInput = useSheetTextInput();
+  const requestSheetInputFocus = useSheetInputFocusRequester();
   const reduceMotion = useReducedMotion();
   const fieldId = useId().replace(/:/g, "");
   const errorId = `${fieldId}-error`;
@@ -159,6 +163,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     "aria-invalid": Boolean(error),
     onFocus: (event) => {
       setIsFocused(true);
+      requestSheetInputFocus?.(event.nativeEvent.target);
       onFocus?.(event);
     },
     onBlur: (event) => {

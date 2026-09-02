@@ -40,20 +40,18 @@ import {
   useUser,
 } from "@clerk/clerk-expo";
 import { useMutation, useQuery } from "convex/react";
-import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
   Archive,
   BarChart3,
   Bell,
-  Check,
   Clock3,
-  Copy,
   Home,
   LogOut,
   PiggyBank,
   RotateCcw,
+  Share2,
   Trash2,
   UserPlus,
 } from "lucide-react-native";
@@ -63,6 +61,7 @@ import {
   Alert,
   Linking,
   ScrollView,
+  Share,
   Text,
   View,
 } from "react-native";
@@ -114,7 +113,6 @@ export default function SettingsScreen() {
   const [restoringListId, setRestoringListId] = useState<Id<"lists"> | null>(
     null,
   );
-  const [codeCopied, setCodeCopied] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const signOutSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -200,18 +198,22 @@ export default function SettingsScreen() {
     [showToast, unarchiveList],
   );
 
-  const handleCopyInviteCode = useCallback(async () => {
+  const handleShareInviteCode = useCallback(async () => {
     if (!household?.inviteCode) return;
     try {
-      await Clipboard.setStringAsync(household.inviteCode);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
+      const result = await Share.share({
+        title: `Join ${household.name} on OurPantry`,
+        message: `Join ${household.name} on OurPantry using invite code ${household.inviteCode}.`,
+      });
+      if (result.action === Share.sharedAction) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
     } catch (error) {
-      console.error("Failed to copy:", error);
+      console.error("Failed to share household invite:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast({ message: "Couldn't open sharing", tone: "error" });
     }
-  }, [household?.inviteCode]);
+  }, [household?.inviteCode, household?.name, showToast]);
 
   const openBudgetEditor = useCallback(() => {
     setMonthlyBudget(
@@ -606,29 +608,16 @@ export default function SettingsScreen() {
                 subtitle={household.inviteCode}
                 subtitleClassName="font-mono font-semibold tracking-widest text-coral"
                 trailing={
-                  codeCopied ? (
-                    <View className="flex-row items-center">
-                      <Check
-                        size={18}
-                        color={themeColors.teal}
-                        strokeWidth={2.5}
-                      />
-                      <Text className="ml-1 text-sm font-semibold text-teal">
-                        Copied
-                      </Text>
-                    </View>
-                  ) : (
-                    <Copy
-                      size={20}
-                      color={themeColors.secondaryInk}
-                      strokeWidth={2}
-                    />
-                  )
+                  <Share2
+                    size={20}
+                    color={themeColors.secondaryInk}
+                    strokeWidth={2}
+                  />
                 }
-                onPress={handleCopyInviteCode}
+                onPress={handleShareInviteCode}
                 isLast
-                accessibilityLabel={`Copy invite code ${household.inviteCode}`}
-                accessibilityHint="Copies the household invite code"
+                accessibilityLabel={`Share invite to ${household.name}, code ${household.inviteCode}`}
+                accessibilityHint="Opens the native share sheet with the household invite code"
               />
             </SettingsSection>
 

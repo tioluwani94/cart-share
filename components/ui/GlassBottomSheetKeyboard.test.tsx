@@ -13,6 +13,8 @@ import {
 } from "./GlassBottomSheet";
 import { Input } from "./Input";
 
+const mockScrollFocusedInput = jest.fn();
+
 jest.mock("@gorhom/bottom-sheet", () => {
   const mockReact = jest.requireActual<typeof import("react")>("react");
   const { TextInput: MockTextInput, View: MockView } = jest.requireActual<
@@ -29,8 +31,22 @@ jest.mock("@gorhom/bottom-sheet", () => {
         <MockView>{children}</MockView>
       ),
     ),
-    BottomSheetScrollView: (props: React.ComponentProps<typeof MockView>) => (
-      <MockView {...props} testID="mock-bottom-sheet-scroll-view" />
+    BottomSheetScrollView: mockReact.forwardRef(
+      (
+        props: React.ComponentProps<typeof MockView>,
+        ref: React.ForwardedRef<unknown>,
+      ) => {
+        mockReact.useImperativeHandle(ref, () => ({
+          getScrollResponder: () => ({
+            scrollResponderScrollNativeHandleToKeyboard:
+              mockScrollFocusedInput,
+          }),
+        }));
+
+        return (
+          <MockView {...props} testID="mock-bottom-sheet-scroll-view" />
+        );
+      },
     ),
     BottomSheetTextInput: mockReact.forwardRef(
       (
@@ -91,6 +107,10 @@ jest.mock("./useReduceTransparency", () => ({
 }));
 
 describe("GlassBottomSheet keyboard handling", () => {
+  beforeEach(() => {
+    mockScrollFocusedInput.mockClear();
+  });
+
   it("automatically registers shared inputs with Gorhom keyboard handling", () => {
     let renderer: ReactTestRenderer;
 
@@ -173,5 +193,34 @@ describe("GlassBottomSheet keyboard handling", () => {
     expect(dismissSpy).toHaveBeenCalledTimes(1);
     expect(onScrollBeginDrag).toHaveBeenCalledTimes(1);
     dismissSpy.mockRestore();
+  });
+
+  it("reveals a focused field inside the keyboard-sized sheet viewport", () => {
+    let renderer: ReactTestRenderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <GlassBottomSheet>
+          <GlassBottomSheetScrollView>
+            <Input label="Notes" multiline numberOfLines={3} />
+          </GlassBottomSheetScrollView>
+        </GlassBottomSheet>,
+      );
+    });
+
+    const input = renderer!.root.findByProps({
+      testID: "gorhom-bottom-sheet-text-input",
+    });
+    const inputProps = input.props as {
+      onFocus: (event: { nativeEvent: { target: number } }) => void;
+    };
+
+    act(() =>
+      inputProps.onFocus({
+        nativeEvent: { target: 42 },
+      }),
+    );
+
+    expect(mockScrollFocusedInput).toHaveBeenCalledWith(42, 24, true);
   });
 });

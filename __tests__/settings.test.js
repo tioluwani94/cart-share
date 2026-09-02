@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { Alert, Linking } from "react-native";
+import { Alert, Linking, Share } from "react-native";
 
 import SettingsScreen from "../app/settings";
 
@@ -237,6 +237,30 @@ describe("SettingsScreen", () => {
     mockRecalculateReminders.mockResolvedValue({ success: true });
     mockSaveMonthlyBudget.mockResolvedValue({ success: true });
     jest.spyOn(Linking, "openSettings").mockResolvedValue();
+    jest.spyOn(Share, "share").mockResolvedValue({
+      action: Share.dismissedAction,
+    });
+  });
+
+  it("opens the native share sheet for a household invite", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    const shareInvite = renderer.root.findByProps({
+      accessibilityLabel: "Share invite to Test household, code ABC123",
+    });
+
+    await act(async () => {
+      await shareInvite.props.onPress();
+    });
+
+    expect(Share.share).toHaveBeenCalledWith({
+      title: "Join Test household on OurPantry",
+      message:
+        "Join Test household on OurPantry using invite code ABC123.",
+    });
   });
 
   it("lets this member choose an earlier reminder time", async () => {

@@ -14,9 +14,13 @@ import { cssInterop } from "nativewind";
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
+  useImperativeHandle,
   useMemo,
+  useRef,
 } from "react";
 import {
+  Keyboard,
   Platform,
   type GestureResponderEvent,
   type NativeScrollEvent,
@@ -31,6 +35,7 @@ import {
 } from "@/lib/keyboard";
 import { GlassSurfaceProvider } from "./GlassSurfaceContext";
 import {
+  SheetInputFocusProvider,
   SheetTextInputProvider,
   type SheetTextInputComponent,
 } from "./SheetTextInputContext";
@@ -192,15 +197,73 @@ type GlassBottomSheetScrollViewProps = React.ComponentProps<
   typeof BottomSheetScrollView
 >;
 
-export function GlassBottomSheetScrollView({
-  keyboardDismissMode = "on-drag",
-  keyboardShouldPersistTaps = "handled",
-  onScrollBeginDrag,
-  onStartShouldSetResponderCapture,
-  ...props
-}: GlassBottomSheetScrollViewProps) {
+type GlassBottomSheetScrollViewRef = React.ElementRef<
+  typeof BottomSheetScrollView
+>;
+
+const FOCUSED_INPUT_KEYBOARD_GAP = 24;
+
+export const GlassBottomSheetScrollView = forwardRef<
+  GlassBottomSheetScrollViewRef,
+  GlassBottomSheetScrollViewProps
+>(function GlassBottomSheetScrollView(
+  {
+    children,
+    keyboardDismissMode = "on-drag",
+    keyboardShouldPersistTaps = "handled",
+    onScrollBeginDrag,
+    onStartShouldSetResponderCapture,
+    ...props
+  },
+  forwardedRef,
+) {
+  const scrollViewRef = useRef<GlassBottomSheetScrollViewRef>(null);
+  const focusedInputTargetRef = useRef<number | null>(null);
+
+  useImperativeHandle(
+    forwardedRef,
+    () => scrollViewRef.current as GlassBottomSheetScrollViewRef,
+  );
+
+  const revealFocusedInput = useCallback(() => {
+    const focusedInputTarget = focusedInputTargetRef.current;
+    if (focusedInputTarget === null) return;
+
+    scrollViewRef.current
+      ?.getScrollResponder()
+      ?.scrollResponderScrollNativeHandleToKeyboard(
+        focusedInputTarget,
+        FOCUSED_INPUT_KEYBOARD_GAP,
+        true,
+      );
+  }, []);
+
+  const requestInputFocus = useCallback(
+    (nativeTarget: number) => {
+      focusedInputTargetRef.current = nativeTarget;
+      revealFocusedInput();
+    },
+    [revealFocusedInput],
+  );
+
+  useEffect(() => {
+    const keyboardShown = Keyboard.addListener(
+      "keyboardDidShow",
+      revealFocusedInput,
+    );
+    const keyboardHidden = Keyboard.addListener("keyboardDidHide", () => {
+      focusedInputTargetRef.current = null;
+    });
+
+    return () => {
+      keyboardShown.remove();
+      keyboardHidden.remove();
+    };
+  }, [revealFocusedInput]);
+
   return (
     <BottomSheetScrollView
+      ref={scrollViewRef}
       {...props}
       keyboardDismissMode={keyboardDismissMode}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
@@ -212,9 +275,13 @@ export function GlassBottomSheetScrollView({
         dismissKeyboardForOutsideTouch(event);
         return onStartShouldSetResponderCapture?.(event) ?? false;
       }}
-    />
+    >
+      <SheetInputFocusProvider value={requestInputFocus}>
+        {children}
+      </SheetInputFocusProvider>
+    </BottomSheetScrollView>
   );
-}
+});
 
 type GlassBottomSheetViewProps = React.ComponentProps<typeof BottomSheetView>;
 
