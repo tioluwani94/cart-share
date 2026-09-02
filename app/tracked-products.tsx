@@ -279,7 +279,6 @@ export default function TrackedProductsScreen() {
         onDismiss={handleEditorClosed}
       >
         <GlassBottomSheetScrollView
-          {...keyboardDismissScrollProps}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
         >
           <GlassSheetHeader

@@ -8,6 +8,10 @@ import {
   type ReactNode,
 } from "react";
 import {
+  InputAccessoryView,
+  Keyboard,
+  Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -65,9 +69,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     leadingAccessory,
     onFocus,
     onBlur,
+    onSubmitEditing,
     multiline = false,
     returnKeyType,
     submitBehavior,
+    inputAccessoryViewID,
     accessibilityHint,
     accessibilityLabel,
     accessibilityState,
@@ -82,8 +88,16 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   const [isFocused, setIsFocused] = useState(false);
   const SheetTextInput = useSheetTextInput();
   const reduceMotion = useReducedMotion();
-  const errorId = `${useId()}-error`;
+  const fieldId = useId().replace(/:/g, "");
+  const errorId = `${fieldId}-error`;
+  const keyboardAccessoryId = `${fieldId}-keyboard-actions`;
   const visualState = useSharedValue(error ? 2 : 0);
+  const resolvedReturnKeyType =
+    returnKeyType ?? (multiline ? "default" : "done");
+  const resolvedSubmitBehavior =
+    submitBehavior ?? (multiline ? "newline" : "blurAndSubmit");
+  const ownsMultilineDoneAccessory =
+    Platform.OS === "ios" && multiline && !inputAccessoryViewID;
 
   useEffect(() => {
     const target = error ? 2 : isFocused ? 1 : 0;
@@ -126,9 +140,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     ),
     style: [styles.input, style],
     multiline,
-    returnKeyType: returnKeyType ?? (multiline ? "default" : "done"),
-    submitBehavior:
-      submitBehavior ?? (multiline ? "newline" : "blurAndSubmit"),
+    returnKeyType: resolvedReturnKeyType,
+    submitBehavior: resolvedSubmitBehavior,
+    inputAccessoryViewID:
+      inputAccessoryViewID ??
+      (ownsMultilineDoneAccessory ? keyboardAccessoryId : undefined),
     editable,
     placeholderTextColor,
     selectionColor,
@@ -148,6 +164,12 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     onBlur: (event) => {
       setIsFocused(false);
       onBlur?.(event);
+    },
+    onSubmitEditing: (event) => {
+      onSubmitEditing?.(event);
+      if (resolvedSubmitBehavior !== "newline") {
+        Keyboard.dismiss();
+      }
     },
   };
 
@@ -183,6 +205,20 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         >
           {error}
         </Text>
+      )}
+      {ownsMultilineDoneAccessory && (
+        <InputAccessoryView nativeID={keyboardAccessoryId}>
+          <View className="flex-row justify-end border-t border-separator bg-surface px-3 py-1">
+            <Pressable
+              onPress={Keyboard.dismiss}
+              className="min-h-11 min-w-16 items-center justify-center rounded-xl px-3 active:bg-warm-gray-100"
+              accessibilityRole="button"
+              accessibilityLabel={`Done editing ${label}`}
+            >
+              <Text className="text-[17px] font-semibold text-coral">Done</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
       )}
     </View>
   );

@@ -61,6 +61,14 @@ Do not use a plain `font-bold` system face for heading-sized text. Body copy and
 - Buttons: Minimum 48px touch targets, micro-animation on press
 - Lists: Swipe actions with color-coded backgrounds, smooth reordering
 
+### Keyboard and Bottom-Sheet Forms
+
+- Use the shared `Input` and `AmountInput` for editable fields. Never place a raw React Native `TextInput` inside `GlassBottomSheet`.
+- Use `GlassBottomSheetScrollView` for any sheet form that can approach the keyboard. It owns outside-tap pass-through, drag-to-dismiss, and keyboard-safe Gorhom integration; do not replace or disable those defaults without a tested platform requirement.
+- Single-line fields use Done/Return and dismiss on submit. A `returnKeyType="next"` is allowed only when `onSubmitEditing` focuses a real next field. Multiline fields keep Return for line breaks and use the shared iOS Done accessory to provide an explicit escape.
+- Tapping outside a field, dragging its scroll surface, pressing Done/Return, closing the sheet, or navigating away must release the keyboard. Save/delete actions dismiss before mutating and must work on the first tap while a field is focused.
+- UAT every editable sheet on a compact physical iPhone and Android device: focus the lowest field, confirm it remains visible, scroll while editing, tap empty content, press Done/Return, then close and reopen the sheet.
+
 ## Technology Stack
 
 | Layer | Technology | Purpose |

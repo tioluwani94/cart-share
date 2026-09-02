@@ -6,6 +6,7 @@ import {
   EditItemSheet,
   HeaderMenu,
   ListItem,
+  type ListItemEditPayload,
   PartnerActivityToast,
 } from "@/components/lists";
 import {
@@ -74,15 +75,10 @@ export default function ListDetailScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
-  const [editingItem, setEditingItem] = useState<{
-    id: Id<"items">;
-    name: string;
-    quantity?: number;
-    unit?: string;
-    notes?: string;
-    category?: string;
-    estimatedPricePence?: number;
-  } | null>(null);
+  const [editingItem, setEditingItem] =
+    useState<ListItemEditPayload | null>(null);
+  const [openSwipeItemId, setOpenSwipeItemId] =
+    useState<Id<"items"> | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -220,6 +216,7 @@ export default function ListDetailScreen() {
 
   const handleToggle = useCallback(
     async (itemId: Id<"items">) => {
+      setOpenSwipeItemId(null);
       try {
         await offlineToggleComplete(itemId);
       } catch (error) {
@@ -242,29 +239,27 @@ export default function ListDetailScreen() {
         await offlineRemoveItem(itemId);
       } catch (error) {
         console.error("Failed to delete item:", error);
+        throw error;
       }
     },
     [offlineRemoveItem],
   );
 
-  const handleEdit = useCallback(
-    (item: {
-      id: Id<"items">;
-      name: string;
-      quantity?: number;
-      unit?: string;
-      notes?: string;
-      category?: string;
-      estimatedPricePence?: number;
-    }) => {
-      setEditingItem(item);
-      editSheetRef.current?.present();
-    },
-    [],
-  );
+  const handleEdit = useCallback((item: ListItemEditPayload) => {
+    setEditingItem(item);
+    editSheetRef.current?.present();
+  }, []);
 
   const handleEditClose = useCallback(() => {
     setEditingItem(null);
+  }, []);
+  const handleSwipeOpen = useCallback((itemId: Id<"items">) => {
+    setOpenSwipeItemId(itemId);
+  }, []);
+  const handleSwipeClose = useCallback((itemId: Id<"items">) => {
+    setOpenSwipeItemId((currentItemId) =>
+      currentItemId === itemId ? null : currentItemId,
+    );
   }, []);
 
   const handleArchivePress = useCallback(() => {
@@ -483,6 +478,9 @@ export default function ListDetailScreen() {
             onToggle={handleToggle}
             onDelete={handleDelete}
             onEdit={handleEdit}
+            isSwipeOpen={openSwipeItemId === item._id}
+            onSwipeOpen={handleSwipeOpen}
+            onSwipeClose={handleSwipeClose}
           />
         )}
         keyExtractor={(item) => item._id}
@@ -499,6 +497,7 @@ export default function ListDetailScreen() {
             colors={["#FF6B6B"]}
           />
         }
+        onScrollBeginDrag={() => setOpenSwipeItemId(null)}
         ListEmptyComponent={
           completedItems.length === 0 ? (
             <EmptyStateCard
@@ -549,6 +548,9 @@ export default function ListDetailScreen() {
                       onToggle={handleToggle}
                       onDelete={handleDelete}
                       onEdit={handleEdit}
+                      isSwipeOpen={openSwipeItemId === item._id}
+                      onSwipeOpen={handleSwipeOpen}
+                      onSwipeClose={handleSwipeClose}
                     />
                   ))}
                 </Animated.View>

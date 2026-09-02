@@ -1,5 +1,10 @@
 import emptyBasketArtwork from "@/assets/empty-states/empty-basket.png";
-import { AddItemInput, ListItem } from "@/components/lists";
+import {
+  AddItemInput,
+  EditItemSheet,
+  ListItem,
+  type ListItemEditPayload,
+} from "@/components/lists";
 import {
   CollapsibleTabHeader,
   CollapsingLargeTitleRegion,
@@ -156,6 +161,7 @@ function ActiveShop({
     addItem,
     toggleComplete,
     removeItem,
+    updateItem,
     isPendingSync,
     isOnline,
     queueLength,
@@ -169,6 +175,7 @@ function ActiveShop({
     plannedTotalPence,
   } = useShoppingList(list._id, householdId);
   const finishSheetRef = useRef<GlassBottomSheetRef>(null);
+  const editSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [completionQueued, setCompletionQueued] = useState(
     hasQueuedCompletion,
@@ -177,6 +184,10 @@ function ActiveShop({
   const [handoffStatus, setHandoffStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
+  const [editingItem, setEditingItem] =
+    useState<ListItemEditPayload | null>(null);
+  const [openSwipeItemId, setOpenSwipeItemId] =
+    useState<Id<"items"> | null>(null);
 
   const canFinish = canFinishShoppingList({
     totalItems: totalCount,
@@ -243,6 +254,21 @@ function ActiveShop({
     (name: string) => handleAddRef.current(name),
     [],
   );
+  const handleEdit = useCallback((item: ListItemEditPayload) => {
+    setEditingItem(item);
+    editSheetRef.current?.present();
+  }, []);
+  const handleEditClose = useCallback(() => {
+    setEditingItem(null);
+  }, []);
+  const handleSwipeOpen = useCallback((itemId: Id<"items">) => {
+    setOpenSwipeItemId(itemId);
+  }, []);
+  const handleSwipeClose = useCallback((itemId: Id<"items">) => {
+    setOpenSwipeItemId((currentItemId) =>
+      currentItemId === itemId ? null : currentItemId,
+    );
+  }, []);
   const showDockedComposer = !isLoading && !completionQueued;
 
   useFocusEffect(
@@ -546,8 +572,15 @@ function ActiveShop({
               isCompleted={item.isCompleted}
               addedByUser={item.addedByUser}
               isPendingSync={item.isPendingSync || isPendingSync(item._id)}
-              onToggle={(itemId) => void toggleComplete(itemId)}
-              onDelete={(itemId) => void removeItem(itemId)}
+              onToggle={(itemId) => {
+                setOpenSwipeItemId(null);
+                void toggleComplete(itemId);
+              }}
+              onDelete={removeItem}
+              onEdit={handleEdit}
+              isSwipeOpen={openSwipeItemId === item._id}
+              onSwipeOpen={handleSwipeOpen}
+              onSwipeClose={handleSwipeClose}
             />
           )}
           contentContainerStyle={{
@@ -560,6 +593,7 @@ function ActiveShop({
             bottom: footerDockHeight + 12,
           }}
           onScroll={onScroll}
+          onScrollBeginDrag={() => setOpenSwipeItemId(null)}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
         />
@@ -600,6 +634,13 @@ function ActiveShop({
             />
           </Button>
         }
+      />
+      <EditItemSheet
+        ref={editSheetRef}
+        item={editingItem}
+        onClose={handleEditClose}
+        onUpdate={updateItem}
+        onDelete={removeItem}
       />
       <GlassBottomSheet
         ref={finishSheetRef}

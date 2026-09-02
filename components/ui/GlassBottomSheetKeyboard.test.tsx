@@ -3,10 +3,12 @@ import TestRenderer, {
   act,
   type ReactTestRenderer,
 } from "react-test-renderer";
+import { Keyboard } from "react-native";
 
 import { AmountInput } from "./AmountInput";
 import {
   GlassBottomSheet,
+  GlassBottomSheetScrollView,
   GlassBottomSheetView,
 } from "./GlassBottomSheet";
 import { Input } from "./Input";
@@ -27,7 +29,9 @@ jest.mock("@gorhom/bottom-sheet", () => {
         <MockView>{children}</MockView>
       ),
     ),
-    BottomSheetScrollView: MockView,
+    BottomSheetScrollView: (props: React.ComponentProps<typeof MockView>) => (
+      <MockView {...props} testID="mock-bottom-sheet-scroll-view" />
+    ),
     BottomSheetTextInput: mockReact.forwardRef(
       (
         props: React.ComponentProps<typeof MockTextInput>,
@@ -130,5 +134,44 @@ describe("GlassBottomSheet keyboard handling", () => {
 
     expect(input.props.keyboardType).toBe("decimal-pad");
     expect(input.props.value).toBe("400");
+  });
+
+  it("gives every scrolling sheet tap-through and drag-to-dismiss defaults", () => {
+    const dismissSpy = jest
+      .spyOn(Keyboard, "dismiss")
+      .mockImplementation(jest.fn());
+    const onScrollBeginDrag = jest.fn();
+    let renderer: ReactTestRenderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <GlassBottomSheet>
+          <GlassBottomSheetScrollView
+            testID="keyboard-safe-sheet-scroll"
+            onScrollBeginDrag={onScrollBeginDrag}
+          >
+            <Input label="Name" />
+          </GlassBottomSheetScrollView>
+        </GlassBottomSheet>,
+      );
+    });
+
+    const scrollView = renderer!.root.findByProps({
+      testID: "mock-bottom-sheet-scroll-view",
+    });
+    const scrollProps = scrollView.props as {
+      keyboardDismissMode?: string;
+      keyboardShouldPersistTaps?: string;
+      onScrollBeginDrag?: (event: { nativeEvent: object }) => void;
+    };
+
+    expect(scrollProps.keyboardDismissMode).toBe("on-drag");
+    expect(scrollProps.keyboardShouldPersistTaps).toBe("handled");
+
+    act(() => scrollProps.onScrollBeginDrag?.({ nativeEvent: {} }));
+
+    expect(dismissSpy).toHaveBeenCalledTimes(1);
+    expect(onScrollBeginDrag).toHaveBeenCalledTimes(1);
+    dismissSpy.mockRestore();
   });
 });

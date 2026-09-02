@@ -24,7 +24,6 @@ import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
-import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -277,6 +276,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
 
     const dismissSheet = useCallback(() => {
       if (isSaving || isDeleting) return;
+      Keyboard.dismiss();
       if (ref && typeof ref !== "function") {
         ref.current?.dismiss();
       }
@@ -341,6 +341,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
     const handleDelete = async () => {
       if (!item) return;
 
+      Keyboard.dismiss();
       setIsDeleting(true);
 
       try {
@@ -374,7 +375,6 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
         dismissible={!isSaving && !isDeleting}
       >
         <GlassBottomSheetScrollView
-          {...keyboardDismissScrollProps}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
         >
           <GlassSheetHeader
@@ -399,7 +399,7 @@ export const EditItemSheet = forwardRef<GlassBottomSheetRef, EditItemSheetProps>
             error={error}
             placeholder="e.g., Organic Milk"
             autoCapitalize="words"
-            returnKeyType="next"
+            returnKeyType="done"
           />
 
           {/* Quantity stepper */}

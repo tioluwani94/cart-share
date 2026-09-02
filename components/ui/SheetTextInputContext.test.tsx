@@ -3,7 +3,7 @@ import TestRenderer, {
   act,
   type ReactTestRenderer,
 } from "react-test-renderer";
-import { TextInput, type TextInputProps } from "react-native";
+import { Keyboard, TextInput, type TextInputProps } from "react-native";
 
 import { Input } from "./Input";
 import { SheetTextInputProvider } from "./SheetTextInputContext";
@@ -75,5 +75,59 @@ describe("sheet-aware Input", () => {
     expect(inputProps.accessibilityLabel).toBe("Unit");
     expect(onFocus).toHaveBeenCalledTimes(1);
     expect(onBlur).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses the keyboard when a single-line field submits", () => {
+    const dismissSpy = jest
+      .spyOn(Keyboard, "dismiss")
+      .mockImplementation(jest.fn());
+    const onSubmitEditing = jest.fn();
+    let renderer: ReactTestRenderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <Input label="Item name" onSubmitEditing={onSubmitEditing} />,
+      );
+    });
+
+    const input = renderer!.root.findByProps({
+      accessibilityLabel: "Item name",
+    });
+    const inputProps = input.props as TextInputProps;
+    act(() => inputProps.onSubmitEditing?.({ nativeEvent: {} } as never));
+
+    expect(onSubmitEditing).toHaveBeenCalledTimes(1);
+    expect(dismissSpy).toHaveBeenCalledTimes(1);
+    dismissSpy.mockRestore();
+  });
+
+  it("keeps multiline Return for new lines and provides an explicit Done escape", () => {
+    const dismissSpy = jest
+      .spyOn(Keyboard, "dismiss")
+      .mockImplementation(jest.fn());
+    let renderer: ReactTestRenderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <Input label="Notes" multiline numberOfLines={3} />,
+      );
+    });
+
+    const input = renderer!.root.findByProps({
+      accessibilityLabel: "Notes",
+    });
+    const inputProps = input.props as TextInputProps;
+    const done = renderer!.root.findByProps({
+      accessibilityLabel: "Done editing Notes",
+    });
+    const doneProps = done.props as { onPress: () => void };
+
+    expect(inputProps.submitBehavior).toBe("newline");
+    expect(inputProps.inputAccessoryViewID).toBeTruthy();
+
+    act(() => doneProps.onPress());
+
+    expect(dismissSpy).toHaveBeenCalledTimes(1);
+    dismissSpy.mockRestore();
   });
 });

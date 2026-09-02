@@ -19,11 +19,16 @@ import React, {
 import {
   Platform,
   type GestureResponderEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   View,
 } from "react-native";
 import Animated, { ReduceMotion } from "react-native-reanimated";
 import { getGlassSheetMaterial } from "@/lib/bottomSheet";
-import { dismissKeyboardForOutsideTouch } from "@/lib/keyboard";
+import {
+  dismissKeyboard,
+  dismissKeyboardForOutsideTouch,
+} from "@/lib/keyboard";
 import { GlassSurfaceProvider } from "./GlassSurfaceContext";
 import {
   SheetTextInputProvider,
@@ -188,12 +193,21 @@ type GlassBottomSheetScrollViewProps = React.ComponentProps<
 >;
 
 export function GlassBottomSheetScrollView({
+  keyboardDismissMode = "on-drag",
+  keyboardShouldPersistTaps = "handled",
+  onScrollBeginDrag,
   onStartShouldSetResponderCapture,
   ...props
 }: GlassBottomSheetScrollViewProps) {
   return (
     <BottomSheetScrollView
       {...props}
+      keyboardDismissMode={keyboardDismissMode}
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      onScrollBeginDrag={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        dismissKeyboard();
+        onScrollBeginDrag?.(event);
+      }}
       onStartShouldSetResponderCapture={(event: GestureResponderEvent) => {
         dismissKeyboardForOutsideTouch(event);
         return onStartShouldSetResponderCapture?.(event) ?? false;
