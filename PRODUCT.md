@@ -24,6 +24,19 @@ Success means households no longer rely on one person to remember every staple, 
 
 Our Pantry remembers your household's grocery rhythm and prepares the next shop before you have to think about it.
 
+## Post-MVP Strategy
+
+Post-MVP product opportunities, household habit loops, market-validation gates,
+and monetisation hypotheses are maintained in
+[`docs/POST_MVP_PRODUCT_AND_MONETISATION.md`](docs/POST_MVP_PRODUCT_AND_MONETISATION.md).
+That document is directional and does not expand the approved MVP or authorise
+implementation without the checkpoints required by `AGENT.md`.
+
+The current notification contract and proposed future notification cadences are
+maintained separately in
+[`docs/NOTIFICATION_STRATEGY.md`](docs/NOTIFICATION_STRATEGY.md). Future entries
+in that document are validation hypotheses, not approved scope.
+
 ## Brand Personality
 
 Calm, thoughtful, and warm. The product should feel quietly attentive rather than clever or performative. Its voice is direct, reassuring, and specific: it explains why something is being suggested, uses ordinary household language, and never presents an estimate as certainty.

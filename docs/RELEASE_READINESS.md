@@ -153,10 +153,12 @@ projects and changing production services still requires explicit approval.
 - Decide whether the permanent identifiers remain `com.cartshare.app` and
   `cartshare`, or change before the first store record is created.
 - Link/create the EAS project and add `extra.eas.projectId`.
-- Add `eas.json` profiles for:
+- `eas.json` now contains profiles for:
   - `development`: internal development client;
   - `preview`: internal distribution, production-like environment;
   - `production`: App Store build with auto-incremented build number.
+- Verify those profiles against the linked EAS project and environment before
+  the first preview build.
 - Configure the Apple team, distribution certificate, provisioning profile,
   and APNs key in EAS. Do not commit credentials.
 - Audit generated entitlements and remove unused microphone and Face ID

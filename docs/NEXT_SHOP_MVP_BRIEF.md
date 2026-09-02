@@ -61,6 +61,11 @@ Every suggestion must answer three questions at a glance:
 - Expansion beyond the existing two-member household limit.
 - US-specific units, copy, retailer logic, receipt parsing, or go-to-market work.
 
+Research hypotheses and sequencing for these and other future opportunities are
+maintained in
+[`POST_MVP_PRODUCT_AND_MONETISATION.md`](POST_MVP_PRODUCT_AND_MONETISATION.md).
+That strategy does not expand the approved MVP scope.
+
 ## 5. Information architecture proposal
 
 This navigation structure was approved in checkpoint A and is implemented.
