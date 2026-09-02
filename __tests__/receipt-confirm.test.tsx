@@ -100,6 +100,7 @@ jest.mock("@/components/ui", () => {
         <Text>{title}</Text>
       </View>
     ),
+    usePageHeaderHeight: () => 103,
   };
 });
 

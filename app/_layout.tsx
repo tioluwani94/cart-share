@@ -2,6 +2,7 @@ import {
   KeyboardDismissBoundary,
   OfflineIndicator,
 } from "@/components/layout";
+import { ToastProvider } from "@/components/ui";
 import { WELCOME_IMAGE_ASSETS } from "@/components/welcome/OurPantryWelcome";
 import { api } from "@/convex/_generated/api";
 import {
@@ -43,7 +44,7 @@ import { Asset } from "expo-asset";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, View } from "react-native";
+import { Keyboard } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReducedMotion } from "react-native-reanimated";
 import "../global.css";
@@ -271,7 +272,7 @@ function InitialLayout() {
   return (
     <OfflineQueueProvider scope={offlineQueueScope}>
       <KeyboardDismissBoundary>
-        <View style={{ flex: 1 }}>
+        <ToastProvider>
           <OfflineIndicator />
           <Stack
             screenOptions={{
@@ -282,7 +283,7 @@ function InitialLayout() {
           >
             <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
           </Stack>
-        </View>
+        </ToastProvider>
       </KeyboardDismissBoundary>
     </OfflineQueueProvider>
   );

@@ -8,7 +8,8 @@ import {
   type GlassBottomSheetRef,
   Input,
   PageHeader,
-  Toast,
+  usePageHeaderHeight,
+  useToast,
 } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -54,6 +55,8 @@ function productAmount(product: TrackedProduct): string {
 
 export default function TrackedProductsScreen() {
   const router = useRouter();
+  const pageHeaderHeight = usePageHeaderHeight();
+  const { showToast } = useToast();
   const analytics = useAnalytics();
   const household = useQuery(api.households.getCurrentHousehold);
   const products = useQuery(api.restocks.listProducts);
@@ -71,7 +74,6 @@ export default function TrackedProductsScreen() {
   const [category, setCategory] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showSavedToast, setShowSavedToast] = useState(false);
 
   const productRows = useMemo(
     () => buildTrackedProductRows(products ?? []),
@@ -152,7 +154,7 @@ export default function TrackedProductsScreen() {
       );
 
       editorSheetRef.current?.dismiss();
-      setShowSavedToast(true);
+      showToast({ message: "Product rhythm updated", tone: "success" });
     } catch (error) {
       console.error("Couldn't update the tracked product:", error);
       setFormError("We couldn't save those changes. Please try again.");
@@ -168,6 +170,7 @@ export default function TrackedProductsScreen() {
     household?.marketCountryCode,
     quantity,
     recalculateReminders,
+    showToast,
     unit,
     updateProduct,
   ]);
@@ -189,7 +192,7 @@ export default function TrackedProductsScreen() {
         field: "status",
       });
       editorSheetRef.current?.dismiss();
-      setShowSavedToast(true);
+      showToast({ message: "Product rhythm updated", tone: "success" });
     } catch (error) {
       console.error("Couldn't change product tracking:", error);
       setFormError("We couldn't change tracking. Please try again.");
@@ -202,15 +205,22 @@ export default function TrackedProductsScreen() {
     household?._id,
     household?.marketCountryCode,
     recalculateReminders,
+    showToast,
     updateProduct,
   ]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["left", "right", "bottom"]}
+    >
       <PageHeader title="Tracked products" onBack={() => router.back()} />
 
       {products === undefined ? (
-        <View className="flex-1 items-center justify-center">
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
           <ActivityIndicator size="large" color={themeColors.coral} />
           <Text className="mt-3 text-ink-secondary">
             Loading your grocery rhythm…
@@ -224,9 +234,10 @@ export default function TrackedProductsScreen() {
           getItemType={(row) => row.type}
           contentContainerStyle={{
             paddingHorizontal: 24,
-            paddingTop: 16,
+            paddingTop: pageHeaderHeight + 16,
             paddingBottom: 48,
           }}
+          scrollIndicatorInsets={{ top: pageHeaderHeight }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
@@ -379,11 +390,6 @@ export default function TrackedProductsScreen() {
         </GlassBottomSheetScrollView>
       </GlassBottomSheet>
 
-      <Toast
-        visible={showSavedToast}
-        message="Product rhythm updated"
-        onDismiss={() => setShowSavedToast(false)}
-      />
     </SafeAreaView>
   );
 }

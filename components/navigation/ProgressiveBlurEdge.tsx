@@ -1,4 +1,4 @@
-import { BlurView } from "expo-blur";
+import { BlurView, type BlurTint } from "expo-blur";
 import type { ReactNode } from "react";
 import {
   Platform,
@@ -10,7 +10,7 @@ import {
 import { themeColors } from "@/lib/theme";
 import { useReduceTransparency } from "@/components/ui/useReduceTransparency";
 
-const FEATHER_LAYER_FRACTIONS = [1, 0.82, 0.64, 0.46, 0.28] as const;
+const FEATHER_LAYER_INDICES = [0, 1, 2, 3, 4] as const;
 const FEATHER_TOTAL_INTENSITY = 36;
 
 interface ProgressiveBlurEdgeProps {
@@ -25,6 +25,10 @@ interface ProgressiveBlurEdgeProps {
   includeMaterial?: boolean;
   /** Strength of the stable material underneath the progressive edge. */
   materialIntensity?: number;
+  /** Native material tint used by both the stable layer and feather. */
+  tint?: BlurTint;
+  /** Opaque fallback used off iOS or when Reduce Transparency is enabled. */
+  fallbackColor?: string;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
 }
@@ -42,6 +46,8 @@ export function ProgressiveBlurEdge({
   featherSize,
   includeMaterial = true,
   materialIntensity = 30,
+  tint = "systemUltraThinMaterialLight",
+  fallbackColor = themeColors.surface,
   style,
   children,
 }: ProgressiveBlurEdgeProps) {
@@ -53,33 +59,14 @@ export function ProgressiveBlurEdge({
     falloff ?? featherSize ?? 64,
   );
   const layerIntensity =
-    FEATHER_TOTAL_INTENSITY / FEATHER_LAYER_FRACTIONS.length;
+    FEATHER_TOTAL_INTENSITY / FEATHER_LAYER_INDICES.length;
+  const overlapDistance = resolvedFalloff - resolvedSpill;
 
   return (
     <View
       pointerEvents={children ? "box-none" : "none"}
       style={[styles.container, style]}
     >
-      {includeMaterial ? (
-        <View pointerEvents="none" style={styles.material}>
-          {usesLiveBlur ? (
-            <BlurView
-              tint="systemUltraThinMaterialLight"
-              intensity={materialIntensity}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null}
-          {!usesLiveBlur ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: themeColors.surface },
-              ]}
-            />
-          ) : null}
-        </View>
-      ) : null}
-
       {usesLiveBlur ? (
         <View
           pointerEvents="none"
@@ -91,22 +78,50 @@ export function ProgressiveBlurEdge({
             { height: resolvedFalloff },
           ]}
         >
-          {FEATHER_LAYER_FRACTIONS.map((fraction) => (
+          {FEATHER_LAYER_INDICES.map((index) => {
+            const progress = index / FEATHER_LAYER_INDICES.length;
+            const outsideInset = resolvedSpill * progress;
+            const insideInset = overlapDistance * progress;
+
+            return (
+              <View
+                key={`${fadeEdge}-${index}`}
+                testID={`progressive-blur-feather-layer-${index}`}
+                style={[
+                  styles.featherLayer,
+                  fadeEdge === "bottom"
+                    ? { top: insideInset, bottom: outsideInset }
+                    : { top: outsideInset, bottom: insideInset },
+                ]}
+              >
+                <BlurView
+                  intensity={layerIntensity}
+                  tint={tint}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {includeMaterial ? (
+        <View pointerEvents="none" style={styles.material}>
+          {usesLiveBlur ? (
+            <BlurView
+              tint={tint}
+              intensity={materialIntensity}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
+          {!usesLiveBlur ? (
             <View
-              key={`${fadeEdge}-${fraction}`}
               style={[
-                styles.featherLayer,
-                { height: resolvedFalloff * fraction },
-                fadeEdge === "bottom" ? { top: 0 } : { bottom: 0 },
+                StyleSheet.absoluteFill,
+                { backgroundColor: fallbackColor },
               ]}
-            >
-              <BlurView
-                intensity={layerIntensity}
-                tint="systemUltraThinMaterialLight"
-                style={StyleSheet.absoluteFill}
-              />
-            </View>
-          ))}
+            />
+          ) : null}
         </View>
       ) : null}
 

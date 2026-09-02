@@ -5,14 +5,17 @@ function readSource(path: string) {
 }
 
 describe("secondary screen design system", () => {
-  it("uses the shared page header on secondary routes", () => {
+  it("uses the shared progressive page header on secondary routes", () => {
     const receipt = readSource("app/receipt-confirm.tsx");
     const restockReview = readSource("app/restock-review.tsx");
     const listDetail = readSource("app/list/[id].tsx");
+    const pageHeader = readSource("components/ui/PageHeader.tsx");
 
     expect(receipt).toContain("<PageHeader");
     expect(restockReview).toContain("<PageHeader");
     expect(listDetail).toContain("<PageHeader");
+    expect(pageHeader).toContain("<ProgressiveBlurEdge");
+    expect(pageHeader).toContain('position: "absolute"');
   });
 
   it("uses the shared progress and sheet hierarchy on list details", () => {
@@ -34,6 +37,9 @@ describe("secondary screen design system", () => {
     expect(receiptMotion).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
     expect(camera).not.toContain("guideFrameScale");
     expect(camera).not.toContain("guideFrameOpacity");
+    expect(camera).toContain(
+      "paddingTop: pageHeaderHeight + CAMERA_HEADER_CLEARANCE",
+    );
   });
 
   it("does not use emoji artwork on secondary task states", () => {

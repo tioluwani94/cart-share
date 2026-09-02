@@ -1,4 +1,4 @@
-import { Button, PageHeader } from "@/components/ui";
+import { Button, PageHeader, usePageHeaderHeight } from "@/components/ui";
 import { themeColors } from "@/lib/theme";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
@@ -26,6 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const GUIDE_FRAME_WIDTH = SCREEN_WIDTH * 0.85;
 const GUIDE_FRAME_HEIGHT = SCREEN_HEIGHT * 0.5;
+const CAMERA_HEADER_CLEARANCE = 12;
 
 /**
  * Receipt camera screen.
@@ -33,6 +34,7 @@ const GUIDE_FRAME_HEIGHT = SCREEN_HEIGHT * 0.5;
  */
 export default function ScanReceiptScreen() {
   const { listId } = useLocalSearchParams<{ listId?: string }>();
+  const pageHeaderHeight = usePageHeaderHeight();
   const [permission, requestPermission] = useCameraPermissions();
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -100,9 +102,15 @@ export default function ScanReceiptScreen() {
   // Permission not yet determined
   if (!permission) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
+      <SafeAreaView
+        className="flex-1 bg-background-light"
+        edges={["left", "right", "bottom"]}
+      >
         <PageHeader title="Scan receipt" onBack={() => router.back()} />
-        <View className="flex-1 items-center justify-center">
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
           <Text className="text-ink-secondary">Loading camera…</Text>
         </View>
       </SafeAreaView>
@@ -112,10 +120,16 @@ export default function ScanReceiptScreen() {
   // Permission denied
   if (!permission.granted) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
+      <SafeAreaView
+        className="flex-1 bg-background-light"
+        edges={["left", "right", "bottom"]}
+      >
         <PageHeader title="Scan receipt" onBack={() => router.back()} />
 
-        <View className="flex-1 items-center justify-center px-6 pb-10">
+        <View
+          className="flex-1 items-center justify-center px-6 pb-10"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
           <View className="h-16 w-16 items-center justify-center rounded-2xl bg-coral-soft">
             <Camera size={30} color={themeColors.coral} strokeWidth={2} />
           </View>
@@ -154,7 +168,10 @@ export default function ScanReceiptScreen() {
   // Photo captured - show preview
   if (capturedPhoto) {
     return (
-      <SafeAreaView className="flex-1 bg-warm-gray-900">
+      <SafeAreaView
+        className="flex-1 bg-warm-gray-900"
+        edges={["left", "right", "bottom"]}
+      >
         <PageHeader
           title="Review photo"
           onBack={handleRetake}
@@ -164,7 +181,10 @@ export default function ScanReceiptScreen() {
         />
 
         {/* Photo Preview */}
-        <View className="flex-1 items-center justify-center px-4">
+        <View
+          className="flex-1 items-center justify-center px-4"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
           <View
             className="overflow-hidden rounded-3xl border border-white/20 bg-black"
             style={{
@@ -228,80 +248,90 @@ export default function ScanReceiptScreen() {
   return (
     <View className="flex-1 bg-black">
       <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back">
-        <SafeAreaView className="flex-1">
+        <SafeAreaView
+          className="flex-1"
+          edges={["left", "right", "bottom"]}
+        >
           <PageHeader
             title="Scan receipt"
             onBack={() => router.back()}
             appearance="overlay"
           />
 
-          {/* Guide Frame */}
-          <View className="flex-1 items-center justify-center">
-            <View
-              style={{
-                width: GUIDE_FRAME_WIDTH,
-                height: GUIDE_FRAME_HEIGHT,
-                borderWidth: 2,
-                borderColor: "rgba(255,255,255,0.78)",
-                borderRadius: 24,
-              }}
-            >
-              {/* Corner accents */}
-              <View className="absolute -left-1 -top-1 h-8 w-8 border-l-4 border-t-4 border-coral rounded-tl-lg" />
-              <View className="absolute -right-1 -top-1 h-8 w-8 border-r-4 border-t-4 border-coral rounded-tr-lg" />
-              <View className="absolute -bottom-1 -left-1 h-8 w-8 border-b-4 border-l-4 border-coral rounded-bl-lg" />
-              <View className="absolute -bottom-1 -right-1 h-8 w-8 border-b-4 border-r-4 border-coral rounded-br-lg" />
+          <View
+            className="flex-1"
+            style={{
+              paddingTop: pageHeaderHeight + CAMERA_HEADER_CLEARANCE,
+            }}
+          >
+            {/* Guide Frame */}
+            <View className="flex-1 items-center justify-center">
+              <View
+                style={{
+                  width: GUIDE_FRAME_WIDTH,
+                  height: GUIDE_FRAME_HEIGHT,
+                  borderWidth: 2,
+                  borderColor: "rgba(255,255,255,0.78)",
+                  borderRadius: 24,
+                }}
+              >
+                {/* Corner accents */}
+                <View className="absolute -left-1 -top-1 h-8 w-8 border-l-4 border-t-4 border-coral rounded-tl-lg" />
+                <View className="absolute -right-1 -top-1 h-8 w-8 border-r-4 border-t-4 border-coral rounded-tr-lg" />
+                <View className="absolute -bottom-1 -left-1 h-8 w-8 border-b-4 border-l-4 border-coral rounded-bl-lg" />
+                <View className="absolute -bottom-1 -right-1 h-8 w-8 border-b-4 border-r-4 border-coral rounded-br-lg" />
+              </View>
+
+              <Text
+                className="mt-6 px-8 text-center text-[17px] font-semibold leading-6 text-white"
+                style={{
+                  textShadowColor: "rgba(0, 0, 0, 0.5)",
+                  textShadowOffset: { width: 0, height: 1 },
+                  textShadowRadius: 4,
+                }}
+              >
+                Line up your receipt inside the frame
+              </Text>
             </View>
 
-            <Text
-              className="mt-6 px-8 text-center text-[17px] font-semibold leading-6 text-white"
-              style={{
-                textShadowColor: "rgba(0, 0, 0, 0.5)",
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 4,
-              }}
-            >
-              Line up your receipt inside the frame
-            </Text>
-          </View>
+            {/* Capture Button */}
+            <View className="items-center pb-10">
+              <Animated.View style={captureAnimatedStyle}>
+                <Pressable
+                  onPress={handleCapture}
+                  onPressIn={() =>
+                    captureScale.set(
+                      withSpring(0.96, {
+                        duration: 160,
+                        dampingRatio: 1,
+                        reduceMotion: ReduceMotion.System,
+                      }),
+                    )
+                  }
+                  onPressOut={() =>
+                    captureScale.set(
+                      withSpring(1, {
+                        duration: 160,
+                        dampingRatio: 1,
+                        reduceMotion: ReduceMotion.System,
+                      }),
+                    )
+                  }
+                  disabled={isCapturing}
+                  className="h-20 w-20 items-center justify-center rounded-full bg-coral"
+                  accessibilityLabel="Take photo"
+                  accessibilityHint="Double tap to capture your receipt"
+                >
+                  <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white">
+                    <Camera size={28} color="#FFFFFF" strokeWidth={2} />
+                  </View>
+                </Pressable>
+              </Animated.View>
 
-          {/* Capture Button */}
-          <View className="items-center pb-10">
-            <Animated.View style={captureAnimatedStyle}>
-              <Pressable
-                onPress={handleCapture}
-                onPressIn={() =>
-                  captureScale.set(
-                    withSpring(0.96, {
-                      duration: 160,
-                      dampingRatio: 1,
-                      reduceMotion: ReduceMotion.System,
-                    }),
-                  )
-                }
-                onPressOut={() =>
-                  captureScale.set(
-                    withSpring(1, {
-                      duration: 160,
-                      dampingRatio: 1,
-                      reduceMotion: ReduceMotion.System,
-                    }),
-                  )
-                }
-                disabled={isCapturing}
-                className="h-20 w-20 items-center justify-center rounded-full bg-coral"
-                accessibilityLabel="Take photo"
-                accessibilityHint="Double tap to capture your receipt"
-              >
-                <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white">
-                  <Camera size={28} color="#FFFFFF" strokeWidth={2} />
-                </View>
-              </Pressable>
-            </Animated.View>
-
-            <Text className="mt-4 text-sm text-white/70">
-              Tap to capture
-            </Text>
+              <Text className="mt-4 text-sm text-white/70">
+                Tap to capture
+              </Text>
+            </View>
           </View>
 
           {/* Camera Flash Effect */}

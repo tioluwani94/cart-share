@@ -291,130 +291,136 @@ export function OurPantryTabBar({
       testID="tab-bar-footer-dock"
       style={[styles.footprint, { height: footprintHeight }]}
     >
-      <ProgressiveBlurEdge
-        fadeEdge="top"
-        falloff={64}
-        materialIntensity={44}
-        spill={16}
-        style={StyleSheet.absoluteFillObject}
+      <View
+        pointerEvents="none"
+        testID="tab-bar-footer-material"
+        style={[styles.materialBleed, { bottom: -insets.bottom }]}
       >
-        {footerAccessory ? (
+        <ProgressiveBlurEdge
+          fadeEdge="top"
+          falloff={64}
+          materialIntensity={28}
+          spill={16}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
+
+      {footerAccessory ? (
+        <View
+          pointerEvents="box-none"
+          testID="tab-bar-footer-accessory"
+          style={[
+            styles.accessoryFrame,
+            {
+              bottom: tabBarFootprintHeight,
+              height: footerAccessory.height,
+            },
+          ]}
+        >
+          {footerAccessory.content}
+        </View>
+      ) : null}
+
+      <View
+        pointerEvents="box-none"
+        style={[styles.barFrame, { bottom: bottomOffset }]}
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.materialShadow,
+            {
+              left: TAB_BAR_OUTER_MARGIN,
+              width: expandedWidth,
+            },
+            materialStyle,
+          ]}
+        >
           <View
-            pointerEvents="box-none"
-            testID="tab-bar-footer-accessory"
             style={[
-              styles.accessoryFrame,
-              {
-                bottom: tabBarFootprintHeight,
-                height: footerAccessory.height,
-              },
+              styles.materialClip,
+              (reduceTransparency || Platform.OS !== "ios") &&
+                styles.solidMaterial,
             ]}
           >
-            {footerAccessory.content}
+            {nativeGlassAvailable ? (
+              <GlassView
+                colorScheme="light"
+                glassEffectStyle="regular"
+                isInteractive={false}
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+                tintColor="rgba(255, 255, 255, 0.14)"
+              />
+            ) : usesBlurFallback ? (
+              <BlurView
+                intensity={38}
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+                tint="systemUltraThinMaterialLight"
+              />
+            ) : null}
           </View>
-        ) : null}
+        </Animated.View>
+
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.selectionIndicator, indicatorStyle]}
+        />
 
         <View
           pointerEvents="box-none"
-          style={[styles.barFrame, { bottom: bottomOffset }]}
+          style={[
+            styles.tabRow,
+            {
+              left: TAB_BAR_OUTER_MARGIN,
+              width: expandedWidth,
+            },
+          ]}
         >
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.materialShadow,
-              {
-                left: TAB_BAR_OUTER_MARGIN,
-                width: expandedWidth,
-              },
-              materialStyle,
-            ]}
-          >
-            <View
-              style={[
-                styles.materialClip,
-                (reduceTransparency || Platform.OS !== "ios") &&
-                  styles.solidMaterial,
-              ]}
-            >
-              {nativeGlassAvailable ? (
-                <GlassView
-                  colorScheme="light"
-                  glassEffectStyle="regular"
-                  isInteractive={false}
-                  pointerEvents="none"
-                  style={StyleSheet.absoluteFill}
-                  tintColor="rgba(255, 255, 255, 0.14)"
-                />
-              ) : usesBlurFallback ? (
-                <BlurView
-                  intensity={38}
-                  pointerEvents="none"
-                  style={StyleSheet.absoluteFill}
-                  tint="systemUltraThinMaterialLight"
-                />
-              ) : null}
-            </View>
-          </Animated.View>
+          {state.routes.map((route, index) => {
+            const focused = state.index === index;
+            const item = TAB_ITEMS[route.name];
+            if (!item) return null;
+            const descriptor = descriptors[route.key];
+            const accessibilityLabel =
+              descriptor.options.tabBarAccessibilityLabel ?? item.label;
 
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.selectionIndicator, indicatorStyle]}
-          />
+            const onPress = () => {
+              expandTabBar();
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-          <View
-            pointerEvents="box-none"
-            style={[
-              styles.tabRow,
-              {
-                left: TAB_BAR_OUTER_MARGIN,
-                width: expandedWidth,
-              },
-            ]}
-          >
-            {state.routes.map((route, index) => {
-              const focused = state.index === index;
-              const item = TAB_ITEMS[route.name];
-              if (!item) return null;
-              const descriptor = descriptors[route.key];
-              const accessibilityLabel =
-                descriptor.options.tabBarAccessibilityLabel ?? item.label;
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            };
+            const onLongPress = () => {
+              navigation.emit({
+                type: "tabLongPress",
+                target: route.key,
+              });
+            };
 
-              const onPress = () => {
-                expandTabBar();
-                const event = navigation.emit({
-                  type: "tabPress",
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-
-                if (!focused && !event.defaultPrevented) {
-                  navigation.navigate(route.name, route.params);
-                }
-              };
-              const onLongPress = () => {
-                navigation.emit({
-                  type: "tabLongPress",
-                  target: route.key,
-                });
-              };
-
-              return (
-                <TabButton
-                  key={route.key}
-                  Icon={item.Icon}
-                  compactProgress={compactProgress}
-                  focused={focused}
-                  index={index}
-                  label={accessibilityLabel}
-                  onLongPress={onLongPress}
-                  onPress={onPress}
-                  width={expandedWidth / TAB_COUNT}
-                />
-              );
-            })}
-          </View>
+            return (
+              <TabButton
+                key={route.key}
+                Icon={item.Icon}
+                compactProgress={compactProgress}
+                focused={focused}
+                index={index}
+                label={accessibilityLabel}
+                onLongPress={onLongPress}
+                onPress={onPress}
+                width={expandedWidth / TAB_COUNT}
+              />
+            );
+          })}
         </View>
-      </ProgressiveBlurEdge>
+      </View>
     </View>
   );
 }
@@ -427,6 +433,12 @@ const styles = StyleSheet.create({
     right: 0,
     overflow: "visible",
     zIndex: 30,
+  },
+  materialBleed: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
   },
   barFrame: {
     position: "absolute",

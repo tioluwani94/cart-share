@@ -172,7 +172,9 @@ describe("OurPantryTabBar", () => {
     });
 
     const root = renderer!.root as unknown as {
-      findAll: (predicate: (node: { type: unknown }) => boolean) => unknown[];
+      findAll: (predicate: (node: { type: unknown }) => boolean) => {
+        props: { intensity?: number };
+      }[];
     };
     const blurLayers = root.findAll(
       (node: { type: unknown }) => node.type === "BlurView",
@@ -180,6 +182,16 @@ describe("OurPantryTabBar", () => {
 
     // Five progressive layers, one full-footer layer, and the bar material.
     expect(blurLayers).toHaveLength(7);
+
+    const footerMaterial = renderer!.root.findByProps({
+      testID: "tab-bar-footer-material",
+    });
+    expect(footerMaterial.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ bottom: -34 })]),
+    );
+    expect(
+      blurLayers.some((layer) => layer.props.intensity === 28),
+    ).toBe(true);
   });
 
   it("renders a screen accessory inside the same protected footer dock", () => {

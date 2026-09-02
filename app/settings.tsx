@@ -5,7 +5,8 @@ import {
   GlassSheetHeader,
   type GlassBottomSheetRef,
   PageHeader,
-  Toast,
+  usePageHeaderHeight,
+  useToast,
   UserAvatar,
 } from "@/components/ui";
 import {
@@ -86,10 +87,18 @@ function isDefinitiveDeletionRefusal(error: unknown): boolean {
 }
 
 function SettingsLoadingState({ onBack }: { onBack: () => void }) {
+  const pageHeaderHeight = usePageHeaderHeight();
+
   return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["left", "right", "bottom"]}
+    >
       <PageHeader title="Settings" onBack={onBack} />
-      <View className="px-6 pt-5">
+      <View
+        className="px-6"
+        style={{ paddingTop: pageHeaderHeight + 20 }}
+      >
         <View className="h-5 w-24 rounded-lg bg-warm-gray-100" />
         <View className="mt-3 h-48 rounded-2xl border border-separator bg-surface" />
       </View>
@@ -99,11 +108,12 @@ function SettingsLoadingState({ onBack }: { onBack: () => void }) {
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const pageHeaderHeight = usePageHeaderHeight();
+  const { showToast } = useToast();
   const [archivedExpanded, setArchivedExpanded] = useState(false);
   const [restoringListId, setRestoringListId] = useState<Id<"lists"> | null>(
     null,
   );
-  const [showRestoreToast, setShowRestoreToast] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const signOutSheetRef = useRef<GlassBottomSheetRef>(null);
@@ -115,7 +125,6 @@ export default function SettingsScreen() {
   const [monthlyBudget, setMonthlyBudget] = useState("");
   const [budgetError, setBudgetError] = useState("");
   const [isSavingBudget, setIsSavingBudget] = useState(false);
-  const [showBudgetToast, setShowBudgetToast] = useState(false);
   const budgetSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
@@ -178,18 +187,17 @@ export default function SettingsScreen() {
 
   const handleRestoreList = useCallback(
     async (listId: Id<"lists">) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setRestoringListId(listId);
       try {
         await unarchiveList({ listId });
-        setShowRestoreToast(true);
+        showToast({ message: "List restored", tone: "success" });
       } catch (error) {
         console.error("Failed to restore list:", error);
       } finally {
         setRestoringListId(null);
       }
     },
-    [unarchiveList],
+    [showToast, unarchiveList],
   );
 
   const handleCopyInviteCode = useCallback(async () => {
@@ -231,17 +239,14 @@ export default function SettingsScreen() {
         monthlyBudgetPence: budgetPence ?? undefined,
       });
       budgetSheetRef.current?.dismiss();
-      void Haptics.notificationAsync(
-        Haptics.NotificationFeedbackType.Success,
-      );
-      setShowBudgetToast(true);
+      showToast({ message: "Budget saved", tone: "success" });
     } catch (error) {
       console.error("Failed to save monthly budget:", error);
       setBudgetError("Couldn't save the budget. Please try again.");
     } finally {
       setIsSavingBudget(false);
     }
-  }, [monthlyBudget, saveMonthlyBudget]);
+  }, [monthlyBudget, saveMonthlyBudget, showToast]);
 
   const handleNotificationChange = useCallback(
     async (enabled: boolean) => {
@@ -540,12 +545,17 @@ export default function SettingsScreen() {
       : "Your account and this household will be permanently deleted, including its lists, shopping history, and receipts.";
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["left", "right", "bottom"]}
+    >
       <PageHeader title="Settings" onBack={() => router.back()} />
       <ScrollView
         {...keyboardDismissScrollProps}
         className="flex-1"
-        contentContainerClassName="px-6 pb-12 pt-2"
+        contentContainerClassName="px-6 pb-12"
+        contentContainerStyle={{ paddingTop: pageHeaderHeight + 8 }}
+        scrollIndicatorInsets={{ top: pageHeaderHeight }}
         showsVerticalScrollIndicator={false}
       >
         {household && (
@@ -936,18 +946,6 @@ export default function SettingsScreen() {
         </GlassBottomSheetView>
       </GlassBottomSheet>
 
-      <Toast
-        visible={showRestoreToast}
-        message="List restored"
-        onDismiss={() => setShowRestoreToast(false)}
-        duration={2000}
-      />
-      <Toast
-        visible={showBudgetToast}
-        message="Budget saved"
-        onDismiss={() => setShowBudgetToast(false)}
-        duration={2000}
-      />
     </SafeAreaView>
   );
 }

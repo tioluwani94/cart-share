@@ -18,7 +18,8 @@ import {
   type GlassBottomSheetRef,
   PageHeader,
   ProgressBar,
-  Toast,
+  usePageHeaderHeight,
+  useToast,
 } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -68,6 +69,8 @@ export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const listId = id as Id<"lists">;
   const { userId } = useAuth();
+  const pageHeaderHeight = usePageHeaderHeight();
+  const { showToast } = useToast();
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
@@ -83,7 +86,6 @@ export default function ListDetailScreen() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
-  const [showArchiveToast, setShowArchiveToast] = useState(false);
   const [tripBudgetInput, setTripBudgetInput] = useState("");
   const [tripBudgetError, setTripBudgetError] = useState("");
   const [isSavingTripBudget, setIsSavingTripBudget] = useState(false);
@@ -274,7 +276,7 @@ export default function ListDetailScreen() {
     try {
       await archiveList({ listId });
       setShowArchiveDialog(false);
-      setShowArchiveToast(true);
+      showToast({ message: "List archived", tone: "success" });
       // Navigate back after showing toast briefly
       setTimeout(() => {
         router.back();
@@ -283,7 +285,7 @@ export default function ListDetailScreen() {
       console.error("Failed to archive list:", error);
       setIsArchiving(false);
     }
-  }, [archiveList, listId]);
+  }, [archiveList, listId, showToast]);
 
   const handleArchiveCancel = useCallback(() => {
     setShowArchiveDialog(false);
@@ -321,10 +323,6 @@ export default function ListDetailScreen() {
     }
   }, [listId, tripBudgetInput, updateList]);
 
-  const handleToastDismiss = useCallback(() => {
-    setShowArchiveToast(false);
-  }, []);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     // Convex queries auto-refresh, but we simulate a refresh for UX
@@ -344,9 +342,15 @@ export default function ListDetailScreen() {
   // Loading state (only show if we don't have any data - cached or fresh)
   if (list === undefined || (items === undefined && itemsLoading)) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
+      <SafeAreaView
+        className="flex-1 bg-background-light"
+        edges={["left", "right", "bottom"]}
+      >
         <PageHeader title="Shopping list" onBack={() => router.back()} />
-        <View className="flex-1 items-center justify-center">
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
           <ActivityIndicator size="large" color="#C94A4A" />
           <Text className="mt-4 text-ink-secondary">Loading list…</Text>
         </View>
@@ -357,30 +361,41 @@ export default function ListDetailScreen() {
   // List not found
   if (list === null) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
+      <SafeAreaView
+        className="flex-1 bg-background-light"
+        edges={["left", "right", "bottom"]}
+      >
         <PageHeader title="Shopping list" onBack={() => router.back()} />
-        <EmptyStateCard
-          title="List not found"
-          description="This list may have been deleted, or it may belong to another household."
-          icon={<SearchX size={30} color="#C94A4A" strokeWidth={2} />}
-          actionLabel="Go back"
-          onAction={() => router.back()}
-          variant="embedded"
-          className="flex-1 justify-center pb-10"
-        />
+        <View className="flex-1" style={{ paddingTop: pageHeaderHeight }}>
+          <EmptyStateCard
+            title="List not found"
+            description="This list may have been deleted, or it may belong to another household."
+            icon={<SearchX size={30} color="#C94A4A" strokeWidth={2} />}
+            actionLabel="Go back"
+            onAction={() => router.back()}
+            variant="embedded"
+            className="flex-1 justify-center pb-10"
+          />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["left", "right", "bottom"]}
+    >
       <PageHeader
         title={list.name}
         onBack={() => router.back()}
         trailing={<HeaderMenu onArchive={handleArchivePress} />}
       />
 
-      <View className="border-b border-separator px-6 pb-4 pt-2">
+      <View
+        className="border-b border-separator px-6 pb-4"
+        style={{ paddingTop: pageHeaderHeight + 8 }}
+      >
         <View>
           <View className="flex-row items-center justify-between">
             <Text className="text-[15px] text-ink-secondary">
@@ -605,14 +620,6 @@ export default function ListDetailScreen() {
         onConfirm={handleArchiveConfirm}
         onCancel={handleArchiveCancel}
         isLoading={isArchiving}
-      />
-
-      {/* Success toast */}
-      <Toast
-        visible={showArchiveToast}
-        message="List archived! ✓"
-        onDismiss={handleToastDismiss}
-        duration={1500}
       />
 
       {/* Partner activity toast */}

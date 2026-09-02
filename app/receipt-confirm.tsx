@@ -7,7 +7,7 @@ import { ScanSuccess } from "@/components/receipt-confirm/ScanSuccess";
 import { SessionSaved } from "@/components/receipt-confirm/SessionSaved";
 import { UploadError } from "@/components/receipt-confirm/UploadError";
 import { UploadingReceipt } from "@/components/receipt-confirm/UploadingReceipt";
-import { Button, PageHeader } from "@/components/ui";
+import { Button, PageHeader, usePageHeaderHeight } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
@@ -50,6 +50,7 @@ export default function ReceiptConfirmScreen() {
   }>();
 
   const analytics = useAnalytics();
+  const pageHeaderHeight = usePageHeaderHeight();
   const [screenState, setScreenState] = useState<ScreenState>(() =>
     getInitialReceiptScreenState(entry),
   );
@@ -516,7 +517,10 @@ export default function ReceiptConfirmScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light">
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["left", "right", "bottom"]}
+    >
       <PageHeader
         title={getHeaderTitle()}
         onBack={handleCancel}
@@ -530,7 +534,9 @@ export default function ReceiptConfirmScreen() {
         <ScrollView
           {...keyboardDismissScrollProps}
           className="flex-1"
-          contentContainerClassName="flex-grow justify-center px-6 pb-10 pt-8"
+          contentContainerClassName="flex-grow justify-center px-6 pb-10"
+          contentContainerStyle={{ paddingTop: pageHeaderHeight + 32 }}
+          scrollIndicatorInsets={{ top: pageHeaderHeight }}
           showsVerticalScrollIndicator={false}
         >
           <View className="w-full max-w-xl self-center">{renderContent()}</View>

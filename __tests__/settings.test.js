@@ -17,6 +17,7 @@ const mockMarkCleanupRequired = jest.fn();
 const mockCancelCleanupRequired = jest.fn();
 const mockAnalyticsReset = jest.fn();
 const mockRouterReplace = jest.fn();
+const mockShowToast = jest.fn();
 let mockPreferences;
 let mockHousehold;
 let mockArchivedLists;
@@ -168,7 +169,8 @@ jest.mock("@/components/ui", () => {
       />
     ),
     PageHeader: () => <View />,
-    Toast: () => null,
+    usePageHeaderHeight: () => 103,
+    useToast: () => ({ showToast: mockShowToast }),
     UserAvatar: () => <View />,
   };
 });
@@ -291,6 +293,10 @@ describe("SettingsScreen", () => {
 
     expect(mockSaveMonthlyBudget).toHaveBeenCalledWith({
       monthlyBudgetPence: 123_456,
+    });
+    expect(mockShowToast).toHaveBeenCalledWith({
+      message: "Budget saved",
+      tone: "success",
     });
   });
 

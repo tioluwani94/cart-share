@@ -1,6 +1,11 @@
 import planCompleteArtwork from "@/assets/empty-states/plan-complete.png";
 import { AlreadyAddedRestocks } from "@/components/restocks/AlreadyAddedRestocks";
-import { Button, EmptyStateCard, PageHeader } from "@/components/ui";
+import {
+  Button,
+  EmptyStateCard,
+  PageHeader,
+  usePageHeaderHeight,
+} from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { formatDateWithWeekday, formatFriendlyDate } from "@/lib/formatters";
@@ -24,6 +29,7 @@ const EXPLANATION_ENTER = FadeIn.duration(160).easing(
 
 export default function RestockReviewScreen() {
   const router = useRouter();
+  const pageHeaderHeight = usePageHeaderHeight();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const { userId } = useAuth();
   const analytics = useAnalytics();
@@ -74,14 +80,30 @@ export default function RestockReviewScreen() {
 
   if (review === undefined) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-background-light">
-        <ActivityIndicator size="large" color="#C94A4A" />
+      <SafeAreaView
+        className="flex-1 bg-background-light"
+        edges={["left", "right", "bottom"]}
+      >
+        <PageHeader
+          title="Review restocks"
+          onBack={() => router.replace("/(tabs)")}
+          backLabel="Back to Plan"
+        />
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
+          <ActivityIndicator size="large" color="#C94A4A" />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background-light">
+    <SafeAreaView
+      className="flex-1 bg-background-light"
+      edges={["left", "right", "bottom"]}
+    >
       <PageHeader
         title="Review restocks"
         onBack={() => router.replace("/(tabs)")}
@@ -95,8 +117,9 @@ export default function RestockReviewScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingBottom: 32,
-          paddingTop: 8,
+          paddingTop: pageHeaderHeight + 8,
         }}
+        scrollIndicatorInsets={{ top: pageHeaderHeight }}
         showsVerticalScrollIndicator={false}
         extraData={{ hasActiveList, pendingProductIds, whyProductId }}
         ItemSeparatorComponent={() => <View className="h-3" />}

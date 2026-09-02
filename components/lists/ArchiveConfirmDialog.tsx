@@ -25,7 +25,6 @@ export function ArchiveConfirmDialog({
   isLoading,
 }: ArchiveConfirmDialogProps) {
   const handleConfirm = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onConfirm();
   };
 
