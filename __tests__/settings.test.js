@@ -21,6 +21,18 @@ const mockShowToast = jest.fn();
 let mockPreferences;
 let mockHousehold;
 let mockArchivedLists;
+let mockIsConvexAuthenticated;
+const mockUseQuery = jest.fn((query, args) => {
+  if (args === "skip") return undefined;
+  if (query === "getCurrentHousehold") {
+    return mockHousehold;
+  }
+  if (query === "getPreferences") {
+    return mockPreferences;
+  }
+  if (query === "getArchivedByHousehold") return mockArchivedLists;
+  return undefined;
+});
 
 jest.mock("@/convex/_generated/api", () => ({
   api: {
@@ -44,16 +56,8 @@ jest.mock("@/convex/_generated/api", () => ({
 }));
 
 jest.mock("convex/react", () => ({
-  useQuery: (query) => {
-    if (query === "getCurrentHousehold") {
-      return mockHousehold;
-    }
-    if (query === "getPreferences") {
-      return mockPreferences;
-    }
-    if (query === "getArchivedByHousehold") return mockArchivedLists;
-    return undefined;
-  },
+  useConvexAuth: () => ({ isAuthenticated: mockIsConvexAuthenticated }),
+  useQuery: (...args) => mockUseQuery(...args),
   useMutation: (mutation) => {
     if (mutation === "updatePreferences") return mockUpdatePreferences;
     if (mutation === "recalculateForHousehold") {
@@ -67,8 +71,7 @@ jest.mock("convex/react", () => ({
 jest.mock("@clerk/expo", () => ({
   useAuth: () => ({ signOut: mockSignOut }),
   useUser: () => ({ user: { delete: mockDeleteAccount } }),
-  isClerkAPIResponseError: (error) =>
-    error?.isClerkAPIResponseError === true,
+  isClerkAPIResponseError: (error) => error?.isClerkAPIResponseError === true,
 }));
 
 jest.mock("@/lib/AnalyticsContext", () => ({
@@ -96,8 +99,7 @@ jest.mock("@/lib/storage", () => ({
 jest.mock("@/lib/accountDeletionCleanup", () => ({
   markAccountDeletionCleanupRequired: (...args) =>
     mockMarkCleanupRequired(...args),
-  cancelAccountDeletionCleanup: (...args) =>
-    mockCancelCleanupRequired(...args),
+  cancelAccountDeletionCleanup: (...args) => mockCancelCleanupRequired(...args),
   finishAccountDeletionLocalCleanup: (...args) => mockClearAll(...args),
 }));
 
@@ -205,6 +207,7 @@ jest.mock("react-native-reanimated", () => {
 describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsConvexAuthenticated = true;
     mockPreferences = {
       analyticsConsent: "denied",
       restockNotificationsEnabled: true,
@@ -259,8 +262,7 @@ describe("SettingsScreen", () => {
 
     expect(Share.share).toHaveBeenCalledWith({
       title: "Join Test household on OurPantry",
-      message:
-        "Join Test household on OurPantry using invite code ABC123.",
+      message: "Join Test household on OurPantry using invite code ABC123.",
     });
   });
 
@@ -276,9 +278,7 @@ describe("SettingsScreen", () => {
       ["Open OurPantry Support", "https://ourpantry.app/support"],
     ]) {
       await act(async () => {
-        await renderer.root
-          .findByProps({ accessibilityLabel })
-          .props.onPress();
+        await renderer.root.findByProps({ accessibilityLabel }).props.onPress();
       });
       expect(Linking.openURL).toHaveBeenLastCalledWith(expectedUrl);
     }
@@ -318,8 +318,7 @@ describe("SettingsScreen", () => {
     });
 
     const budget = renderer.root.findByProps({
-      accessibilityLabel:
-        "Edit monthly grocery budget, current value £400.00",
+      accessibilityLabel: "Edit monthly grocery budget, current value £400.00",
     });
     act(() => budget.props.onPress());
     expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
@@ -358,7 +357,7 @@ describe("SettingsScreen", () => {
     });
 
     const reminders = renderer.root.findByProps({
-      accessibilityLabel: "Restock reminders",
+      accessibilityLabel: "Shopping insights and reminders",
     });
     await act(async () => {
       await reminders.props.onValueChange(true);
@@ -390,6 +389,27 @@ describe("SettingsScreen", () => {
     act(() => signOut.props.onPress());
 
     expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops authenticated queries as soon as sign out begins", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    mockUseQuery.mockClear();
+    const confirmSignOut = renderer.root.findAllByProps({
+      variant: "danger",
+    })[0];
+
+    await act(async () => {
+      await confirmSignOut.props.onPress();
+    });
+
+    expect(mockUseQuery).toHaveBeenCalledWith("getCurrentHousehold", "skip");
+    expect(mockUseQuery).toHaveBeenCalledWith("getPreferences", "skip");
+    expect(mockUseQuery).toHaveBeenCalledWith("getArchivedByHousehold", "skip");
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
   it("requires confirmation before deleting Clerk and local account data", async () => {

@@ -59,10 +59,7 @@ async function recordAccountDeletionTombstone(
   }
 }
 
-async function scheduleContinuation(
-  ctx: MutationCtx,
-  deletingClerkId: string,
-) {
+async function scheduleContinuation(ctx: MutationCtx, deletingClerkId: string) {
   await ctx.scheduler.runAfter(0, internal.users.continueDeletion, {
     deletingClerkId,
   });
@@ -225,6 +222,20 @@ async function deleteFinalHousehold(
   }
   if (receipts.length > DELETION_BATCH_SIZE) return false;
 
+  const purchaseObservations = await ctx.db
+    .query("productPurchaseObservations")
+    .withIndex("by_household_and_date", (query) =>
+      query.eq("householdId", household._id),
+    )
+    .take(DELETION_PAGE_SIZE);
+  for (const observation of purchaseObservations.slice(
+    0,
+    DELETION_BATCH_SIZE,
+  )) {
+    await ctx.db.delete(observation._id);
+  }
+  if (purchaseObservations.length > DELETION_BATCH_SIZE) return false;
+
   const activeProducts = await ctx.db
     .query("householdProducts")
     .withIndex("by_household_and_status", (query) =>
@@ -246,6 +257,17 @@ async function deleteFinalHousehold(
     await ctx.db.delete(product._id);
   }
   if (pausedProducts.length > DELETION_BATCH_SIZE) return false;
+
+  const learningProducts = await ctx.db
+    .query("householdProducts")
+    .withIndex("by_household_and_status", (query) =>
+      query.eq("householdId", household._id).eq("status", "learning"),
+    )
+    .take(DELETION_PAGE_SIZE);
+  for (const product of learningProducts.slice(0, DELETION_BATCH_SIZE)) {
+    await ctx.db.delete(product._id);
+  }
+  if (learningProducts.length > DELETION_BATCH_SIZE) return false;
 
   const sessions = await ctx.db
     .query("shoppingSessions")
@@ -276,9 +298,7 @@ async function deleteAccountProjectionForDeletingUser(
     activeUser ??
     (await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (query) =>
-        query.eq("clerkId", deletingClerkId),
-      )
+      .withIndex("by_clerk_id", (query) => query.eq("clerkId", deletingClerkId))
       .unique());
   if (!user) {
     return { status: "already_deleted" };
@@ -327,14 +347,7 @@ async function deleteAccountProjectionForDeletingUser(
     (candidate) => candidate.userId !== user._id,
   );
   if (remainingMemberships.length === 0) {
-    if (
-      !(await deleteFinalHousehold(
-        ctx,
-        household,
-        membership,
-        user._id,
-      ))
-    ) {
+    if (!(await deleteFinalHousehold(ctx, household, membership, user._id))) {
       await scheduleContinuation(ctx, deletingClerkId);
       return { status: "scheduled" };
     }

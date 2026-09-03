@@ -42,6 +42,7 @@ import {
   Plus,
   SlidersHorizontal,
   ShoppingBasket,
+  Sparkles,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -91,13 +92,16 @@ export default function PlanScreen() {
   const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
-  const [choosingListId, setChoosingListId] =
-    useState<Id<"lists"> | null>(null);
+  const [choosingListId, setChoosingListId] = useState<Id<"lists"> | null>(
+    null,
+  );
   const [createAsNextShop, setCreateAsNextShop] = useState(false);
   const [nextShopError, setNextShopError] = useState<string | null>(null);
   const [planningError, setPlanningError] = useState<string | null>(null);
   const [isChangingMode, setIsChangingMode] = useState(false);
-  const [shoppingModeError, setShoppingModeError] = useState<string | null>(null);
+  const [shoppingModeError, setShoppingModeError] = useState<string | null>(
+    null,
+  );
   const [optimisticShoppingMode, setOptimisticShoppingMode] =
     useState<ShoppingMode | null>(null);
   const { data: household } = useCachedHousehold(user?.id);
@@ -111,39 +115,37 @@ export default function PlanScreen() {
     household?._id,
   );
   const candidateProductIds = useMemo(
-    () =>
-      review?.candidates.map((candidate) => candidate.householdProductId),
+    () => review?.candidates.map((candidate) => candidate.householdProductId),
     [review?.candidates],
   );
   const setNextShop = useMutation(api.restocks.setNextShop);
   const recalculate = useMutation(api.notifications.recalculateForHousehold);
-  const { error: decisionError, hiddenProductIds, makeDecision } =
-    useRestockDecisionActions({
-      activeListId: review?.activeList?._id,
-      candidateProductIds,
-      householdId: household?._id,
-      marketCountryCode: review?.household.marketCountryCode,
-      source: "plan",
-      userId: user?.id,
-    });
+  const {
+    error: decisionError,
+    hiddenProductIds,
+    makeDecision,
+  } = useRestockDecisionActions({
+    activeListId: review?.activeList?._id,
+    candidateProductIds,
+    householdId: household?._id,
+    marketCountryCode: review?.household.marketCountryCode,
+    source: "plan",
+    userId: user?.id,
+  });
 
   const otherLists = useMemo(
-    () =>
-      (lists ?? []).filter((list) => list._id !== review?.activeList?._id),
+    () => (lists ?? []).filter((list) => list._id !== review?.activeList?._id),
     [lists, review?.activeList?._id],
   );
   const effectiveShoppingMode = getEffectiveShoppingMode(
     review?.activeList?.shoppingMode,
     review?.household.preferredShoppingMode,
   );
-  const displayedShoppingMode =
-    optimisticShoppingMode ?? effectiveShoppingMode;
+  const displayedShoppingMode = optimisticShoppingMode ?? effectiveShoppingMode;
   const visibleCandidates = useMemo(
     () =>
-      partitionRestockCandidates(
-        review?.candidates ?? [],
-        hiddenProductIds,
-      ).actionableCandidates,
+      partitionRestockCandidates(review?.candidates ?? [], hiddenProductIds)
+        .actionableCandidates,
     [hiddenProductIds, review?.candidates],
   );
   const visibleCandidateCount = visibleCandidates.length;
@@ -193,7 +195,8 @@ export default function PlanScreen() {
       } finally {
         setChoosingListId(null);
       }
-    }, [choosingListId, isOnline, recalculate, setNextShop],
+    },
+    [choosingListId, isOnline, recalculate, setNextShop],
   );
 
   const chooseShoppingMode = useCallback(
@@ -214,7 +217,8 @@ export default function PlanScreen() {
       } finally {
         setIsChangingMode(false);
       }
-    }, [displayedShoppingMode, review?.activeList, setNextShop],
+    },
+    [displayedShoppingMode, review?.activeList, setNextShop],
   );
 
   const onRefresh = useCallback(() => {
@@ -270,308 +274,344 @@ export default function PlanScreen() {
         />
 
         <View className="px-6">
-        {isFromCache && (
-          <View className="mb-3 flex-row items-center rounded-xl bg-yellow/20 px-3 py-2">
-            <CloudOff size={16} color={themeColors.warningInk} />
-            <Text className="ml-2 text-sm text-yellow-900">
-              Showing your saved offline plan
-            </Text>
-          </View>
-        )}
-
-        {activeList ? (
-          <View className="rounded-2xl border border-separator bg-white p-5 shadow-warm">
-            <View className="flex-row items-start">
-              <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
-                <ShoppingBasket size={23} color={themeColors.coral} />
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-sm font-semibold text-coral">
-                  Next shop
-                </Text>
-                <Text
-                  className="mt-0.5 text-2xl font-heading text-ink"
-                  numberOfLines={2}
-                >
-                  {activeList.name}
-                </Text>
-                <Text className="mt-1 text-base text-ink-secondary">
-                  {activeList.plannedFor
-                    ? formatDateWithWeekday(activeList.plannedFor, dateOptions)
-                    : "Choose a day when you're ready"}
-                </Text>
-              </View>
-              {shoppingModeError && (
-                <Text className="mt-2 text-sm text-red-600">
-                  {shoppingModeError}
-                </Text>
-              )}
-            </View>
-
-            <View className="mt-5 flex-row flex-wrap items-center border-t border-separator pt-4">
-              <Text className="text-sm font-medium text-ink-secondary">
-                {activeList.totalItems} {activeList.totalItems === 1 ? "item" : "items"}
-              </Text>
-              <Text className="mx-2 text-warm-gray-400">·</Text>
-              <Text className="text-sm font-medium text-ink-secondary">
-                {activeList.plannedTotalPence > 0
-                  ? `${formatCurrencyFromPence(activeList.plannedTotalPence)} planned`
-                  : activeList.tripBudgetPence !== undefined
-                    ? `${formatCurrencyFromPence(activeList.tripBudgetPence)} budget`
-                    : "Prices optional"}
-              </Text>
-            </View>
-
-            <View className="mt-4">
-              <Text className="text-sm font-semibold text-ink-secondary">
-                How will you shop?
-              </Text>
-              <GlassSegmentedControl
-                value={displayedShoppingMode}
-                options={[
-                  {
-                    label: "In store",
-                    value: "in_store",
-                    accessibilityLabel: "Shop in store",
-                  },
-                  {
-                    label: "Online",
-                    value: "online",
-                    accessibilityLabel: "Shop online",
-                  },
-                ]}
-                onValueChange={(mode) => void chooseShoppingMode(mode)}
-                disabled={isChangingMode}
-                accessibilityLabel="Shopping method"
-                className="mt-2"
-              />
-            </View>
-
-            <Button
-              onPress={() =>
-                router.push(
-                  (visibleCandidateCount > 0
-                    ? "/restock-review"
-                    : "/(tabs)/shop") as Href,
-                )
-              }
-              className="mt-5 w-full"
-              accessibilityLabel={
-                visibleCandidateCount > 0
-                  ? `Review ${visibleCandidateCount} suggested restocks`
-                  : "Start shopping"
-              }
-            >
-              {visibleCandidateCount > 0
-                ? `Review ${visibleCandidateCount} ${visibleCandidateCount === 1 ? "item" : "items"}`
-                : "Start shopping"}
-            </Button>
-
-            {visibleCandidateCount > 0 && (
-              <Button
-                variant="tonal"
-                onPress={() => router.push("/(tabs)/shop" as Href)}
-                className="mt-2 w-full"
-                accessibilityLabel="Start shopping without reviewing restocks"
-              >
-                Start shopping
-              </Button>
-            )}
-          </View>
-        ) : (
-          <NextShopChooser
-            choosingListId={choosingListId}
-            error={nextShopError}
-            existingLists={otherLists}
-            isOnline={isOnline}
-            onChoose={(listId) => void chooseExistingList(listId)}
-            onCreate={() => {
-              setCreateAsNextShop(true);
-              bottomSheetRef.current?.present();
-            }}
-          />
-        )}
-
-        {activeList && !activeList.plannedFor && (
-          <Pressable
-            onPress={() => void scheduleSaturday()}
-            disabled={isPlanning}
-            className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
-            accessibilityLabel="Plan the next shop for Saturday"
-            accessibilityRole="button"
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow/20">
-              <CalendarDays size={20} color={themeColors.warningInk} />
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className="font-semibold text-ink">
-                Plan for Saturday
-              </Text>
-              <Text className="mt-0.5 text-sm text-ink-secondary">
-                {formatDateWithWeekday(nextSaturday(), dateOptions)}
-              </Text>
-            </View>
-            {isPlanning ? (
-              <ActivityIndicator color={themeColors.coral} />
-            ) : (
-              <ChevronRight size={20} color={themeColors.secondaryInk} />
-            )}
-          </Pressable>
-        )}
-        {planningError && (
-          <Text className="mt-2 text-sm text-red-600">{planningError}</Text>
-        )}
-
-        <View className="mt-8 flex-row items-center justify-between">
-          <View className="flex-1 pr-4">
-            <Text className="text-xl font-heading text-ink">
-              Restock check
-            </Text>
-            <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-              {visibleCandidateCount > 0
-                ? `${visibleCandidateCount} ${visibleCandidateCount === 1 ? "item may" : "items may"} need a quick check`
-                : `Next check around ${formatDateWithWeekday(nextReviewDate, dateOptions)}`}
-            </Text>
-          </View>
-          {visibleCandidateCount > 0 && (
-            <View className="rounded-full bg-coral-soft px-3 py-1.5">
-              <Text className="text-sm font-semibold text-coral">
-                {visibleCandidateCount}
+          {isFromCache && (
+            <View className="mb-3 flex-row items-center rounded-xl bg-yellow/20 px-3 py-2">
+              <CloudOff size={16} color={themeColors.warningInk} />
+              <Text className="ml-2 text-sm text-yellow-900">
+                Showing your saved offline plan
               </Text>
             </View>
           )}
-        </View>
 
-        {review.trackedProductCount === 0 ? (
-          <View className="mt-3 rounded-2xl border border-separator bg-surface p-4">
-            <Text className="text-base font-semibold text-ink">
-              Let us remember the regulars
-            </Text>
-            <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-              Choose a few recurring products when you have a minute. You can
-              change them at any time.
-            </Text>
-            <Button
-              variant="tonal"
-              onPress={() => router.push("/restock-setup" as Href)}
-              className="mt-4 w-full"
-              accessibilityLabel="Continue grocery rhythm setup"
-            >
-              Continue setup
-            </Button>
-          </View>
-        ) : visibleCandidateCount > 0 ? (
-          <View className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4">
-            {visibleCandidates.slice(0, 3).map((candidate, index) => (
-              <RestockQuickDecisionRow
-                key={candidate.householdProductId}
-                cadenceLabel={
-                  candidate.lastPurchasedAt
-                    ? `Last bought ${formatFriendlyDate(
-                        candidate.lastPurchasedAt,
-                        Date.now(),
-                        dateOptions,
-                      )}`
-                    : `Usually bought every ${candidate.cadenceDays} days`
+          {activeList ? (
+            <View className="rounded-2xl border border-separator bg-white p-5 shadow-warm">
+              <View className="flex-row items-start">
+                <View className="h-12 w-12 items-center justify-center rounded-xl bg-coral-soft">
+                  <ShoppingBasket size={23} color={themeColors.coral} />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-semibold text-coral">
+                    Next shop
+                  </Text>
+                  <Text
+                    className="mt-0.5 text-2xl font-heading text-ink"
+                    numberOfLines={2}
+                  >
+                    {activeList.name}
+                  </Text>
+                  <Text className="mt-1 text-base text-ink-secondary">
+                    {activeList.plannedFor
+                      ? formatDateWithWeekday(
+                          activeList.plannedFor,
+                          dateOptions,
+                        )
+                      : "Choose a day when you're ready"}
+                  </Text>
+                </View>
+                {shoppingModeError && (
+                  <Text className="mt-2 text-sm text-red-600">
+                    {shoppingModeError}
+                  </Text>
+                )}
+              </View>
+
+              <View className="mt-5 flex-row flex-wrap items-center border-t border-separator pt-4">
+                <Text className="text-sm font-medium text-ink-secondary">
+                  {activeList.totalItems}{" "}
+                  {activeList.totalItems === 1 ? "item" : "items"}
+                </Text>
+                <Text className="mx-2 text-warm-gray-400">·</Text>
+                <Text className="text-sm font-medium text-ink-secondary">
+                  {activeList.plannedTotalPence > 0
+                    ? `${formatCurrencyFromPence(activeList.plannedTotalPence)} planned`
+                    : activeList.tripBudgetPence !== undefined
+                      ? `${formatCurrencyFromPence(activeList.tripBudgetPence)} budget`
+                      : "Prices optional"}
+                </Text>
+              </View>
+
+              <View className="mt-4">
+                <Text className="text-sm font-semibold text-ink-secondary">
+                  How will you shop?
+                </Text>
+                <GlassSegmentedControl
+                  value={displayedShoppingMode}
+                  options={[
+                    {
+                      label: "In store",
+                      value: "in_store",
+                      accessibilityLabel: "Shop in store",
+                    },
+                    {
+                      label: "Online",
+                      value: "online",
+                      accessibilityLabel: "Shop online",
+                    },
+                  ]}
+                  onValueChange={(mode) => void chooseShoppingMode(mode)}
+                  disabled={isChangingMode}
+                  accessibilityLabel="Shopping method"
+                  className="mt-2"
+                />
+              </View>
+
+              <Button
+                onPress={() =>
+                  router.push(
+                    (visibleCandidateCount > 0
+                      ? "/restock-review"
+                      : "/(tabs)/shop") as Href,
+                  )
                 }
-                displayName={candidate.displayName}
-                isAdded={candidate.isAdded}
-                isBusy={false}
-                canAdd={Boolean(activeList)}
-                onDecision={(decision) =>
-                  void makeDecision(candidate.householdProductId, decision)
+                className="mt-5 w-full"
+                accessibilityLabel={
+                  visibleCandidateCount > 0
+                    ? `Review ${visibleCandidateCount} suggested restocks`
+                    : "Start shopping"
                 }
-                showDivider={index > 0}
-              />
-            ))}
+              >
+                {visibleCandidateCount > 0
+                  ? `Review ${visibleCandidateCount} ${visibleCandidateCount === 1 ? "item" : "items"}`
+                  : "Start shopping"}
+              </Button>
+
+              {visibleCandidateCount > 0 && (
+                <Button
+                  variant="tonal"
+                  onPress={() => router.push("/(tabs)/shop" as Href)}
+                  className="mt-2 w-full"
+                  accessibilityLabel="Start shopping without reviewing restocks"
+                >
+                  Start shopping
+                </Button>
+              )}
+            </View>
+          ) : (
+            <NextShopChooser
+              choosingListId={choosingListId}
+              error={nextShopError}
+              existingLists={otherLists}
+              isOnline={isOnline}
+              onChoose={(listId) => void chooseExistingList(listId)}
+              onCreate={() => {
+                setCreateAsNextShop(true);
+                bottomSheetRef.current?.present();
+              }}
+            />
+          )}
+
+          {activeList && !activeList.plannedFor && (
             <Pressable
-              onPress={() => router.push("/restock-review" as Href)}
-              className="min-h-12 flex-row items-center justify-center border-t border-separator"
-              accessibilityLabel="Open full restock review"
+              onPress={() => void scheduleSaturday()}
+              disabled={isPlanning}
+              className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
+              accessibilityLabel="Plan the next shop for Saturday"
               accessibilityRole="button"
             >
-              <Text className="mr-1 text-sm font-semibold text-coral">
-                {visibleCandidateCount > 3 ? "Review all" : "Review details"}
-              </Text>
-              <ChevronRight size={17} color={themeColors.coral} />
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow/20">
+                <CalendarDays size={20} color={themeColors.warningInk} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="font-semibold text-ink">
+                  Plan for Saturday
+                </Text>
+                <Text className="mt-0.5 text-sm text-ink-secondary">
+                  {formatDateWithWeekday(nextSaturday(), dateOptions)}
+                </Text>
+              </View>
+              {isPlanning ? (
+                <ActivityIndicator color={themeColors.coral} />
+              ) : (
+                <ChevronRight size={20} color={themeColors.secondaryInk} />
+              )}
             </Pressable>
-            {decisionError && (
-              <Text className="pb-3 text-center text-sm text-coral">
-                {decisionError}
+          )}
+          {planningError && (
+            <Text className="mt-2 text-sm text-red-600">{planningError}</Text>
+          )}
+
+          <View className="mt-8 flex-row items-center justify-between">
+            <View className="flex-1 pr-4">
+              <Text className="text-xl font-heading text-ink">
+                Restock check
               </Text>
-            )}
-          </View>
-        ) : (
-          <View className="mt-3 flex-row items-center rounded-2xl border border-teal/20 bg-teal-soft p-4">
-            <CheckCircle2 size={24} color={themeColors.teal} />
-            <View className="ml-3 flex-1">
-              <Text className="font-semibold text-ink">
-                Your plan is up to date
-              </Text>
-              <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
-                We'll bring anything uncertain back for a quick check.
+              <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+                {visibleCandidateCount > 0
+                  ? `${visibleCandidateCount} ${visibleCandidateCount === 1 ? "item may" : "items may"} need a quick check`
+                  : `Next check around ${formatDateWithWeekday(nextReviewDate, dateOptions)}`}
               </Text>
             </View>
+            {visibleCandidateCount > 0 && (
+              <View className="rounded-full bg-coral-soft px-3 py-1.5">
+                <Text className="text-sm font-semibold text-coral">
+                  {visibleCandidateCount}
+                </Text>
+              </View>
+            )}
           </View>
-        )}
 
-        <Pressable
-          onPress={() => router.push("/tracked-products" as Href)}
-          className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
-          accessibilityLabel="Manage tracked products"
-          accessibilityRole="button"
-        >
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-warm-gray-100">
-            <SlidersHorizontal size={20} color={themeColors.secondaryInk} />
-          </View>
-          <View className="ml-3 flex-1">
-            <Text className="font-semibold text-ink">Tracked products</Text>
-            <Text className="mt-0.5 text-sm text-ink-secondary">
-              Adjust timing or pause reminders
-            </Text>
-          </View>
-          <ChevronRight size={20} color={themeColors.secondaryInk} />
-        </Pressable>
+          {review.trackedProductCount === 0 &&
+          review.learningProductCount === 0 ? (
+            <View className="mt-3 rounded-2xl border border-separator bg-surface p-4">
+              <Text className="text-base font-semibold text-ink">
+                Let us remember the regulars
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+                Choose a few recurring products when you have a minute. You can
+                change them at any time.
+              </Text>
+              <Button
+                variant="tonal"
+                onPress={() => router.push("/restock-setup" as Href)}
+                className="mt-4 w-full"
+                accessibilityLabel="Continue grocery rhythm setup"
+              >
+                Continue setup
+              </Button>
+            </View>
+          ) : visibleCandidateCount > 0 ? (
+            <View className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4">
+              {visibleCandidates.slice(0, 3).map((candidate, index) => (
+                <RestockQuickDecisionRow
+                  key={candidate.householdProductId}
+                  cadenceLabel={
+                    candidate.lastPurchasedAt
+                      ? `Last bought ${formatFriendlyDate(
+                          candidate.lastPurchasedAt,
+                          Date.now(),
+                          dateOptions,
+                        )}`
+                      : `Usually bought every ${candidate.cadenceDays} days`
+                  }
+                  displayName={candidate.displayName}
+                  isAdded={candidate.isAdded}
+                  isBusy={false}
+                  canAdd={Boolean(activeList)}
+                  onDecision={(decision) =>
+                    void makeDecision(candidate.householdProductId, decision)
+                  }
+                  showDivider={index > 0}
+                />
+              ))}
+              <Pressable
+                onPress={() => router.push("/restock-review" as Href)}
+                className="min-h-12 flex-row items-center justify-center border-t border-separator"
+                accessibilityLabel="Open full restock review"
+                accessibilityRole="button"
+              >
+                <Text className="mr-1 text-sm font-semibold text-coral">
+                  {visibleCandidateCount > 3 ? "Review all" : "Review details"}
+                </Text>
+                <ChevronRight size={17} color={themeColors.coral} />
+              </Pressable>
+              {decisionError && (
+                <Text className="pb-3 text-center text-sm text-coral">
+                  {decisionError}
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View className="mt-3 flex-row items-center rounded-2xl border border-teal/20 bg-teal-soft p-4">
+              <CheckCircle2 size={24} color={themeColors.teal} />
+              <View className="ml-3 flex-1">
+                <Text className="font-semibold text-ink">
+                  Your plan is up to date
+                </Text>
+                <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
+                  We'll bring anything uncertain back for a quick check.
+                </Text>
+              </View>
+            </View>
+          )}
 
-        {activeList && otherLists.length > 0 && (
-          <View className="mt-7">
-            <Text className="mb-3 text-xl font-heading text-ink">
-              Other lists
-            </Text>
-            {otherLists.map((list, index) => (
-              <ListCard
-                key={list._id}
-                id={list._id}
-                name={list.name}
-                category={list.category}
-                totalItems={list.totalItems}
-                completedItems={list.completedItems}
-                onPress={() => router.push(`/list/${list._id}`)}
-                index={index}
-              />
-            ))}
-          </View>
-        )}
+          {review.possibleRegularCount > 0 ? (
+            <Pressable
+              onPress={() =>
+                router.push(
+                  "/tracked-products?focus=learning&source=plan" as Href,
+                )
+              }
+              className="mt-3 min-h-20 flex-row items-center rounded-2xl border border-yellow/30 bg-yellow/10 p-4 active:opacity-80"
+              accessibilityLabel={`Review ${review.possibleRegularCount} possible ${review.possibleRegularCount === 1 ? "regular" : "regulars"} OurPantry noticed`}
+              accessibilityHint="Opens products learned from completed shops"
+              accessibilityRole="button"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow/15">
+                <Sparkles size={20} color={themeColors.warningInk} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="font-semibold text-ink">
+                  {review.possibleRegularCount === 1
+                    ? "OurPantry noticed a possible regular"
+                    : `OurPantry noticed ${review.possibleRegularCount} possible regulars`}
+                </Text>
+                <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
+                  Review what we learned before reminders begin
+                </Text>
+              </View>
+              <ChevronRight size={20} color={themeColors.secondaryInk} />
+            </Pressable>
+          ) : null}
 
-        {activeList && (
           <Pressable
-            onPress={() => {
-              setCreateAsNextShop(false);
-              bottomSheetRef.current?.present();
-            }}
-            disabled={!isOnline}
-            className="mt-7 min-h-12 flex-row items-center justify-center rounded-full border border-separator bg-surface px-4 disabled:opacity-60"
-            accessibilityLabel={
-              isOnline ? "Create another list" : "Reconnect to create another list"
-            }
+            onPress={() => router.push("/tracked-products" as Href)}
+            className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
+            accessibilityLabel="Manage tracked products"
             accessibilityRole="button"
           >
-            <Plus size={20} color={themeColors.secondaryInk} />
-            <Text className="ml-2 font-semibold text-ink-secondary">
-              {isOnline ? "New list" : "Reconnect to create"}
-            </Text>
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-warm-gray-100">
+              <SlidersHorizontal size={20} color={themeColors.secondaryInk} />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="font-semibold text-ink">Tracked products</Text>
+              <Text className="mt-0.5 text-sm text-ink-secondary">
+                Adjust timing or pause reminders
+              </Text>
+            </View>
+            <ChevronRight size={20} color={themeColors.secondaryInk} />
           </Pressable>
-        )}
+
+          {activeList && otherLists.length > 0 && (
+            <View className="mt-7">
+              <Text className="mb-3 text-xl font-heading text-ink">
+                Other lists
+              </Text>
+              {otherLists.map((list, index) => (
+                <ListCard
+                  key={list._id}
+                  id={list._id}
+                  name={list.name}
+                  category={list.category}
+                  totalItems={list.totalItems}
+                  completedItems={list.completedItems}
+                  onPress={() => router.push(`/list/${list._id}`)}
+                  index={index}
+                />
+              ))}
+            </View>
+          )}
+
+          {activeList && (
+            <Pressable
+              onPress={() => {
+                setCreateAsNextShop(false);
+                bottomSheetRef.current?.present();
+              }}
+              disabled={!isOnline}
+              className="mt-7 min-h-12 flex-row items-center justify-center rounded-full border border-separator bg-surface px-4 disabled:opacity-60"
+              accessibilityLabel={
+                isOnline
+                  ? "Create another list"
+                  : "Reconnect to create another list"
+              }
+              accessibilityRole="button"
+            >
+              <Plus size={20} color={themeColors.secondaryInk} />
+              <Text className="ml-2 font-semibold text-ink-secondary">
+                {isOnline ? "New list" : "Reconnect to create"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </Animated.ScrollView>
 
@@ -589,10 +629,7 @@ export default function PlanScreen() {
           />
         }
       />
-      <CreateListSheet
-        ref={bottomSheetRef}
-        setAsNextShop={createAsNextShop}
-      />
+      <CreateListSheet ref={bottomSheetRef} setAsNextShop={createAsNextShop} />
     </View>
   );
 }

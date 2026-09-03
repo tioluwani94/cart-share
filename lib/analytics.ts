@@ -1,5 +1,7 @@
 export type AnalyticsConsent = "granted" | "denied" | undefined;
 
+type NotificationKind = "restock_review" | "shop_reminder" | "product_learning";
+
 export function getItemCountBucket(itemCount: number): "0" | "1-10" | "11+" {
   if (itemCount <= 0) return "0";
   return itemCount <= 10 ? "1-10" : "11+";
@@ -40,14 +42,18 @@ export interface AnalyticsEvents {
   };
   "receipt attached": CommonProperties & { source: "camera" | "library" };
   "notification scheduled": CommonProperties & {
-    kind: "restock_review" | "shop_reminder";
+    kind: NotificationKind;
   };
   "notification sent": CommonProperties & {
-    kind: "restock_review" | "shop_reminder";
+    kind: NotificationKind;
     delivery_result: "accepted" | "failed";
   };
   "notification opened": CommonProperties & {
-    kind: "restock_review" | "shop_reminder";
+    kind: NotificationKind;
+  };
+  "possible regular reviewed": CommonProperties & {
+    decision: "track" | "not_regular";
+    source: "plan" | "notification" | "tracked_products";
   };
   "tracked product corrected": CommonProperties & { field: string };
 }
@@ -85,11 +91,7 @@ const eventPropertyNames: {
     "candidate_count_bucket",
     "source",
   ],
-  "restock decision made": [
-    ...commonPropertyNames,
-    "decision",
-    "source",
-  ],
+  "restock decision made": [...commonPropertyNames, "decision", "source"],
   "shopping item added": [...commonPropertyNames, "source"],
   "shop started": [...commonPropertyNames, "mode"],
   "shop completed": [
@@ -100,12 +102,9 @@ const eventPropertyNames: {
   ],
   "receipt attached": [...commonPropertyNames, "source"],
   "notification scheduled": [...commonPropertyNames, "kind"],
-  "notification sent": [
-    ...commonPropertyNames,
-    "kind",
-    "delivery_result",
-  ],
+  "notification sent": [...commonPropertyNames, "kind", "delivery_result"],
   "notification opened": [...commonPropertyNames, "kind"],
+  "possible regular reviewed": [...commonPropertyNames, "decision", "source"],
   "tracked product corrected": [...commonPropertyNames, "field"],
 };
 

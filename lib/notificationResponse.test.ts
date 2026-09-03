@@ -1,4 +1,7 @@
-import { parseRestockNotificationResponse } from "./notificationResponse";
+import {
+  getNotificationDestination,
+  parseRestockNotificationResponse,
+} from "./notificationResponse";
 
 describe("parseRestockNotificationResponse", () => {
   it.each(["restock_review", "shop_reminder"] as const)(
@@ -12,6 +15,21 @@ describe("parseRestockNotificationResponse", () => {
       ).toEqual({ identifier: "notification_1", kind });
     },
   );
+
+  it("opens possible regulars from a product-learning notification", () => {
+    expect(
+      parseRestockNotificationResponse({
+        identifier: "notification_learning_1",
+        data: {
+          url: "ourpantry://tracked-products?focus=learning&source=notification",
+          kind: "product_learning",
+        },
+      }),
+    ).toEqual({
+      identifier: "notification_learning_1",
+      kind: "product_learning",
+    });
+  });
 
   it("rejects a reminder without a kind", () => {
     expect(
@@ -35,5 +53,13 @@ describe("parseRestockNotificationResponse", () => {
         data: { url: "ourpantry://restock-review", kind: "other" },
       }),
     ).toBeNull();
+  });
+});
+
+describe("getNotificationDestination", () => {
+  it("routes learning notifications to the household memory review", () => {
+    expect(getNotificationDestination("product_learning")).toBe(
+      "/tracked-products?focus=learning&source=notification",
+    );
   });
 });

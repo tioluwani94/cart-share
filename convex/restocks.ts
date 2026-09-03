@@ -3,13 +3,17 @@ import {
   applyRestockDecision,
   calculateRestockReview,
   DAY_MS,
-  learnFromPurchase,
 } from "../lib/restockEngine";
+import {
+  normalizeProductName,
+  observeProductPurchase,
+} from "../lib/productMemory";
 import { calculatePlannedTotal } from "../lib/budget";
 import { shouldRejectNextShopClaim } from "../lib/shoppingList";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { scheduleProductLearningNotifications } from "./notifications";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
@@ -19,9 +23,7 @@ async function requireCurrentUser(ctx: ReadCtx) {
 
   const user = await ctx.db
     .query("users")
-    .withIndex("by_clerk_id", (query) =>
-      query.eq("clerkId", identity.subject),
-    )
+    .withIndex("by_clerk_id", (query) => query.eq("clerkId", identity.subject))
     .unique();
   if (!user) throw new Error("User not found in database");
   return user;
@@ -42,10 +44,6 @@ async function requireMembership(
     throw new Error("You do not have access to this household product");
   }
   return membership;
-}
-
-function normalizeProductName(value: string): string {
-  return value.trim().toLocaleLowerCase("en-GB").replace(/\s+/g, " ");
 }
 
 function clampCadenceDays(value: number): number {
@@ -80,43 +78,274 @@ export async function recordCompletedShop(
       query.eq("listId", session.listId!).eq("isCompleted", true),
     )
     .collect();
+  const household = await ctx.db.get(session.householdId);
+  if (!household) throw new Error("Shopping session household not found");
   const updatedAt = Date.now();
-  const learnedProductIds = new Set<string>();
+  const possibleRegularProductIds: Id<"householdProducts">[] = [];
+  const completedItemGroups = new Map<string, typeof completedItems>();
   for (const item of completedItems) {
-    if (
-      !item.householdProductId ||
-      learnedProductIds.has(item.householdProductId)
-    ) {
-      continue;
-    }
-    const product = await ctx.db.get(item.householdProductId);
-    if (
-      !product ||
-      product.householdId !== session.householdId ||
-      product.status !== "active"
-    ) {
-      continue;
-    }
-    const learning = learnFromPurchase({
-      product: {
-        id: product._id,
-        displayName: product.displayName,
-        status: product.status,
-        cadenceDays: product.cadenceDays,
-        lastPurchasedAt: product.lastPurchasedAt,
-        activatedAt: product.createdAt,
-        reviewAfter: product.reviewAfter,
-        purchaseObservationCount: product.purchaseObservationCount,
-      },
-      purchasedAt: session.sessionDate,
-    });
-    await ctx.db.patch(product._id, {
-      ...learning,
-      updatedAt,
-    });
-    learnedProductIds.add(product._id);
+    const normalizedName = item.householdProductId
+      ? ""
+      : normalizeProductName(item.name);
+    if (!item.householdProductId && !normalizedName) continue;
+    const key = item.householdProductId
+      ? `product:${item.householdProductId}`
+      : `name:${normalizedName}`;
+    completedItemGroups.set(key, [
+      ...(completedItemGroups.get(key) ?? []),
+      item,
+    ]);
   }
+
+  for (const items of completedItemGroups.values()) {
+    const representative = items[0];
+    const normalizedName = representative.householdProductId
+      ? ""
+      : normalizeProductName(representative.name);
+    let product = representative.householdProductId
+      ? await ctx.db.get(representative.householdProductId)
+      : await ctx.db
+          .query("householdProducts")
+          .withIndex("by_household_and_normalized_name", (query) =>
+            query
+              .eq("householdId", session.householdId)
+              .eq("normalizedName", normalizedName),
+          )
+          .unique();
+    if (product && product.householdId !== session.householdId) {
+      product = null;
+    }
+
+    let productId: Id<"householdProducts">;
+    if (!product) {
+      const observation = observeProductPurchase({
+        displayName: representative.name,
+        fallbackCadenceDays: household.shoppingCadenceDays ?? 7,
+        product: null,
+        purchasedAt: session.sessionDate,
+      });
+      productId = await ctx.db.insert("householdProducts", {
+        householdId: session.householdId,
+        category: representative.category,
+        defaultQuantity: representative.quantity,
+        defaultUnit: representative.unit,
+        ...observation.changes,
+        createdBy: session.shopperId,
+        createdAt: updatedAt,
+        updatedAt,
+      });
+    } else {
+      productId = product._id;
+    }
+
+    const existingObservation = await ctx.db
+      .query("productPurchaseObservations")
+      .withIndex("by_product_and_session", (query) =>
+        query
+          .eq("householdProductId", productId)
+          .eq("shoppingSessionId", session._id),
+      )
+      .unique();
+    if (!existingObservation?._id) {
+      if (product?.status === "active" || product?.status === "learning") {
+        const observation = observeProductPurchase({
+          displayName: product.displayName,
+          fallbackCadenceDays: household.shoppingCadenceDays ?? 7,
+          product: {
+            cadenceDays: product.cadenceDays,
+            displayName: product.displayName,
+            lastPurchasedAt: product.lastPurchasedAt,
+            normalizedName: product.normalizedName,
+            purchaseObservationCount: product.purchaseObservationCount,
+            reviewAfter: product.reviewAfter,
+            status: product.status,
+          },
+          purchasedAt: session.sessionDate,
+        });
+        await ctx.db.patch(product._id, {
+          cadenceDays: observation.changes.cadenceDays,
+          lastPurchasedAt: observation.changes.lastPurchasedAt,
+          purchaseObservationCount:
+            observation.changes.purchaseObservationCount,
+          reviewAfter: observation.changes.reviewAfter,
+          updatedAt,
+        });
+        if (observation.becamePossibleRegular) {
+          possibleRegularProductIds.push(product._id);
+        }
+      }
+      await ctx.db.insert("productPurchaseObservations", {
+        householdId: session.householdId,
+        householdProductId: productId,
+        shoppingSessionId: session._id,
+        sourceItemId: representative._id,
+        purchasedAt: session.sessionDate,
+        createdAt: updatedAt,
+      });
+    }
+
+    await Promise.all(
+      items
+        .filter((item) => item.householdProductId !== productId)
+        .map((item) =>
+          ctx.db.patch(item._id, { householdProductId: productId, updatedAt }),
+        ),
+    );
+  }
+
+  await scheduleProductLearningNotifications(ctx, {
+    householdId: session.householdId,
+    shoppingSessionId: session._id,
+    productIds: possibleRegularProductIds,
+    now: updatedAt,
+  });
 }
+
+export const backfillProductMemory = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = Math.min(
+      100,
+      Math.max(1, Math.round(args.batchSize ?? 25)),
+    );
+    const page = await ctx.db
+      .query("shoppingSessions")
+      .order("asc")
+      .paginate({ cursor: args.cursor ?? null, numItems: batchSize });
+    let observationsCreated = 0;
+    let productsCreated = 0;
+
+    for (const session of page.page) {
+      if (!session.listId) continue;
+      const [list, household, completedItems] = await Promise.all([
+        ctx.db.get(session.listId),
+        ctx.db.get(session.householdId),
+        ctx.db
+          .query("items")
+          .withIndex("by_list_and_completed", (query) =>
+            query.eq("listId", session.listId!).eq("isCompleted", true),
+          )
+          .collect(),
+      ]);
+      if (!list || list.householdId !== session.householdId || !household) {
+        continue;
+      }
+
+      const groups = new Map<string, typeof completedItems>();
+      for (const item of completedItems) {
+        const normalizedName = normalizeProductName(item.name);
+        if (!normalizedName) continue;
+        const key = item.householdProductId
+          ? `product:${item.householdProductId}`
+          : `name:${normalizedName}`;
+        groups.set(key, [...(groups.get(key) ?? []), item]);
+      }
+
+      for (const items of groups.values()) {
+        const representative = items[0];
+        const normalizedName = normalizeProductName(representative.name);
+        let product = representative.householdProductId
+          ? await ctx.db.get(representative.householdProductId)
+          : await ctx.db
+              .query("householdProducts")
+              .withIndex("by_household_and_normalized_name", (query) =>
+                query
+                  .eq("householdId", session.householdId)
+                  .eq("normalizedName", normalizedName),
+              )
+              .unique();
+        if (product && product.householdId !== session.householdId) {
+          product = null;
+        }
+
+        let productId = product?._id;
+        if (!productId) {
+          const observation = observeProductPurchase({
+            displayName: representative.name,
+            fallbackCadenceDays: household.shoppingCadenceDays ?? 7,
+            product: null,
+            purchasedAt: session.sessionDate,
+          });
+          productId = await ctx.db.insert("householdProducts", {
+            householdId: session.householdId,
+            category: representative.category,
+            defaultQuantity: representative.quantity,
+            defaultUnit: representative.unit,
+            ...observation.changes,
+            createdBy: session.shopperId,
+            createdAt: session.createdAt ?? session.sessionDate,
+            updatedAt: Date.now(),
+          });
+          productsCreated += 1;
+        }
+
+        const existingObservation = await ctx.db
+          .query("productPurchaseObservations")
+          .withIndex("by_product_and_session", (query) =>
+            query
+              .eq("householdProductId", productId)
+              .eq("shoppingSessionId", session._id),
+          )
+          .unique();
+        if (!existingObservation) {
+          const priorObservations = product
+            ? await ctx.db
+                .query("productPurchaseObservations")
+                .withIndex("by_product_and_session", (query) =>
+                  query.eq("householdProductId", productId),
+                )
+                .collect()
+            : [];
+          await ctx.db.insert("productPurchaseObservations", {
+            householdId: session.householdId,
+            householdProductId: productId,
+            shoppingSessionId: session._id,
+            sourceItemId: representative._id,
+            purchasedAt: session.sessionDate,
+            createdAt: Date.now(),
+          });
+          observationsCreated += 1;
+
+          if (product && product.status !== "paused") {
+            await ctx.db.patch(product._id, {
+              lastPurchasedAt: Math.max(
+                product.lastPurchasedAt ?? 0,
+                session.sessionDate,
+              ),
+              purchaseObservationCount: Math.max(
+                product.purchaseObservationCount,
+                priorObservations.length + 1,
+              ),
+              updatedAt: Date.now(),
+            });
+          }
+        }
+
+        await Promise.all(
+          items
+            .filter((item) => item.householdProductId !== productId)
+            .map((item) =>
+              ctx.db.patch(item._id, {
+                householdProductId: productId,
+                updatedAt: Date.now(),
+              }),
+            ),
+        );
+      }
+    }
+
+    return {
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+      sessionsScanned: page.page.length,
+      observationsCreated,
+      productsCreated,
+    };
+  },
+});
 
 export const getReview = query({
   args: {},
@@ -134,7 +363,7 @@ export const getReview = query({
       ? await ctx.db.get(household.activeListId)
       : null;
     const activeList = activeListRecord?.isArchived ? null : activeListRecord;
-    const [products, pausedProducts] = await Promise.all([
+    const [products, pausedProducts, learningProducts] = await Promise.all([
       ctx.db
         .query("householdProducts")
         .withIndex("by_household_and_status", (index) =>
@@ -145,6 +374,12 @@ export const getReview = query({
         .query("householdProducts")
         .withIndex("by_household_and_status", (index) =>
           index.eq("householdId", household._id).eq("status", "paused"),
+        )
+        .collect(),
+      ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_status", (index) =>
+          index.eq("householdId", household._id).eq("status", "learning"),
         )
         .collect(),
     ]);
@@ -216,6 +451,10 @@ export const getReview = query({
         };
       }),
       trackedProductCount: products.length + pausedProducts.length,
+      learningProductCount: learningProducts.length,
+      possibleRegularCount: learningProducts.filter(
+        (product) => product.purchaseObservationCount >= 2,
+      ).length,
       candidateCount: candidates.length,
     };
   },
@@ -231,29 +470,39 @@ export const listProducts = query({
       .first();
     if (!membership) throw new Error("You do not belong to a household");
 
-    const [activeProducts, pausedProducts] = await Promise.all([
-      ctx.db
-        .query("householdProducts")
-        .withIndex("by_household_and_status", (index) =>
-          index
-            .eq("householdId", membership.householdId)
-            .eq("status", "active"),
-        )
-        .collect(),
-      ctx.db
-        .query("householdProducts")
-        .withIndex("by_household_and_status", (index) =>
-          index
-            .eq("householdId", membership.householdId)
-            .eq("status", "paused"),
-        )
-        .collect(),
-    ]);
+    const [activeProducts, pausedProducts, learningProducts] =
+      await Promise.all([
+        ctx.db
+          .query("householdProducts")
+          .withIndex("by_household_and_status", (index) =>
+            index
+              .eq("householdId", membership.householdId)
+              .eq("status", "active"),
+          )
+          .collect(),
+        ctx.db
+          .query("householdProducts")
+          .withIndex("by_household_and_status", (index) =>
+            index
+              .eq("householdId", membership.householdId)
+              .eq("status", "paused"),
+          )
+          .collect(),
+        ctx.db
+          .query("householdProducts")
+          .withIndex("by_household_and_status", (index) =>
+            index
+              .eq("householdId", membership.householdId)
+              .eq("status", "learning"),
+          )
+          .collect(),
+      ]);
 
-    return [...activeProducts, ...pausedProducts]
+    return [...learningProducts, ...activeProducts, ...pausedProducts]
       .sort(
         (left, right) =>
-          Number(left.status === "paused") - Number(right.status === "paused") ||
+          ["learning", "active", "paused"].indexOf(left.status) -
+            ["learning", "active", "paused"].indexOf(right.status) ||
           left.displayName.localeCompare(right.displayName, "en-GB"),
       )
       .map((product) => ({
@@ -330,9 +579,9 @@ export const getActivationSuggestions = query({
       .filter(([, entry]) => entry.occurrences >= 2)
       .map(([normalizedName, entry]) => {
         const dates = entry.purchaseDates.sort((left, right) => left - right);
-        const intervals = dates.slice(1).map(
-          (date, index) => (date - dates[index]) / DAY_MS,
-        );
+        const intervals = dates
+          .slice(1)
+          .map((date, index) => (date - dates[index]) / DAY_MS);
         return {
           normalizedName,
           displayName: entry.displayName,
@@ -530,7 +779,8 @@ export const updateProduct = mutation({
       updates.displayName = displayName;
       updates.normalizedName = normalizeProductName(displayName);
     }
-    if (args.category !== undefined) updates.category = args.category ?? undefined;
+    if (args.category !== undefined)
+      updates.category = args.category ?? undefined;
     if (args.defaultQuantity !== undefined) {
       updates.defaultQuantity = args.defaultQuantity ?? undefined;
     }
@@ -593,9 +843,7 @@ export const decide = mutation({
     if (recentOperationIds.includes(args.operationId)) {
       const existingItem =
         args.decision === "add"
-          ? await findLinkedItem(
-              args.expectedActiveListId ?? activeList?._id,
-            )
+          ? await findLinkedItem(args.expectedActiveListId ?? activeList?._id)
           : null;
       return {
         applied: false as const,

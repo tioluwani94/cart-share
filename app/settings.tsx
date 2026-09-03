@@ -35,12 +35,8 @@ import {
   registerForPushNotifications,
 } from "@/lib/pushNotifications";
 import { themeColors } from "@/lib/theme";
-import {
-  isClerkAPIResponseError,
-  useAuth,
-  useUser,
-} from "@clerk/expo";
-import { useMutation, useQuery } from "convex/react";
+import { isClerkAPIResponseError, useAuth, useUser } from "@clerk/expo";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
@@ -98,10 +94,7 @@ function SettingsLoadingState({ onBack }: { onBack: () => void }) {
       edges={["left", "right", "bottom"]}
     >
       <PageHeader title="Settings" onBack={onBack} />
-      <View
-        className="px-6"
-        style={{ paddingTop: pageHeaderHeight + 20 }}
-      >
+      <View className="px-6" style={{ paddingTop: pageHeaderHeight + 20 }}>
         <View className="h-5 w-24 rounded-lg bg-warm-gray-100" />
         <View className="mt-3 h-48 rounded-2xl border border-separator bg-surface" />
       </View>
@@ -140,13 +133,24 @@ export default function SettingsScreen() {
     18 * 60,
   );
   const { signOut } = useAuth();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { user: clerkUser } = useUser();
   const analytics = useAnalytics();
-  const household = useQuery(api.households.getCurrentHousehold);
-  const preferences = useQuery(api.notifications.getPreferences);
+  const canQueryAuthenticatedData =
+    isConvexAuthenticated && !isSigningOut && !isDeletingAccount;
+  const household = useQuery(
+    api.households.getCurrentHousehold,
+    canQueryAuthenticatedData ? {} : "skip",
+  );
+  const preferences = useQuery(
+    api.notifications.getPreferences,
+    canQueryAuthenticatedData ? {} : "skip",
+  );
   const archivedLists = useQuery(
     api.lists.getArchivedByHousehold,
-    household?._id ? { householdId: household._id } : "skip",
+    canQueryAuthenticatedData && household?._id
+      ? { householdId: household._id }
+      : "skip",
   );
   const unarchiveList = useMutation(api.lists.unarchive);
   const saveMonthlyBudget = useMutation(api.households.setMonthlyBudget);
@@ -290,7 +294,9 @@ export default function SettingsScreen() {
         });
       } catch (error) {
         console.error("Couldn't update notification preferences:", error);
-        setPreferenceError("We couldn't update notifications. Please try again.");
+        setPreferenceError(
+          "We couldn't update notifications. Please try again.",
+        );
       } finally {
         setIsSavingPreferences(false);
       }
@@ -326,7 +332,9 @@ export default function SettingsScreen() {
         analytics.setConsent(consent);
       } catch (error) {
         console.error("Couldn't update analytics preference:", error);
-        setPreferenceError("We couldn't update analytics sharing. Please try again.");
+        setPreferenceError(
+          "We couldn't update analytics sharing. Please try again.",
+        );
       } finally {
         setIsSavingPreferences(false);
       }
@@ -426,22 +434,18 @@ export default function SettingsScreen() {
         await finishAccountDeletionLocalCleanup();
       } catch (error) {
         console.error("Local account cleanup failed:", error);
-        Alert.alert(
-          failureTitle,
-          failureMessage,
-          [
-            {
-              text: "Try again",
-              onPress: () => {
-                void finishLocalCleanup({
-                  onSuccess,
-                  failureTitle,
-                  failureMessage,
-                });
-              },
+        Alert.alert(failureTitle, failureMessage, [
+          {
+            text: "Try again",
+            onPress: () => {
+              void finishLocalCleanup({
+                onSuccess,
+                failureTitle,
+                failureMessage,
+              });
             },
-          ],
-        );
+          },
+        ]);
         return false;
       }
       onSuccess();
@@ -556,10 +560,9 @@ export default function SettingsScreen() {
     household?.monthlyBudgetPence === undefined
       ? "Not set"
       : formatCurrencyFromPence(household.monthlyBudgetPence);
-  const accountDeletionImpact =
-    !household
-      ? "Your account will be permanently deleted."
-      : household.members.length > 1
+  const accountDeletionImpact = !household
+    ? "Your account will be permanently deleted."
+    : household.members.length > 1
       ? household.userRole === "owner"
         ? "Your account will leave this household. Ownership will pass to another member, and the household's lists, history, and receipts will stay available to them."
         : "Your account will leave this household. The household's lists, history, and receipts will stay available to the other member."
@@ -699,9 +702,7 @@ export default function SettingsScreen() {
                     : undefined
                 }
                 accessibilityState={
-                  archivedCount > 0
-                    ? { expanded: archivedExpanded }
-                    : undefined
+                  archivedCount > 0 ? { expanded: archivedExpanded } : undefined
                 }
               />
 
@@ -746,12 +747,12 @@ export default function SettingsScreen() {
           <SettingsToggleRow
             icon={<Bell size={19} color={themeColors.coral} strokeWidth={2} />}
             iconTone="coral"
-            title="Restock reminders"
-            subtitle="Quiet prompts with no item names on the lock screen"
+            title="Shopping insights & reminders"
+            subtitle="Possible regulars and restock prompts, with no item names on the lock screen"
             value={preferences?.restockNotificationsEnabled ?? false}
             onValueChange={(value) => void handleNotificationChange(value)}
             disabled={isSavingPreferences || preferences === undefined}
-            accessibilityLabel="Restock reminders"
+            accessibilityLabel="Shopping insights and reminders"
           />
 
           {preferences?.restockNotificationsEnabled ? (
@@ -929,7 +930,13 @@ export default function SettingsScreen() {
           <GlassSheetHeader
             title="Sign out?"
             description="Your household data stays safe. You can sign back in at any time."
-            icon={<LogOut size={21} color={themeColors.secondaryInk} strokeWidth={2} />}
+            icon={
+              <LogOut
+                size={21}
+                color={themeColors.secondaryInk}
+                strokeWidth={2}
+              />
+            }
             tone="neutral"
             onClose={() => signOutSheetRef.current?.dismiss()}
             closeDisabled={isSigningOut}
@@ -966,7 +973,9 @@ export default function SettingsScreen() {
           <GlassSheetHeader
             title="Delete your account?"
             description={`${accountDeletionImpact} This cannot be undone.`}
-            icon={<Trash2 size={21} color={themeColors.error} strokeWidth={2} />}
+            icon={
+              <Trash2 size={21} color={themeColors.error} strokeWidth={2} />
+            }
             tone="danger"
             onClose={() => deleteAccountSheetRef.current?.dismiss()}
             closeDisabled={isDeletingAccount}
@@ -1002,7 +1011,6 @@ export default function SettingsScreen() {
           </View>
         </GlassBottomSheetView>
       </GlassBottomSheet>
-
     </SafeAreaView>
   );
 }

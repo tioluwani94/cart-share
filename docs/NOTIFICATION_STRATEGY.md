@@ -5,7 +5,7 @@ implementation commitment**
 
 Initial market: **UK households, iOS first**
 
-Last updated: **2 September 2026**
+Last updated: **3 September 2026**
 
 ## 1. Purpose
 
@@ -40,13 +40,17 @@ and implementation planning.
 
 ## 3. MVP notification contract
 
-The MVP has one notification family: **restock planning**. It contains no more
-than two notifications for a member in one household shopping cycle.
+The MVP has two functional notification families: **restock planning** and a
+bounded **grocery-memory insight**. Both use the same per-member opt-in. Restock
+planning contains no more than two notifications for a member in one household
+shopping cycle; product learning adds at most one consolidated prompt when a
+completed shop reveals one or more possible regulars.
 
-| Notification | Trigger | Cadence | Recipient and timing | Destination |
-|---|---|---|---|---|
-| Restock review | At least one tracked product becomes eligible for review and is not already on the active list | Once per member per shopping cycle | At the member's selected local time, not before the earliest eligible review time | Plan restock-review state |
-| Shop reminder | Eligible products remain unresolved shortly before a dated Next shop | At most once per member per shopping cycle | Approximately 24 hours before the planned shop, at the member's selected local time; omitted when no valid delivery time remains before the shop | Plan restock-review state |
+| Notification      | Trigger                                                                                          | Cadence                                                                                           | Recipient and timing                                                                                                                             | Destination                          |
+| ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Restock review    | At least one tracked product becomes eligible for review and is not already on the active list   | Once per member per shopping cycle                                                                | At the member's selected local time, not before the earliest eligible review time                                                                | Plan restock-review state            |
+| Shop reminder     | Eligible products remain unresolved shortly before a dated Next shop                             | At most once per member per shopping cycle                                                        | Approximately 24 hours before the planned shop, at the member's selected local time; omitted when no valid delivery time remains before the shop | Plan restock-review state            |
+| Possible regulars | One or more learning products reach two distinct completed-shop observations in the same session | One consolidated prompt per opted-in member and completed shopping session; never one per product | At the member's selected local time after the qualifying shop                                                                                    | Learning section of Tracked products |
 
 ### 3.1 Delivery-time rules
 
@@ -60,9 +64,9 @@ than two notifications for a member in one household shopping cycle.
   across daylight-saving changes.
 - The backend evaluates due reminders every **15 minutes**, so delivery is
   expected within the next scheduler window rather than at an exact second.
-- One reminder record is deduplicated by member, household, shopping cycle, and
-  notification kind. Recalculation updates pending timing rather than creating a
-  duplicate.
+- Restock records are deduplicated by member, household, shopping cycle, and
+  notification kind. Learning records are deduplicated by member, household,
+  completed shopping session, and kind. Retries never create a second record.
 
 ### 3.2 Eligibility and cancellation
 
@@ -72,23 +76,29 @@ Before delivery, the backend confirms that:
 - the member still has restock notifications enabled;
 - the recipient device token is still enabled and belongs to that member;
 - the household and active list still exist; and
-- at least one unresolved restock candidate still exists.
+- the underlying action still exists: either an unresolved restock candidate or
+  at least one qualifying learning product from the notification remains ready
+  for review.
 
 Pending reminders are recalculated or cancelled after relevant preference,
-Next-shop, tracked-product, list, or restock-decision changes. Products already
-on the active list are excluded. Opening a push after another member resolves
-the review shows current state rather than stale actions.
+Next-shop, tracked-product, list, or restock-decision changes. Restock products
+already on the active list are excluded. A learning notification is cancelled
+when every referenced product has been tracked or marked not regular. Opening a
+push after another member resolves the review shows current state rather than
+stale actions.
 
 ### 3.3 Copy and privacy
 
-Both MVP notification kinds use consolidated copy such as:
+Restock notifications use consolidated copy such as:
 
 > Your next shop needs a quick check
 >
 > 3 things may need a quick check before Saturday.
 
-The copy can expose the number of unresolved decisions and the planned weekday,
-but not individual products, prices, receipt data, or member activity.
+The learning notification uses similarly private copy such as “OurPantry is
+learning your regulars” and may state only how many products are ready to
+review. Copy can expose a count and planned weekday where relevant, but not
+individual products, prices, receipt data, or member activity.
 
 ### 3.4 Delivery failure behaviour
 
@@ -106,17 +116,17 @@ These candidates should be introduced individually and only when the stated
 evidence gate is met. Cadences are starting hypotheses for beta testing, not
 approved product requirements.
 
-| Candidate | Proposed trigger and cadence | Default channel | Evidence gate |
-|---|---|---|---|
-| Shopping-started handoff | When one member starts a shop, notify the other member once per shopping session: “Shopping has started — anything else?” Suppress when the recipient is already active in the list or the shop has finished. Do not queue a stale overnight delivery. | Optional push during allowed hours; otherwise in-app activity | Households miss late additions or repeatedly message outside the app |
-| Incomplete-shop recovery | One prompt 2–4 hours after a shopping session becomes inactive while still open. Never repeat for the same session. | In-app first; optional push after validation | Beta users accidentally leave sessions open often enough to damage restock learning or spend history |
-| Missing-spend follow-up | One prompt after a completed shop without a total, preferably bundled into the next app open. Do not notify when the member explicitly selected “Skip for now.” | In-app | Spend completion is valuable but materially under-recorded because of forgetfulness rather than intentional skipping |
-| Factual shop recap | Show immediately after completion; do not push by default. It may state items collected, regulars remembered, household contribution, and observed budget variance. | In-app card | The facts are reliable and users report that the recap makes invisible value understandable |
-| Budget pace | At most one useful monthly insight, or one threshold alert when observed spend materially crosses a member-selected budget threshold. Never send routine weekly summaries with no decision attached. | In-app first; separately opt-in push | Households record enough spend for the calculation to be representative and act on the insight |
-| Price-change digest | Batch reliable changes in household regulars into no more than one weekly digest. Do not alert on low-confidence OCR matches or ordinary noise. | Separately opt-in push or email | Line-item identity, quantity normalization, and confidence thresholds are trustworthy |
-| Meaningful price drop | One timely alert for a tracked regular only when licensed/current price data clears a member-selected threshold. Batch overlapping alerts. | Separately opt-in push | Licensed data and unbiased ranking exist; alerts demonstrate savings without excessive false positives |
-| Household joined | Notify the existing member once when an invited person successfully joins. | Transactional push or in-app | Beta shows the inviter otherwise fails to notice activation or complete setup |
-| Subscription lifecycle | Use StoreKit and App Store system surfaces for billing. App messaging may explain an entitlement change, but marketing renewal pushes are not a core engagement tool. | System/in-app | Monetisation has been approved and implemented |
+| Candidate                | Proposed trigger and cadence                                                                                                                                                                                                                           | Default channel                                               | Evidence gate                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Shopping-started handoff | When one member starts a shop, notify the other member once per shopping session: “Shopping has started — anything else?” Suppress when the recipient is already active in the list or the shop has finished. Do not queue a stale overnight delivery. | Optional push during allowed hours; otherwise in-app activity | Households miss late additions or repeatedly message outside the app                                                 |
+| Incomplete-shop recovery | One prompt 2–4 hours after a shopping session becomes inactive while still open. Never repeat for the same session.                                                                                                                                    | In-app first; optional push after validation                  | Beta users accidentally leave sessions open often enough to damage restock learning or spend history                 |
+| Missing-spend follow-up  | One prompt after a completed shop without a total, preferably bundled into the next app open. Do not notify when the member explicitly selected “Skip for now.”                                                                                        | In-app                                                        | Spend completion is valuable but materially under-recorded because of forgetfulness rather than intentional skipping |
+| Factual shop recap       | Show immediately after completion; do not push by default. It may state items collected, regulars remembered, household contribution, and observed budget variance.                                                                                    | In-app card                                                   | The facts are reliable and users report that the recap makes invisible value understandable                          |
+| Budget pace              | At most one useful monthly insight, or one threshold alert when observed spend materially crosses a member-selected budget threshold. Never send routine weekly summaries with no decision attached.                                                   | In-app first; separately opt-in push                          | Households record enough spend for the calculation to be representative and act on the insight                       |
+| Price-change digest      | Batch reliable changes in household regulars into no more than one weekly digest. Do not alert on low-confidence OCR matches or ordinary noise.                                                                                                        | Separately opt-in push or email                               | Line-item identity, quantity normalization, and confidence thresholds are trustworthy                                |
+| Meaningful price drop    | One timely alert for a tracked regular only when licensed/current price data clears a member-selected threshold. Batch overlapping alerts.                                                                                                             | Separately opt-in push                                        | Licensed data and unbiased ranking exist; alerts demonstrate savings without excessive false positives               |
+| Household joined         | Notify the existing member once when an invited person successfully joins.                                                                                                                                                                             | Transactional push or in-app                                  | Beta shows the inviter otherwise fails to notice activation or complete setup                                        |
+| Subscription lifecycle   | Use StoreKit and App Store system surfaces for billing. App messaging may explain an entitlement change, but marketing renewal pushes are not a core engagement tool.                                                                                  | System/in-app                                                 | Monetisation has been approved and implemented                                                                       |
 
 ## 5. Recommended notification budget after MVP
 

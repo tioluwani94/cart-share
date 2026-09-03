@@ -10,6 +10,7 @@ type TableName =
   | "items"
   | "receiptUploads"
   | "householdProducts"
+  | "productPurchaseObservations"
   | "userPreferences"
   | "pushTokens"
   | "notificationReminders"
@@ -32,6 +33,7 @@ const indexFields: Record<string, string[]> = {
   "receiptUploads.by_household": ["householdId"],
   "householdProducts.by_created_by": ["createdBy"],
   "householdProducts.by_household_and_status": ["householdId", "status"],
+  "productPurchaseObservations.by_household_and_date": ["householdId"],
   "userPreferences.by_user": ["userId"],
   "pushTokens.by_user": ["userId"],
   "notificationReminders.by_user": ["userId"],
@@ -50,6 +52,7 @@ function createContext(seed: Partial<Tables>) {
     items: [],
     receiptUploads: [],
     householdProducts: [],
+    productPurchaseObservations: [],
     userPreferences: [],
     pushTokens: [],
     notificationReminders: [],
@@ -349,12 +352,24 @@ describe("account deletion", () => {
           createdBy: undefined,
           status: "paused",
         },
+        {
+          _id: "product_learning",
+          householdId,
+          createdBy: userId,
+          status: "learning",
+        },
+      ],
+      productPurchaseObservations: [
+        {
+          _id: "observation_final",
+          householdId,
+          householdProductId: "product_learning",
+          shoppingSessionId: "session_final",
+        },
       ],
       userPreferences: [{ _id: "preference_final", userId }],
       pushTokens: [{ _id: "push_final", userId }],
-      notificationReminders: [
-        { _id: "reminder_final", userId, householdId },
-      ],
+      notificationReminders: [{ _id: "reminder_final", userId, householdId }],
       shoppingSessions: [
         {
           _id: "session_final",

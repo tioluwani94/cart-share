@@ -250,6 +250,184 @@ describe("sessions.create", () => {
       patch.mock.invocationCallOrder[0],
     );
   });
+
+  it("starts household product learning from a completed manual item", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const itemId = "item_1" as Id<"items">;
+    const productId = "product_1" as Id<"householdProducts">;
+    const sessionId = "session_1" as Id<"shoppingSessions">;
+    const observationId = "observation_1" as Id<"productPurchaseObservations">;
+    const purchasedAt = Date.UTC(2026, 8, 3, 12);
+    const insert = jest.fn(async (table: string) => {
+      if (table === "shoppingSessions") return sessionId;
+      if (table === "householdProducts") return productId;
+      if (table === "productPurchaseObservations") return observationId;
+      throw new Error(`Unexpected insert into ${table}`);
+    });
+    const patch = jest.fn(async () => undefined);
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "users"
+                ? { _id: userId }
+                : table === "householdMembers"
+                  ? { householdId, userId }
+                  : null,
+            collect: async () =>
+              table === "items"
+                ? [
+                    {
+                      _id: itemId,
+                      listId,
+                      name: "  Whole Milk ",
+                      quantity: 2,
+                      unit: "l",
+                      isCompleted: true,
+                    },
+                  ]
+                : [],
+          }),
+        }),
+        get: async (id: string) => {
+          if (id === listId) return { _id: listId, householdId };
+          if (id === householdId) {
+            return {
+              _id: householdId,
+              activeListId: listId,
+              shoppingCadenceDays: 7,
+            };
+          }
+          if (id === sessionId) {
+            return { _id: sessionId, householdId, listId, sessionDate: purchasedAt };
+          }
+          return null;
+        },
+        insert,
+        patch,
+      },
+    };
+
+    await createSession(ctx, { householdId, listId, sessionDate: purchasedAt });
+
+    expect(insert).toHaveBeenCalledWith(
+      "householdProducts",
+      expect.objectContaining({
+        householdId,
+        normalizedName: "whole milk",
+        purchaseObservationCount: 1,
+        status: "learning",
+      }),
+    );
+    expect(insert).toHaveBeenCalledWith(
+      "productPurchaseObservations",
+      expect.objectContaining({
+        householdId,
+        householdProductId: productId,
+        shoppingSessionId: sessionId,
+        purchasedAt,
+      }),
+    );
+    expect(patch).toHaveBeenCalledWith(
+      itemId,
+      expect.objectContaining({ householdProductId: productId }),
+    );
+  });
+
+  it("notifies opted-in members when a second shop reveals a possible regular", async () => {
+    const userId = "user_1" as Id<"users">;
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const itemId = "item_1" as Id<"items">;
+    const productId = "product_1" as Id<"householdProducts">;
+    const sessionId = "session_1" as Id<"shoppingSessions">;
+    const purchasedAt = Date.UTC(2026, 8, 3, 12);
+    const product = {
+      _id: productId,
+      householdId,
+      displayName: "Whole Milk",
+      normalizedName: "whole milk",
+      status: "learning" as const,
+      cadenceDays: 7,
+      lastPurchasedAt: purchasedAt - 14 * 24 * 60 * 60 * 1000,
+      purchaseObservationCount: 1,
+      createdAt: purchasedAt - 14 * 24 * 60 * 60 * 1000,
+    };
+    const insert = jest.fn(async (table: string) => {
+      if (table === "shoppingSessions") return sessionId;
+      return `${table}_1`;
+    });
+    const patch = jest.fn(async () => undefined);
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () => {
+              if (table === "users") return { _id: userId };
+              if (table === "householdMembers") return { householdId, userId };
+              if (table === "householdProducts") return product;
+              if (table === "userPreferences") {
+                return {
+                  userId,
+                  restockNotificationsEnabled: true,
+                  notificationTimeMinutesLocal: 18 * 60,
+                  notificationTimeZone: "Europe/London",
+                };
+              }
+              return null;
+            },
+            collect: async () => {
+              if (table === "items") {
+                return [{ _id: itemId, listId, name: "Whole Milk", isCompleted: true }];
+              }
+              if (table === "householdMembers") return [{ householdId, userId }];
+              return [];
+            },
+          }),
+        }),
+        get: async (id: string) => {
+          if (id === listId) return { _id: listId, householdId };
+          if (id === householdId) {
+            return {
+              _id: householdId,
+              activeListId: listId,
+              shoppingCadenceDays: 7,
+            };
+          }
+          if (id === sessionId) {
+            return { _id: sessionId, householdId, listId, sessionDate: purchasedAt };
+          }
+          return null;
+        },
+        insert,
+        patch,
+      },
+    };
+
+    await createSession(ctx, { householdId, listId, sessionDate: purchasedAt });
+
+    expect(patch).toHaveBeenCalledWith(
+      productId,
+      expect.objectContaining({
+        cadenceDays: 14,
+        purchaseObservationCount: 2,
+      }),
+    );
+    expect(insert).toHaveBeenCalledWith(
+      "notificationReminders",
+      expect.objectContaining({
+        kind: "product_learning",
+        productIds: [productId],
+        status: "pending",
+        userId,
+      }),
+    );
+  });
 });
 
 describe("session attribution", () => {

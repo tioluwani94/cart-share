@@ -1,13 +1,32 @@
 export interface TrackableProduct {
   _id: string;
-  status: "active" | "paused";
+  status: "learning" | "active" | "paused";
+}
+
+export function getLearningProductCopy(purchaseObservationCount: number): {
+  badge: "Learning" | "Possible regular";
+  detail: string;
+  readyForReview: boolean;
+} {
+  const readyForReview = purchaseObservationCount >= 2;
+  return readyForReview
+    ? {
+        badge: "Possible regular",
+        detail: `Seen in ${purchaseObservationCount} completed shops`,
+        readyForReview,
+      }
+    : {
+        badge: "Learning",
+        detail: "Bought once · still learning",
+        readyForReview,
+      };
 }
 
 export type TrackedProductRow<T extends TrackableProduct> =
   | {
       type: "section";
-      key: "section:active" | "section:paused";
-      title: "Active" | "Paused";
+      key: "section:learning" | "section:active" | "section:paused";
+      title: "Learning" | "Active" | "Paused";
     }
   | {
       type: "product";
@@ -28,12 +47,14 @@ function buildSection<T extends TrackableProduct>(
   if (sectionProducts.length === 0) return [];
 
   const paused = status === "paused";
+  const title =
+    status === "learning" ? "Learning" : paused ? "Paused" : "Active";
 
   return [
     {
       type: "section",
       key: `section:${status}`,
-      title: paused ? "Paused" : "Active",
+      title,
     },
     ...sectionProducts.map((product, index) => ({
       type: "product" as const,
@@ -50,6 +71,7 @@ export function buildTrackedProductRows<T extends TrackableProduct>(
   products: readonly T[],
 ): TrackedProductRow<T>[] {
   return [
+    ...buildSection(products, "learning"),
     ...buildSection(products, "active"),
     ...buildSection(products, "paused"),
   ];

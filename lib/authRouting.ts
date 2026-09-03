@@ -10,13 +10,18 @@ export type AuthRedirect =
   | "/(tabs)"
   | null;
 
-interface AuthRoutingInput {
+export interface AuthRoutingInput {
   isNavigationReady: boolean;
   isClerkLoaded: boolean;
   isSignedIn: boolean | undefined;
   isConvexAuthenticated: boolean;
   household: HouseholdRoutingState;
   rootSegment: string | undefined;
+}
+
+export interface AuthRoutingDecision {
+  redirect: AuthRedirect;
+  canRenderCurrentRoute: boolean;
 }
 
 export function getAuthRedirect({
@@ -41,9 +46,7 @@ export function getAuthRedirect({
 
   if (
     household?.restockSetupCompletedAt !== undefined &&
-    ["(auth)", "household-setup", "join-household"].includes(
-      rootSegment ?? "",
-    )
+    ["(auth)", "household-setup", "join-household"].includes(rootSegment ?? "")
   ) {
     return "/(tabs)";
   }
@@ -64,4 +67,28 @@ export function getAuthRedirect({
   }
 
   return null;
+}
+
+/**
+ * Keeps the current route covered until both the authentication state and its
+ * destination agree. Redirects are asynchronous, so rendering solely from
+ * `getAuthRedirect` would expose the outgoing screen for a frame (or longer
+ * while Convex membership resolves).
+ */
+export function getAuthRoutingDecision(
+  input: AuthRoutingInput,
+): AuthRoutingDecision {
+  const redirect = getAuthRedirect(input);
+  const authStateResolved =
+    input.isNavigationReady &&
+    input.isClerkLoaded &&
+    (input.isSignedIn === false ||
+      (input.isSignedIn === true &&
+        input.isConvexAuthenticated &&
+        input.household !== undefined));
+
+  return {
+    redirect,
+    canRenderCurrentRoute: authStateResolved && redirect === null,
+  };
 }

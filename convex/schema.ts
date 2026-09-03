@@ -125,7 +125,11 @@ export default defineSchema({
     lastPurchasedAt: v.optional(v.number()),
     reviewAfter: v.optional(v.number()),
     purchaseObservationCount: v.number(),
-    status: v.union(v.literal("active"), v.literal("paused")),
+    status: v.union(
+      v.literal("learning"),
+      v.literal("active"),
+      v.literal("paused"),
+    ),
     recentOperationIds: v.optional(v.array(v.string())),
     createdBy: v.optional(v.id("users")),
     createdAt: v.number(),
@@ -137,6 +141,21 @@ export default defineSchema({
       "householdId",
       "normalizedName",
     ]),
+
+  // One product contributes at most one piece of evidence per completed shop.
+  productPurchaseObservations: defineTable({
+    householdId: v.id("households"),
+    householdProductId: v.id("householdProducts"),
+    shoppingSessionId: v.id("shoppingSessions"),
+    sourceItemId: v.optional(v.id("items")),
+    purchasedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_product_and_session", [
+      "householdProductId",
+      "shoppingSessionId",
+    ])
+    .index("by_household_and_date", ["householdId", "purchasedAt"]),
 
   // Consent and reminder choices belong to a person, not the household.
   userPreferences: defineTable({
@@ -172,7 +191,9 @@ export default defineSchema({
     kind: v.union(
       v.literal("restock_review"),
       v.literal("shop_reminder"),
+      v.literal("product_learning"),
     ),
+    productIds: v.optional(v.array(v.id("householdProducts"))),
     scheduledFor: v.number(),
     dedupeKey: v.string(),
     status: v.union(

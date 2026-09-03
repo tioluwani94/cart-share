@@ -3,7 +3,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export interface RestockProduct {
   id: string;
   displayName: string;
-  status: "active" | "paused";
+  status: "learning" | "active" | "paused";
   cadenceDays: number;
   lastPurchasedAt?: number;
   activatedAt: number;

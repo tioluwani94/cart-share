@@ -1,5 +1,11 @@
 import type { Id } from "./_generated/dataModel";
-import { decide, getReview, listProducts, updateProduct } from "./restocks";
+import {
+  backfillProductMemory,
+  decide,
+  getReview,
+  listProducts,
+  updateProduct,
+} from "./restocks";
 
 type DecideHandler = (
   ctx: unknown,
@@ -43,11 +49,122 @@ const listTrackedProducts = (
 type GetReviewHandler = (
   ctx: unknown,
   args: Record<string, never>,
-) => Promise<{ trackedProductCount: number }>;
+) => Promise<{
+  learningProductCount: number;
+  possibleRegularCount: number;
+  trackedProductCount: number;
+}>;
 
 const getRestockReview = (
   getReview as unknown as { _handler: GetReviewHandler }
 )._handler;
+
+type BackfillProductMemoryHandler = (
+  ctx: unknown,
+  args: { cursor?: string; batchSize?: number },
+) => Promise<{
+  isDone: boolean;
+  continueCursor: string;
+  sessionsScanned: number;
+  observationsCreated: number;
+  productsCreated: number;
+}>;
+
+const runProductMemoryBackfill = (
+  backfillProductMemory as unknown as {
+    _handler: BackfillProductMemoryHandler;
+  }
+)._handler;
+
+describe("restocks.backfillProductMemory", () => {
+  it("creates one learning observation for duplicate completed lines in a historical shop", async () => {
+    const householdId = "household_1" as Id<"households">;
+    const listId = "list_1" as Id<"lists">;
+    const itemId = "item_1" as Id<"items">;
+    const duplicateItemId = "item_2" as Id<"items">;
+    const productId = "product_1" as Id<"householdProducts">;
+    const sessionId = "session_1" as Id<"shoppingSessions">;
+    const purchasedAt = Date.UTC(2026, 7, 10, 12);
+    const insert = jest.fn(async (table: string) => {
+      if (table === "householdProducts") return productId;
+      return `${table}_1`;
+    });
+    const patch = jest.fn(async () => undefined);
+    const ctx = {
+      db: {
+        get: async (id: string) => {
+          if (id === listId) return { _id: listId, householdId };
+          if (id === householdId) {
+            return { _id: householdId, shoppingCadenceDays: 7 };
+          }
+          return null;
+        },
+        insert,
+        patch,
+        query: (table: string) => ({
+          order: () => ({
+            paginate: async () => ({
+              page: [
+                {
+                  _id: sessionId,
+                  householdId,
+                  listId,
+                  sessionDate: purchasedAt,
+                },
+              ],
+              continueCursor: "",
+              isDone: true,
+            }),
+          }),
+          withIndex: () => ({
+            unique: async () => null,
+            collect: async () =>
+              table === "items"
+                ? [
+                    {
+                      _id: itemId,
+                      listId,
+                      name: "Whole Milk",
+                      isCompleted: true,
+                    },
+                    {
+                      _id: duplicateItemId,
+                      listId,
+                      name: " whole   milk ",
+                      isCompleted: true,
+                    },
+                  ]
+                : [],
+          }),
+        }),
+      },
+    };
+
+    await expect(runProductMemoryBackfill(ctx, {})).resolves.toEqual({
+      isDone: true,
+      continueCursor: "",
+      sessionsScanned: 1,
+      observationsCreated: 1,
+      productsCreated: 1,
+    });
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(insert).toHaveBeenCalledWith(
+      "productPurchaseObservations",
+      expect.objectContaining({
+        householdProductId: productId,
+        shoppingSessionId: sessionId,
+      }),
+    );
+    expect(patch).toHaveBeenCalledWith(
+      itemId,
+      expect.objectContaining({ householdProductId: productId }),
+    );
+    expect(patch).toHaveBeenCalledWith(
+      duplicateItemId,
+      expect.objectContaining({ householdProductId: productId }),
+    );
+  });
+});
 
 describe("restocks.getReview", () => {
   it("tells Plan when a deferred household has no tracked products", async () => {
@@ -72,12 +189,9 @@ describe("restocks.getReview", () => {
         },
         query: (table: string) => ({
           withIndex: () => ({
-            unique: async () =>
-              table === "users" ? { _id: userId } : null,
+            unique: async () => (table === "users" ? { _id: userId } : null),
             first: async () =>
-              table === "householdMembers"
-                ? { householdId, userId }
-                : null,
+              table === "householdMembers" ? { householdId, userId } : null,
             collect: async () => [],
           }),
         }),
@@ -112,12 +226,9 @@ describe("restocks.getReview", () => {
         },
         query: (table: string) => ({
           withIndex: () => ({
-            unique: async () =>
-              table === "users" ? { _id: userId } : null,
+            unique: async () => (table === "users" ? { _id: userId } : null),
             first: async () =>
-              table === "householdMembers"
-                ? { householdId, userId }
-                : null,
+              table === "householdMembers" ? { householdId, userId } : null,
             collect: async () => {
               if (table !== "householdProducts") return [];
               productQueryCount += 1;
@@ -138,6 +249,54 @@ describe("restocks.getReview", () => {
 
     await expect(getRestockReview(ctx, {})).resolves.toEqual(
       expect.objectContaining({ trackedProductCount: 1 }),
+    );
+  });
+
+  it("reports possible regulars separately from explicitly tracked products", async () => {
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    let productQueryCount = 0;
+    const ctx = {
+      auth: { getUserIdentity: async () => ({ subject: "clerk_1" }) },
+      db: {
+        get: async (id: string) =>
+          id === householdId
+            ? { _id: householdId, restockSetupCompletedAt: 1 }
+            : null,
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () => (table === "users" ? { _id: userId } : null),
+            first: async () =>
+              table === "householdMembers" ? { householdId, userId } : null,
+            collect: async () => {
+              if (table !== "householdProducts") return [];
+              productQueryCount += 1;
+              return productQueryCount === 3
+                ? [
+                    {
+                      _id: "product_1",
+                      status: "learning",
+                      purchaseObservationCount: 2,
+                    },
+                    {
+                      _id: "product_2",
+                      status: "learning",
+                      purchaseObservationCount: 1,
+                    },
+                  ]
+                : [];
+            },
+          }),
+        }),
+      },
+    };
+
+    await expect(getRestockReview(ctx, {})).resolves.toEqual(
+      expect.objectContaining({
+        learningProductCount: 2,
+        possibleRegularCount: 1,
+        trackedProductCount: 0,
+      }),
     );
   });
 });
@@ -165,8 +324,7 @@ describe("restocks.decide", () => {
         }),
         query: (table: string) => ({
           withIndex: () => ({
-            unique: async () =>
-              table === "users" ? { _id: userId } : null,
+            unique: async () => (table === "users" ? { _id: userId } : null),
           }),
         }),
         insert,
@@ -222,9 +380,7 @@ describe("restocks.decide", () => {
         query: (table: string) => ({
           withIndex: () => ({
             unique: async () =>
-              table === "users"
-                ? { _id: userId }
-                : { householdId, userId },
+              table === "users" ? { _id: userId } : { householdId, userId },
           }),
         }),
         insert,
@@ -274,7 +430,10 @@ describe("restocks.decide", () => {
     }[] = [{ _id: itemId, name: "  MILK ", isCompleted: false }];
     const insert = jest.fn(async (table: string, value: never) => {
       if (table === "items") {
-        items.push({ _id: itemId, ...(value as object) } as (typeof items)[number]);
+        items.push({
+          _id: itemId,
+          ...(value as object),
+        } as (typeof items)[number]);
       }
       return itemId;
     });
@@ -371,7 +530,9 @@ describe("restocks.listProducts", () => {
             collect: async () => {
               if (table !== "householdProducts") return [];
               productQueryCount += 1;
-              return productQueryCount === 1 ? [activeProduct] : [pausedProduct];
+              if (productQueryCount === 1) return [activeProduct];
+              if (productQueryCount === 2) return [pausedProduct];
+              return [];
             },
           }),
         }),

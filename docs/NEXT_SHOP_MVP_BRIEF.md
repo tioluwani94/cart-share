@@ -72,11 +72,11 @@ This navigation structure was approved in checkpoint A and is implemented.
 
 ### Primary tabs
 
-| Destination | Purpose | Existing capability reused |
-|---|---|---|
-| **Plan** | Next-shop summary, restock review, planned products, other lists | Existing Home and list queries |
-| **Shop** | Direct access to the active list and in-store mode | Existing list detail and offline queue |
-| **Spending** | Monthly budget, planned versus actual, recent shops | Existing Analytics and sessions |
+| Destination  | Purpose                                                          | Existing capability reused             |
+| ------------ | ---------------------------------------------------------------- | -------------------------------------- |
+| **Plan**     | Next-shop summary, restock review, planned products, other lists | Existing Home and list queries         |
+| **Shop**     | Direct access to the active list and in-store mode               | Existing list detail and offline queue |
+| **Spending** | Monthly budget, planned versus actual, recent shops              | Existing Analytics and sessions        |
 
 ### Secondary routes
 
@@ -110,7 +110,7 @@ Physical shop or online handoff
         ↓
 Finish shop, optionally capture receipt and spend
         ↓
-Completed linked products update their purchase cadence
+All completed products extend household grocery memory; confirmed products update their cadence
 ```
 
 ## 7. Low-fidelity wireframes
@@ -290,12 +290,12 @@ Candidates are sorted by overdue duration, then confidence, then display name. T
 
 ### 8.4 Decisions
 
-| Decision | Immediate effect | Learning effect |
-|---|---|---|
-| **Add** | Upsert linked item into active list | None until purchased |
+| Decision            | Immediate effect                                    | Learning effect                             |
+| ------------------- | --------------------------------------------------- | ------------------------------------------- |
+| **Add**             | Upsert linked item into active list                 | None until purchased                        |
 | **Still have some** | Delay review by 25% of cadence, clamped to 2–7 days | Increase cadence by 10%, capped at 180 days |
-| **Not this time** | Delay until one day after the current planned shop | Do not change cadence |
-| **Stop tracking** | Set product status to paused | Preserve history for restoration |
+| **Not this time**   | Delay until one day after the current planned shop  | Do not change cadence                       |
+| **Stop tracking**   | Set product status to paused                        | Preserve history for restoration            |
 
 Every decision is idempotent. Repeating Add must not create duplicate list items.
 
@@ -317,14 +317,29 @@ Every decision is idempotent. Repeating Add must not create duplicate list items
 
 ### 8.7 Learning after purchase
 
-For each completed item linked to an active household product:
+Every completed shopping session records at most one purchase observation for
+each normalized product, including manually added products that were not chosen
+during activation. Exact normalized-name matching is used for the MVP; fuzzy or
+AI identity matching is explicitly excluded.
+
+An unknown completed product starts in `learning` state after its first distinct
+shop. After two distinct shopping-session observations it becomes a **possible
+regular**, but it is not eligible for restock reminders until a household member
+explicitly chooses **Track this product**. **Not a regular** moves it to `paused`
+without deleting its history.
+
+For each completed item linked to an active or learning household product:
 
 ```text
 observedInterval = purchasedAt - previousLastPurchasedAt
 newCadence = round((oldCadence × 0.7) + (observedInterval × 0.3))
 ```
 
-Observed intervals are clamped to 1–180 days. The first purchase only establishes `lastPurchasedAt`; it does not pretend to be a learned interval. After updating, any `reviewAfter` postponement is cleared so the next review returns to the derived cadence window.
+Observed intervals are clamped to 1–180 days. The first purchase only establishes
+`lastPurchasedAt`; it does not pretend to be a learned interval. Duplicate list
+lines and completion retries do not increase evidence. After updating, any
+`reviewAfter` postponement is cleared so the next review returns to the derived
+cadence window. Paused products retain history but remain excluded from review.
 
 ### 8.8 Offline behaviour
 
@@ -349,7 +364,8 @@ Observed intervals are clamped to 1–180 days. The first purchase only establis
 
 ### 8.10 Push-notification behaviour
 
-- Notifications are a reminder surface for an existing review, never a source of new product decisions.
+- Notifications are a private route back to an existing review, never an
+  automatic product decision.
 - Send one consolidated restock-review notification when a household has unresolved candidates. A second notification is allowed only as a reminder roughly 24 hours before the planned shop while candidates remain unresolved.
 - Cap delivery at two push notifications per household shopping cycle. Never send one notification per product.
 - Default delivery is 18:00 in each member's saved time zone, with quiet hours from 20:00–08:00. Each member can disable or adjust their own notifications without changing the other member's preference.
@@ -358,6 +374,14 @@ Observed intervals are clamped to 1–180 days. The first purchase only establis
 - Before sending, the backend revalidates household membership, the recipient's preference, and the unresolved-candidate count. Sign-out disables that device token for the signed-out user.
 - Expo delivery tickets and receipts are processed. Permanently invalid tokens are disabled; transient failures are retried with bounded backoff and no duplicate user-visible reminder.
 - A backend job evaluates pending reminders at a fixed interval. Product, list-date, membership, preference, and restock-decision mutations recalculate or cancel the affected reminder record.
+- When a completed shop moves one or more learning products across the second
+  distinct-observation threshold, schedule one consolidated possible-regular
+  notification per opted-in member for that session. Do not notify after the
+  first purchase, once per product, during historical backfill, or again on a
+  completion retry.
+- The learning notification deep-links to the learning section of Tracked
+  products. Send-time validation removes products already tracked or rejected
+  and cancels delivery when no qualifying product remains.
 
 ### 8.11 Product analytics behaviour
 
@@ -370,22 +394,23 @@ Observed intervals are clamped to 1–180 days. The first purchase only establis
 
 Initial event contract:
 
-| Event | Safe properties |
-|---|---|
-| `activation started` | market, platform, app version |
-| `activation completed` | household-size bucket, cadence bucket, shopping mode |
-| `activation skipped` | step identifier |
-| `notification permission answered` | granted/denied/provisional |
-| `restock review shown` | candidate-count bucket, source |
-| `restock decision made` | add/still-have/not-now/stop-tracking, source |
-| `shopping item added` | manual/restock |
-| `shop started` | physical/online |
-| `shop completed` | item-count bucket, total-present, receipt-present |
-| `receipt attached` | source camera/library |
-| `notification scheduled` | restock-review/shop-reminder |
-| `notification sent` | kind, delivery result |
-| `notification opened` | kind |
-| `tracked product corrected` | field category only |
+| Event                              | Safe properties                                                       |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `activation started`               | market, platform, app version                                         |
+| `activation completed`             | household-size bucket, cadence bucket, shopping mode                  |
+| `activation skipped`               | step identifier                                                       |
+| `notification permission answered` | granted/denied/provisional                                            |
+| `restock review shown`             | candidate-count bucket, source                                        |
+| `restock decision made`            | add/still-have/not-now/stop-tracking, source                          |
+| `shopping item added`              | manual/restock                                                        |
+| `shop started`                     | physical/online                                                       |
+| `shop completed`                   | item-count bucket, total-present, receipt-present                     |
+| `receipt attached`                 | source camera/library                                                 |
+| `notification scheduled`           | restock-review/shop-reminder/product-learning                         |
+| `notification sent`                | kind, delivery result                                                 |
+| `notification opened`              | kind                                                                  |
+| `possible regular reviewed`        | track/not-regular decision, plan/notification/tracked-products source |
+| `tracked product corrected`        | field category only                                                   |
 
 Event names use the `[object] [verb]` convention and live in one typed contract. Adding an event or property requires updating the allow-list and its privacy review.
 
@@ -420,16 +445,17 @@ householdProducts: defineTable({
   lastPurchasedAt: v.optional(v.number()),
   reviewAfter: v.optional(v.number()),
   purchaseObservationCount: v.number(),
-  status: v.union(v.literal("active"), v.literal("paused")),
+  status: v.union(
+    v.literal("learning"),
+    v.literal("active"),
+    v.literal("paused"),
+  ),
   createdBy: v.id("users"),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
   .index("by_household_and_status", ["householdId", "status"])
-  .index("by_household_and_normalized_name", [
-    "householdId",
-    "normalizedName",
-  ])
+  .index("by_household_and_normalized_name", ["householdId", "normalizedName"]);
 ```
 
 Rationale:
@@ -437,6 +463,8 @@ Rationale:
 - It models replenishment memory, not physical stock.
 - The household-and-status index serves active review.
 - The normalized-name index prevents duplicate tracked products.
+- `learning` preserves the boundary between observed purchase memory and an
+  explicitly approved reminder.
 - No due-date index is initially required because a household is expected to have tens, not thousands, of tracked products; the authenticated household query can calculate candidates in memory.
 
 ### 9.2 `households` additions
@@ -489,13 +517,13 @@ The link provides stable product identity across product renames and repeated sh
 Change:
 
 ```ts
-totalAmount: v.number()
+totalAmount: v.number();
 ```
 
 to:
 
 ```ts
-totalAmount: v.optional(v.number())
+totalAmount: v.optional(v.number());
 ```
 
 This allows a household to complete a valid physical shop without being forced to scan a receipt or enter spending. Analytics must exclude missing totals from sums while still counting the shopping session where appropriate.
@@ -505,15 +533,33 @@ Offline completion additionally stores an approved idempotency key:
 ```ts
 completionOperationId: v.optional(v.string())
 
-.index("by_list_and_completion_operation", [
-  "listId",
-  "completionOperationId",
-])
+  .index("by_list_and_completion_operation", [
+    "listId",
+    "completionOperationId",
+  ]);
 ```
 
 The field is present only for queued completion commands. It keeps retries
 idempotent without treating every future completion of the same list as the
 same shopping session.
+
+### 9.5.1 New table: `productPurchaseObservations`
+
+```ts
+productPurchaseObservations: defineTable({
+  householdId: v.id("households"),
+  householdProductId: v.id("householdProducts"),
+  shoppingSessionId: v.id("shoppingSessions"),
+  sourceItemId: v.optional(v.id("items")),
+  purchasedAt: v.number(),
+  createdAt: v.number(),
+})
+  .index("by_product_and_session", ["householdProductId", "shoppingSessionId"])
+  .index("by_household_and_date", ["householdId", "purchasedAt"]);
+```
+
+The product/session index is the durable retry guard and ensures duplicate list
+lines contribute one piece of evidence per completed shop.
 
 ### 9.6 New table: `userPreferences`
 
@@ -529,7 +575,7 @@ userPreferences: defineTable({
   notificationTimeZone: v.string(),
   createdAt: v.number(),
   updatedAt: v.number(),
-}).index("by_user", ["userId"])
+}).index("by_user", ["userId"]);
 ```
 
 The preference is per person, not per household. Missing analytics consent is treated as not granted. Notification time defaults to 18:00 only after notification opt-in.
@@ -548,7 +594,7 @@ pushTokens: defineTable({
   updatedAt: v.number(),
 })
   .index("by_user", ["userId"])
-  .index("by_token", ["token"])
+  .index("by_token", ["token"]);
 ```
 
 Registration is authenticated. A token can be rebound only after explicit sign-in on that device; sign-out disables the current binding, and send-time authorization prevents stale household delivery.
@@ -562,7 +608,9 @@ notificationReminders: defineTable({
   kind: v.union(
     v.literal("restock_review"),
     v.literal("shop_reminder"),
+    v.literal("product_learning"),
   ),
+  productIds: v.optional(v.array(v.id("householdProducts"))),
   scheduledFor: v.number(),
   dedupeKey: v.string(),
   status: v.union(
@@ -578,10 +626,13 @@ notificationReminders: defineTable({
 })
   .index("by_status_and_scheduled_for", ["status", "scheduledFor"])
   .index("by_dedupe_key", ["dedupeKey"])
-  .index("by_user", ["userId"])
+  .index("by_user", ["userId"]);
 ```
 
-`dedupeKey` combines user, household, shopping cycle, and reminder kind. It makes rescheduling and retries idempotent without putting product details in notification storage.
+Restock `dedupeKey` values combine user, household, shopping cycle, and reminder
+kind. Product-learning keys combine user, household, completed session, and
+kind. `productIds` is used only for send-time state validation; lock-screen copy
+never contains the names.
 
 ## 10. Migration and backfill behaviour
 
@@ -589,7 +640,11 @@ notificationReminders: defineTable({
 - Existing session totals remain unchanged.
 - Existing sessions leave `completionOperationId` absent; no idempotency-key
   backfill is required.
-- No automatic production backfill runs at schema deployment.
+- No automatic production backfill runs at schema deployment. An approved,
+  bounded internal migration can process historical sessions in cursor batches.
+  It is idempotent, creates no historical notifications, preserves explicit
+  active/paused choices and cadence, and links normalized completed items to
+  household products.
 - Existing households see a one-time activation experience after sign-in because `restockSetupCompletedAt` is absent.
 - Existing households receive GB/GBP/en-GB defaults only when activation is saved; no speculative data backfill runs. Their time zone is seeded from the activating device and explicitly confirmed.
 - Activation queries recent archived/completed list history, normalizes names, and offers repeated products for confirmation.
@@ -607,9 +662,9 @@ The replenishment implementation should form one deep module. Screens and tests 
 ### Client-visible Convex interface
 
 ```ts
-restocks.getReview({})
-restocks.decide({ householdProductId, decision, operationId })
-restocks.updateProduct({ householdProductId, changes })
+restocks.getReview({});
+restocks.decide({ householdProductId, decision, operationId });
+restocks.updateProduct({ householdProductId, changes });
 ```
 
 `getReview` returns the active list summary, at most the requested candidate page, and plain-language reason data. `decide` authenticates membership, applies the decision, and atomically upserts an item when required. `updateProduct` supports explicit household corrections.
@@ -618,9 +673,13 @@ restocks.updateProduct({ householdProductId, changes })
 
 ```ts
 restocks.recordCompletedShop({ sessionId })
+restocks.backfillProductMemory({ cursor?, batchSize? })
 ```
 
-Session creation calls this internally in the same transaction. The interface validates household ownership and updates only completed linked products.
+Session creation calls `recordCompletedShop` internally in the same transaction.
+It validates household ownership, learns from every completed product, and
+deduplicates product/session observations. The backfill is an internal,
+cursor-bounded operator function and never schedules historical notifications.
 
 ### Pure calculation seam
 
@@ -634,26 +693,26 @@ These functions accept time and return results without I/O. Their interface is t
 
 ## 12. Required key states
 
-| State | Required behaviour |
-|---|---|
-| First household activation | Explain the benefit, require only the four short setup steps, and never require an exhaustive pantry |
-| No tracked products | Offer starter staples and history suggestions |
-| No candidates due | Reassure; provide next expected review and manual add |
-| No active list | Choose existing or create Next shop |
-| Candidate already on list | Show Added; never duplicate |
-| All candidates reviewed | Collapse review and foreground the shop |
-| Offline with cached plan | Shopping works; clearly show pending sync |
-| Offline completion unsupported | Preserve progress and explain reconnect requirement |
-| Household member updates list | Real-time update without interruptive toast storms |
-| Receipt cancelled | Return to usable finish flow; no archival |
-| Session saved without total | Archive safely; omit spend from monetary aggregates |
-| Prediction is wrong | One-tap correction changes future review timing |
-| Product paused | Removed from review; restorable from tracked-products settings |
-| Notification permission denied | Activation completes; Settings explains how to enable it without nagging |
-| Push opens after review resolved | Show the current completed Plan state; do not resurrect decisions |
-| Signed-out device | Disable its user-token binding and send nothing for the previous household |
-| Analytics consent absent/denied | No-op analytics adapter; no product events queued or sent |
-| Unsupported market | Keep core lists usable and state that receipt extraction is not available for that market |
+| State                            | Required behaviour                                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| First household activation       | Explain the benefit, require only the four short setup steps, and never require an exhaustive pantry |
+| No tracked products              | Offer starter staples and history suggestions                                                        |
+| No candidates due                | Reassure; provide next expected review and manual add                                                |
+| No active list                   | Choose existing or create Next shop                                                                  |
+| Candidate already on list        | Show Added; never duplicate                                                                          |
+| All candidates reviewed          | Collapse review and foreground the shop                                                              |
+| Offline with cached plan         | Shopping works; clearly show pending sync                                                            |
+| Offline completion unsupported   | Preserve progress and explain reconnect requirement                                                  |
+| Household member updates list    | Real-time update without interruptive toast storms                                                   |
+| Receipt cancelled                | Return to usable finish flow; no archival                                                            |
+| Session saved without total      | Archive safely; omit spend from monetary aggregates                                                  |
+| Prediction is wrong              | One-tap correction changes future review timing                                                      |
+| Product paused                   | Removed from review; restorable from tracked-products settings                                       |
+| Notification permission denied   | Activation completes; Settings explains how to enable it without nagging                             |
+| Push opens after review resolved | Show the current completed Plan state; do not resurrect decisions                                    |
+| Signed-out device                | Disable its user-token binding and send nothing for the previous household                           |
+| Analytics consent absent/denied  | No-op analytics adapter; no product events queued or sent                                            |
+| Unsupported market               | Keep core lists usable and state that receipt extraction is not available for that market            |
 
 ## 13. Content requirements
 
@@ -701,6 +760,9 @@ These functions accept time and return results without I/O. Their interface is t
 - Add is idempotent by `operationId` and linked product identity.
 - Add does not overwrite user-edited item fields.
 - Shop completion, product learning, and archival are transactional.
+- Duplicate lines and completion retries create one purchase observation per
+  product/session.
+- Historical backfill is cursor-bounded, idempotent, and notification-free.
 - Missing session total is valid and excluded from spend sums.
 - Existing sessions with totals produce unchanged analytics.
 
@@ -715,6 +777,8 @@ These functions accept time and return results without I/O. Their interface is t
 - Sign-out cannot replay another user's restock decisions.
 - Notification permission is requested only after the first useful plan is shown.
 - Consolidated push opens the correct household review and cannot reveal product names on the lock screen.
+- A second distinct purchase can schedule one consolidated learning push; a
+  first purchase, retry, backfill, or already-reviewed product cannot.
 - A resolved or cancelled review cancels its remaining reminder.
 - Analytics emits only allow-listed events after consent and resets identity on sign-out.
 - UK dates, pounds, receipt parsing, time-zone boundaries, and unit copy remain correct when the device travels.
@@ -725,7 +789,9 @@ These functions accept time and return results without I/O. Their interface is t
 - Send-time authorization rejects a removed member and a disabled preference.
 - Expo receipt handling disables a permanently unregistered device token.
 - Quiet hours and member-local delivery time work across daylight-saving transitions.
-- Maximum two notifications per shopping cycle is enforced server-side.
+- Maximum two restock-planning notifications per shopping cycle is enforced
+  server-side; learning adds at most one consolidated notification per
+  qualifying completed session.
 - The PostHog adapter is replaceable with a no-op test adapter.
 - Event schemas reject prohibited free-text and exact financial properties.
 - Consent grant, withdrawal, sign-out, and a second user signing into the same device are isolated.

@@ -1,7 +1,4 @@
-import {
-  KeyboardDismissBoundary,
-  OfflineIndicator,
-} from "@/components/layout";
+import { KeyboardDismissBoundary, OfflineIndicator } from "@/components/layout";
 import { ToastProvider } from "@/components/ui";
 import { WELCOME_IMAGE_ASSETS } from "@/components/welcome/OurPantryWelcome";
 import { api } from "@/convex/_generated/api";
@@ -19,11 +16,15 @@ import {
   getLastRestockNotificationResponse,
   listenForNotificationResponses,
 } from "@/lib/pushNotifications";
-import type { RestockNotificationResponse } from "@/lib/notificationResponse";
+import {
+  getNotificationDestination,
+  type RestockNotificationResponse,
+} from "@/lib/notificationResponse";
 import { SyncStatusProvider } from "@/lib/SyncStatusContext";
-import { getAuthRedirect } from "@/lib/authRouting";
+import { getAuthRoutingDecision } from "@/lib/authRouting";
 import { OfflineQueueProvider } from "@/lib/useScopedOfflineQueue";
 import type { OfflineScope } from "@/lib/offlineQueue";
+import { themeColors } from "@/lib/theme";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/expo";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import {
@@ -44,7 +45,7 @@ import { Asset } from "expo-asset";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard } from "react-native";
+import { ActivityIndicator, Keyboard, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReducedMotion } from "react-native-reanimated";
 import "../global.css";
@@ -121,14 +122,15 @@ function InitialLayout() {
     [household, isSignedIn, userId],
   );
 
-  const authRedirect = getAuthRedirect({
-    isNavigationReady: Boolean(navigationState?.key),
-    isClerkLoaded: isLoaded,
-    isSignedIn,
-    isConvexAuthenticated,
-    household,
-    rootSegment,
-  });
+  const { redirect: authRedirect, canRenderCurrentRoute } =
+    getAuthRoutingDecision({
+      isNavigationReady: Boolean(navigationState?.key),
+      isClerkLoaded: isLoaded,
+      isSignedIn,
+      isConvexAuthenticated,
+      household,
+      rootSegment,
+    });
 
   useEffect(() => {
     Keyboard.dismiss();
@@ -220,7 +222,7 @@ function InitialLayout() {
       });
     }
     if (decision === "handle") {
-      router.push("/restock-review?source=notification" as Href);
+      router.push(getNotificationDestination(pendingNotification.kind) as Href);
     }
     setPendingNotification(null);
     void clearLastRestockNotificationResponse().catch((error) => {
@@ -245,53 +247,55 @@ function InitialLayout() {
   useEffect(() => {
     if (authRedirect) {
       router.replace(authRedirect as Href);
-      SplashScreen.hideAsync().catch((error) => {
-        console.warn("Could not hide the native splash:", error);
-      });
       return;
     }
 
-    const authStateResolved =
-      isSignedIn === false ||
-      (isSignedIn === true &&
-        isConvexAuthenticated &&
-        household !== undefined);
-
-    if (navigationState?.key && isLoaded && authStateResolved) {
+    if (canRenderCurrentRoute) {
       SplashScreen.hideAsync().catch((error) => {
         console.warn("Could not hide the native splash:", error);
       });
     }
-  }, [
-    authRedirect,
-    household,
-    isConvexAuthenticated,
-    isLoaded,
-    isSignedIn,
-    navigationState?.key,
-    rootSegment,
-    router,
-  ]);
+  }, [authRedirect, canRenderCurrentRoute, router]);
 
   return (
     <OfflineQueueProvider scope={offlineQueueScope}>
       <KeyboardDismissBoundary>
         <ToastProvider>
-          <OfflineIndicator />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: reduceMotion ? "fade" : "default",
-              gestureEnabled: true,
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
-          </Stack>
+          <View className="flex-1 bg-background-light">
+            <OfflineIndicator />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: reduceMotion ? "fade" : "default",
+                gestureEnabled: true,
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
+            </Stack>
+            {!canRenderCurrentRoute ? (
+              <View
+                style={styles.authTransitionOverlay}
+                accessibilityLabel="Preparing OurPantry"
+              >
+                <ActivityIndicator color={themeColors.coral} />
+              </View>
+            ) : null}
+          </View>
         </ToastProvider>
       </KeyboardDismissBoundary>
     </OfflineQueueProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  authTransitionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    backgroundColor: themeColors.canvas,
+    justifyContent: "center",
+    zIndex: 10_000,
+  },
+});
 
 /**
  * Inner layout wrapped with Convex provider that uses Clerk authentication.

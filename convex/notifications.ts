@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { DAY_MS, getRestockTiming } from "../lib/restockEngine";
 import { nextLocalDeliveryTime } from "../lib/notificationSchedule";
+import type { NotificationKind } from "../lib/notificationResponse";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import {
@@ -30,7 +31,7 @@ interface ExpoPushMessage {
   body: string;
   data: {
     url: string;
-    kind: "restock_review" | "shop_reminder";
+    kind: NotificationKind;
   };
 }
 
@@ -39,7 +40,11 @@ const expoPushMessageValidator = v.object({
   body: v.string(),
   data: v.object({
     url: v.string(),
-    kind: v.union(v.literal("restock_review"), v.literal("shop_reminder")),
+    kind: v.union(
+      v.literal("restock_review"),
+      v.literal("shop_reminder"),
+      v.literal("product_learning"),
+    ),
   }),
 });
 
@@ -88,10 +93,20 @@ export function canRetryPushDelivery(args: {
 }
 
 function buildPushMessage(args: {
-  kind: "restock_review" | "shop_reminder";
+  kind: NotificationKind;
   candidateCount: number;
   plannedDay: string;
 }): ExpoPushMessage {
+  if (args.kind === "product_learning") {
+    return {
+      title: "OurPantry is learning your regulars",
+      body: `${args.candidateCount} ${args.candidateCount === 1 ? "product looks" : "products look"} like a household regular. Take a quick look.`,
+      data: {
+        url: "ourpantry://tracked-products?focus=learning&source=notification",
+        kind: args.kind,
+      },
+    };
+  }
   return {
     title: "Your next shop needs a quick check",
     body: `${args.candidateCount} ${args.candidateCount === 1 ? "thing may" : "things may"} need a quick check before ${args.plannedDay}.`,
@@ -120,9 +135,7 @@ async function requireCurrentUser(ctx: ReadCtx) {
   if (!identity) throw new Error("Not authenticated");
   const user = await ctx.db
     .query("users")
-    .withIndex("by_clerk_id", (index) =>
-      index.eq("clerkId", identity.subject),
-    )
+    .withIndex("by_clerk_id", (index) => index.eq("clerkId", identity.subject))
     .unique();
   if (!user) throw new Error("User not found in database");
   return user;
@@ -169,8 +182,7 @@ export const getPreferences = query({
       analyticsConsent: undefined,
       restockNotificationsEnabled: false,
       notificationTimeMinutesLocal: 18 * 60,
-      notificationTimeZone:
-        household?.planningTimeZone ?? "Europe/London",
+      notificationTimeZone: household?.planningTimeZone ?? "Europe/London",
       viewerClerkId: user.clerkId,
     };
   },
@@ -213,8 +225,7 @@ export const updatePreferences = mutation({
         analyticsConsent: args.analyticsConsent,
         analyticsConsentUpdatedAt:
           args.analyticsConsent === undefined ? undefined : now,
-        restockNotificationsEnabled:
-          args.restockNotificationsEnabled ?? false,
+        restockNotificationsEnabled: args.restockNotificationsEnabled ?? false,
         notificationTimeMinutesLocal:
           args.notificationTimeMinutesLocal ?? 18 * 60,
         notificationTimeZone:
@@ -233,8 +244,7 @@ export const updatePreferences = mutation({
         changes.analyticsConsentUpdatedAt = now;
       }
       if (args.restockNotificationsEnabled !== undefined) {
-        changes.restockNotificationsEnabled =
-          args.restockNotificationsEnabled;
+        changes.restockNotificationsEnabled = args.restockNotificationsEnabled;
       }
       if (args.notificationTimeMinutesLocal !== undefined) {
         changes.notificationTimeMinutesLocal = Math.round(
@@ -338,6 +348,7 @@ async function cancelPendingForUser(
   userId: Id<"users">,
   householdId: Id<"households">,
   keepDedupeKeys: Set<string> = new Set(),
+  includeProductLearning = false,
 ): Promise<void> {
   const reminders = await ctx.db
     .query("notificationReminders")
@@ -347,6 +358,7 @@ async function cancelPendingForUser(
   for (const reminder of reminders) {
     if (
       reminder.householdId === householdId &&
+      (includeProductLearning || reminder.kind !== "product_learning") &&
       reminder.status === "pending" &&
       !keepDedupeKeys.has(reminder.dedupeKey)
     ) {
@@ -358,6 +370,56 @@ async function cancelPendingForUser(
   }
 }
 
+export async function scheduleProductLearningNotifications(
+  ctx: MutationCtx,
+  args: {
+    householdId: Id<"households">;
+    shoppingSessionId: Id<"shoppingSessions">;
+    productIds: Id<"householdProducts">[];
+    now?: number;
+  },
+): Promise<void> {
+  if (args.productIds.length === 0) return;
+  const memberships = await ctx.db
+    .query("householdMembers")
+    .withIndex("by_household", (index) =>
+      index.eq("householdId", args.householdId),
+    )
+    .collect();
+  const now = args.now ?? Date.now();
+
+  for (const membership of memberships) {
+    const preference = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (index) => index.eq("userId", membership.userId))
+      .unique();
+    if (!preference?.restockNotificationsEnabled) continue;
+
+    const dedupeKey = `${membership.userId}:${args.householdId}:${args.shoppingSessionId}:product_learning`;
+    const existing = await ctx.db
+      .query("notificationReminders")
+      .withIndex("by_dedupe_key", (index) => index.eq("dedupeKey", dedupeKey))
+      .unique();
+    if (existing) continue;
+
+    await ctx.db.insert("notificationReminders", {
+      userId: membership.userId,
+      householdId: args.householdId,
+      kind: "product_learning",
+      productIds: args.productIds,
+      scheduledFor: nextLocalDeliveryTime({
+        notBefore: now,
+        timeMinutesLocal: preference.notificationTimeMinutesLocal,
+        timeZone: preference.notificationTimeZone,
+      }),
+      dedupeKey,
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+}
+
 export async function recalculateHouseholdReminders(
   ctx: MutationCtx,
   householdId: Id<"households">,
@@ -366,9 +428,7 @@ export async function recalculateHouseholdReminders(
   if (!household) return;
   const memberships = await ctx.db
     .query("householdMembers")
-    .withIndex("by_household", (index) =>
-      index.eq("householdId", householdId),
-    )
+    .withIndex("by_household", (index) => index.eq("householdId", householdId))
     .collect();
   const activeListRecord = household.activeListId
     ? await ctx.db.get(household.activeListId)
@@ -389,8 +449,7 @@ export async function recalculateHouseholdReminders(
   const now = Date.now();
   const horizon =
     (activeList?.plannedFor ??
-      now + Math.min(household.shoppingCadenceDays ?? 7, 7) * DAY_MS) +
-    DAY_MS;
+      now + Math.min(household.shoppingCadenceDays ?? 7, 7) * DAY_MS) + DAY_MS;
   const eligibleTimings = excludeProductsAlreadyPlanned(products, activeItems)
     .map((product) =>
       getRestockTiming({
@@ -416,7 +475,17 @@ export async function recalculateHouseholdReminders(
       .query("userPreferences")
       .withIndex("by_user", (index) => index.eq("userId", membership.userId))
       .unique();
-    if (!preference?.restockNotificationsEnabled || !earliestReviewAt) {
+    if (!preference?.restockNotificationsEnabled) {
+      await cancelPendingForUser(
+        ctx,
+        membership.userId,
+        householdId,
+        new Set(),
+        true,
+      );
+      continue;
+    }
+    if (!earliestReviewAt) {
       await cancelPendingForUser(ctx, membership.userId, householdId);
       continue;
     }
@@ -451,9 +520,7 @@ export async function recalculateHouseholdReminders(
       keepDedupeKeys.add(dedupeKey);
       const existing = await ctx.db
         .query("notificationReminders")
-        .withIndex("by_dedupe_key", (index) =>
-          index.eq("dedupeKey", dedupeKey),
-        )
+        .withIndex("by_dedupe_key", (index) => index.eq("dedupeKey", dedupeKey))
         .unique();
       if (!existing) {
         await ctx.db.insert("notificationReminders", {
@@ -513,8 +580,7 @@ async function inspectReminderDeliveryState(
   if (!membership || !preference?.restockNotificationsEnabled) {
     return {
       membershipExists: membership !== null,
-      notificationsEnabled:
-        preference?.restockNotificationsEnabled === true,
+      notificationsEnabled: preference?.restockNotificationsEnabled === true,
       preference,
       household: null,
       activeList: null,
@@ -522,6 +588,25 @@ async function inspectReminderDeliveryState(
     };
   }
   const household = await ctx.db.get(reminder.householdId);
+  if (reminder.kind === "product_learning") {
+    const learningProducts = await Promise.all(
+      (reminder.productIds ?? []).map((productId) => ctx.db.get(productId)),
+    );
+    const candidateCount = learningProducts.filter(
+      (product) =>
+        product?.householdId === reminder.householdId &&
+        product.status === "learning" &&
+        product.purchaseObservationCount >= 2,
+    ).length;
+    return {
+      membershipExists: true,
+      notificationsEnabled: true,
+      preference,
+      household,
+      activeList: null,
+      candidateCount,
+    };
+  }
   const activeListRecord = household?.activeListId
     ? await ctx.db.get(household.activeListId)
     : null;
@@ -562,8 +647,7 @@ async function inspectReminderDeliveryState(
 
   return {
     membershipExists: membership !== null,
-    notificationsEnabled:
-      preference?.restockNotificationsEnabled === true,
+    notificationsEnabled: preference?.restockNotificationsEnabled === true,
     preference,
     household,
     activeList,
@@ -596,9 +680,7 @@ export const getDueDeliveries = internalQuery({
 
         const tokens = await ctx.db
           .query("pushTokens")
-          .withIndex("by_user", (index) =>
-            index.eq("userId", reminder.userId),
-          )
+          .withIndex("by_user", (index) => index.eq("userId", reminder.userId))
           .collect();
         const activeTokens = tokens
           .filter((token) => token.disabledAt === undefined)
@@ -682,7 +764,7 @@ export const cancelDueReminder = internalMutation({
 const PUSH_RECEIPT_RETRY_BASE_MS = 15 * 60 * 1000;
 const PUSH_RECEIPT_MAX_RETRIES = 3;
 const PUSH_RATE_LIMIT_FINALIZE_MS =
-  PUSH_RECEIPT_RETRY_BASE_MS * (2 ** PUSH_RECEIPT_MAX_RETRIES);
+  PUSH_RECEIPT_RETRY_BASE_MS * 2 ** PUSH_RECEIPT_MAX_RETRIES;
 const PUSH_RATE_LIMIT_CRON_HOLD_MS =
   PUSH_RATE_LIMIT_FINALIZE_MS + PUSH_RECEIPT_RETRY_BASE_MS;
 
@@ -713,8 +795,7 @@ export const recordDeliveryResult = internalMutation({
     if (args.scheduledTokenRetry) {
       await ctx.db.patch(reminder._id, {
         attemptCount,
-        scheduledFor:
-          args.retryHoldUntil ?? now + PUSH_RATE_LIMIT_CRON_HOLD_MS,
+        scheduledFor: args.retryHoldUntil ?? now + PUSH_RATE_LIMIT_CRON_HOLD_MS,
         updatedAt: now,
       });
       return;
@@ -991,10 +1072,7 @@ export const checkDeliveryReceipt = internalAction({
   ) => {
     const attempt = Math.max(0, Math.floor(rawAttempt ?? 0));
     let payload: {
-      data?: Record<
-        string,
-        { status?: string; details?: { error?: string } }
-      >;
+      data?: Record<string, { status?: string; details?: { error?: string } }>;
     };
     try {
       const response = await fetch(
@@ -1047,10 +1125,7 @@ export const checkDeliveryReceipt = internalAction({
       });
       return;
     }
-    if (
-      receipt.details?.error === "MessageRateExceeded" &&
-      reminderId
-    ) {
+    if (receipt.details?.error === "MessageRateExceeded" && reminderId) {
       await scheduleRateLimitedDeliveryRetry(ctx, {
         reminderId,
         token,
@@ -1059,8 +1134,7 @@ export const checkDeliveryReceipt = internalAction({
       });
       if (finalizeReminderOnRateLimit) {
         const retryStartedAt = Date.now();
-        const retryHoldUntil =
-          retryStartedAt + PUSH_RATE_LIMIT_CRON_HOLD_MS;
+        const retryHoldUntil = retryStartedAt + PUSH_RATE_LIMIT_CRON_HOLD_MS;
         await ctx.runMutation(
           internal.notifications.recordRateLimitedReceiptRetryStarted,
           { reminderId, retryHoldUntil },
@@ -1141,8 +1215,7 @@ export const sendDueReminders = internalAction({
       const scheduledRateLimitedTokens =
         delivery.attemptCount < 2 ? rateLimitedTokens : [];
       const retryStartedAt = Date.now();
-      const retryHoldUntil =
-        retryStartedAt + PUSH_RATE_LIMIT_CRON_HOLD_MS;
+      const retryHoldUntil = retryStartedAt + PUSH_RATE_LIMIT_CRON_HOLD_MS;
       await Promise.all(
         scheduledRateLimitedTokens.map((token) =>
           scheduleRateLimitedDeliveryRetry(ctx, {
@@ -1173,9 +1246,7 @@ export const sendDueReminders = internalAction({
         transient,
         scheduledTokenRetry: scheduledRateLimitedTokens.length > 0,
         retryHoldUntil:
-          scheduledRateLimitedTokens.length > 0
-            ? retryHoldUntil
-            : undefined,
+          scheduledRateLimitedTokens.length > 0 ? retryHoldUntil : undefined,
         expoTicketId: acceptedTickets[0]?.ticketId,
       });
       await Promise.all(

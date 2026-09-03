@@ -22,6 +22,13 @@ document does not authorize a production deployment. Repository checkpoints in
 - Consent-gated PostHog adapter and per-member notification preferences.
 - Reminder scheduling, send-time authorization, generic lock-screen copy,
   token isolation on sign-out, and per-device Expo receipt checks.
+- Dynamic household grocery memory for all completed items, with one
+  product/session observation, explicit learning/active/paused states, a
+  possible-regular review surface, and consolidated opt-in learning pushes.
+- Bounded, idempotent historical product-memory backfill that preserves explicit
+  tracking choices and never emits historical notifications. The configured
+  development deployment was checked on 3 September 2026 and contained no
+  historical sessions to migrate.
 - Explicit account deletion, shared-household ownership transfer, idempotent
   Clerk webhook cleanup, bounded resumable attribution anonymisation, and
   final-household receipt storage deletion.
@@ -70,7 +77,8 @@ provider configuration and a real-provider deletion pass remain release gates.
 - **Deleting owner with another member:** transfer `households.ownerId` and the
   `owner` membership role to the remaining member before deleting the user.
 - **Deleting the final member:** delete the household and all dependent lists,
-  items, products, sessions, receipt metadata, private receipt storage, user
+  items, products, product-purchase observations, sessions, receipt metadata,
+  private receipt storage, user
   preferences, reminders, tokens, membership, and user record.
 - The cleanup mutation must be idempotent and safe when the Clerk webhook is
   delivered more than once. Cleanup runs in bounded mutation batches and
@@ -200,10 +208,10 @@ Validate both providers against production credentials in Checkpoint K.
 Configure these in the appropriate EAS/Convex environment rather than editing
 source-controlled `.env` files:
 
-| Scope | Variables |
-|---|---|
-| Expo client | `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_POSTHOG_API_KEY`, `EXPO_PUBLIC_POSTHOG_HOST` |
-| Convex server | `CLERK_JWT_ISSUER_DOMAIN`, `CLERK_WEBHOOK_SECRET`, `GOOGLE_CLOUD_VISION_API_KEY`, `POSTHOG_API_KEY`, `POSTHOG_HOST` |
+| Scope         | Variables                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expo client   | `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_POSTHOG_API_KEY`, `EXPO_PUBLIC_POSTHOG_HOST` |
+| Convex server | `CLERK_JWT_ISSUER_DOMAIN`, `CLERK_WEBHOOK_SECRET`, `GOOGLE_CLOUD_VISION_API_KEY`, `POSTHOG_API_KEY`, `POSTHOG_HOST`                                     |
 
 Production deployment order:
 
@@ -254,6 +262,9 @@ differs from the documented MVP data flows.
 - Two physical devices share one household and sync in both directions.
 - Push delivery, tap routing, resolved-review behaviour, quiet hours, daylight
   saving, and stale-token cleanup work on real devices.
+- Possible-regular detection, one-per-session learning push, notification deep
+  link, cross-member resolution, and first-purchase/retry suppression work on
+  two real devices.
 - Offline add/edit/toggle/delete/completion replays correctly after reconnect;
   signing out cannot replay the prior user's operations.
 - Representative UK receipts parse correctly; cancellation keeps the list

@@ -12,7 +12,9 @@ import {
   pairAcceptedPushTickets,
   pairRateLimitedPushTickets,
   recordDeliveryResult,
+  recalculateHouseholdReminders,
   retryRateLimitedDelivery,
+  scheduleProductLearningNotifications,
   sendDueReminders,
 } from "./notifications";
 
@@ -53,7 +55,10 @@ type CheckDeliveryReceiptHandler = (
     message?: {
       title: string;
       body: string;
-      data: { url: string; kind: "restock_review" | "shop_reminder" };
+      data: {
+        url: string;
+        kind: "restock_review" | "shop_reminder" | "product_learning";
+      };
     };
     finalizeReminderOnRateLimit?: boolean;
   },
@@ -89,7 +94,7 @@ type AuthorizeDeliveryRetryHandler = (
     now: number;
   },
 ) => Promise<{
-  kind: "restock_review" | "shop_reminder";
+  kind: "restock_review" | "shop_reminder" | "product_learning";
   candidateCount: number;
   plannedDay: string;
 } | null>;
@@ -197,6 +202,125 @@ describe("notifications.getPreferences", () => {
       notificationTimeZone: "Europe/London",
       viewerClerkId: "clerk_1",
     });
+  });
+});
+
+describe("notifications.scheduleProductLearningNotifications", () => {
+  it("schedules one consolidated push for an opted-in household member", async () => {
+    const now = Date.UTC(2026, 8, 3, 12);
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    const sessionId = "session_1" as Id<"shoppingSessions">;
+    const productIds = [
+      "product_1" as Id<"householdProducts">,
+      "product_2" as Id<"householdProducts">,
+    ];
+    const insert = jest.fn(async () => "reminder_1");
+    const ctx = {
+      db: {
+        query: (table: string) => ({
+          withIndex: () => ({
+            collect: async () =>
+              table === "householdMembers" ? [{ userId }] : [],
+            unique: async () =>
+              table === "userPreferences"
+                ? {
+                    userId,
+                    restockNotificationsEnabled: true,
+                    notificationTimeMinutesLocal: 18 * 60,
+                    notificationTimeZone: "Europe/London",
+                  }
+                : null,
+          }),
+        }),
+        insert,
+      },
+    };
+
+    await scheduleProductLearningNotifications(ctx as never, {
+      householdId,
+      now,
+      productIds,
+      shoppingSessionId: sessionId,
+    });
+
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(insert).toHaveBeenCalledWith(
+      "notificationReminders",
+      expect.objectContaining({
+        userId,
+        householdId,
+        kind: "product_learning",
+        productIds,
+        dedupeKey: `${userId}:${householdId}:${sessionId}:product_learning`,
+        status: "pending",
+        scheduledFor: expect.any(Number),
+      }),
+    );
+  });
+});
+
+describe("notifications.recalculateHouseholdReminders", () => {
+  it("immediately cancels every pending reminder when notifications are disabled", async () => {
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    const restockReminderId =
+      "reminder_restock" as Id<"notificationReminders">;
+    const learningReminderId =
+      "reminder_learning" as Id<"notificationReminders">;
+    const patch = jest.fn(async (_id: string, _changes: object) => undefined);
+    const ctx = {
+      db: {
+        get: async (id: string) =>
+          id === householdId ? { _id: householdId } : null,
+        query: (table: string) => ({
+          withIndex: () => ({
+            unique: async () =>
+              table === "userPreferences"
+                ? { userId, restockNotificationsEnabled: false }
+                : null,
+            collect: async () => {
+              if (table === "householdMembers") {
+                return [{ householdId, userId }];
+              }
+              if (table === "notificationReminders") {
+                return [
+                  {
+                    _id: restockReminderId,
+                    householdId,
+                    userId,
+                    kind: "restock_review" as const,
+                    dedupeKey: "restock",
+                    status: "pending" as const,
+                  },
+                  {
+                    _id: learningReminderId,
+                    householdId,
+                    userId,
+                    kind: "product_learning" as const,
+                    dedupeKey: "learning",
+                    status: "pending" as const,
+                  },
+                ];
+              }
+              return [];
+            },
+          }),
+        }),
+        patch,
+      },
+    };
+
+    await recalculateHouseholdReminders(ctx as never, householdId);
+
+    expect(patch.mock.calls.map(([id]) => id)).toEqual([
+      restockReminderId,
+      learningReminderId,
+    ]);
+    expect(patch).toHaveBeenCalledWith(
+      learningReminderId,
+      expect.objectContaining({ status: "cancelled" }),
+    );
   });
 });
 
@@ -313,6 +437,75 @@ describe("notifications.getDueDeliveries", () => {
       { reminderId, action: "cancel" },
     ]);
   });
+
+  it("sends a learning notification while its possible regulars still need review", async () => {
+    const reminderId = "reminder_learning" as Id<"notificationReminders">;
+    const householdId = "household_1" as Id<"households">;
+    const userId = "user_1" as Id<"users">;
+    const productIds = [
+      "product_1" as Id<"householdProducts">,
+      "product_2" as Id<"householdProducts">,
+    ];
+    const ctx = {
+      db: {
+        get: async (id: string) =>
+          productIds.includes(id as Id<"householdProducts">)
+            ? {
+                _id: id,
+                householdId,
+                status: "learning",
+                purchaseObservationCount: 2,
+              }
+            : id === householdId
+              ? { _id: householdId }
+              : null,
+        query: (table: string) => ({
+          withIndex: () => ({
+            take: async () =>
+              table === "notificationReminders"
+                ? [
+                    {
+                      _id: reminderId,
+                      userId,
+                      householdId,
+                      kind: "product_learning" as const,
+                      productIds,
+                      status: "pending" as const,
+                      scheduledFor: 1,
+                    },
+                  ]
+                : [],
+            unique: async () =>
+              table === "householdMembers"
+                ? { householdId, userId }
+                : table === "userPreferences"
+                  ? {
+                      userId,
+                      analyticsConsent: "granted",
+                      restockNotificationsEnabled: true,
+                      notificationTimeMinutesLocal: 18 * 60,
+                      notificationTimeZone: "Europe/London",
+                    }
+                  : null,
+            collect: async () =>
+              table === "pushTokens"
+                ? [{ userId, token: "ExponentPushToken[device]" }]
+                : [],
+          }),
+        }),
+      },
+    };
+
+    await expect(readDueDeliveries(ctx, { now: 2 })).resolves.toEqual([
+      expect.objectContaining({
+        reminderId,
+        action: "send",
+        kind: "product_learning",
+        candidateCount: 2,
+        tokens: ["ExponentPushToken[device]"],
+      }),
+    ]);
+  });
 });
 
 describe("excludeProductsAlreadyPlanned", () => {
@@ -321,10 +514,13 @@ describe("excludeProductsAlreadyPlanned", () => {
     const bread = { _id: "product_2" };
 
     expect(
-      excludeProductsAlreadyPlanned([milk, bread], [
-        { householdProductId: "product_1", isCompleted: false },
-        { householdProductId: "product_2", isCompleted: true },
-      ]),
+      excludeProductsAlreadyPlanned(
+        [milk, bread],
+        [
+          { householdProductId: "product_1", isCompleted: false },
+          { householdProductId: "product_2", isCompleted: true },
+        ],
+      ),
     ).toEqual([]);
   });
 });
@@ -360,9 +556,7 @@ describe("pairAcceptedPushTickets", () => {
           { status: "ok", id: "ticket_without_token" },
         ],
       ),
-    ).toEqual([
-      { ticketId: "ticket_1", token: "ExponentPushToken[first]" },
-    ]);
+    ).toEqual([{ ticketId: "ticket_1", token: "ExponentPushToken[first]" }]);
   });
 });
 
@@ -403,9 +597,9 @@ describe("canRetryPushDelivery", () => {
 
   it("allows a retry only while every send-time condition remains valid", () => {
     expect(canRetryPushDelivery(eligible)).toBe(true);
-    expect(
-      canRetryPushDelivery({ ...eligible, membershipExists: false }),
-    ).toBe(false);
+    expect(canRetryPushDelivery({ ...eligible, membershipExists: false })).toBe(
+      false,
+    );
     expect(
       canRetryPushDelivery({ ...eligible, notificationsEnabled: false }),
     ).toBe(false);
@@ -427,10 +621,15 @@ describe("canRetryPushDelivery", () => {
 describe("buildServerAnalyticsPayload", () => {
   it("disables GeoIP enrichment for every server event", () => {
     expect(
-      buildServerAnalyticsPayload("project_key", "notification sent", "user_1", {
-        household_id: "household_1",
-        $geoip_disable: false,
-      }),
+      buildServerAnalyticsPayload(
+        "project_key",
+        "notification sent",
+        "user_1",
+        {
+          household_id: "household_1",
+          $geoip_disable: false,
+        },
+      ),
     ).toEqual({
       api_key: "project_key",
       event: "notification sent",
@@ -550,15 +749,11 @@ describe("notifications.checkDeliveryReceipt", () => {
       },
     );
 
-    expect(runAfter).toHaveBeenCalledWith(
-      15 * 60 * 1000,
-      expect.anything(),
-      {
-        ticketId: "ticket_1",
-        token: "ExponentPushToken[first]",
-        attempt: 1,
-      },
-    );
+    expect(runAfter).toHaveBeenCalledWith(15 * 60 * 1000, expect.anything(), {
+      ticketId: "ticket_1",
+      token: "ExponentPushToken[first]",
+      attempt: 1,
+    });
   });
 
   it("stops retrying after the third bounded receipt retry", async () => {
@@ -624,29 +819,21 @@ describe("notifications.checkDeliveryReceipt", () => {
       },
     );
 
-    expect(runAfter).toHaveBeenCalledWith(
-      15 * 60 * 1000,
-      expect.anything(),
-      {
-        reminderId,
-        token: "ExponentPushToken[rate-limited]",
-        attempt: 1,
-        finalizeReminderOnRateLimit: true,
-      },
-    );
+    expect(runAfter).toHaveBeenCalledWith(15 * 60 * 1000, expect.anything(), {
+      reminderId,
+      token: "ExponentPushToken[rate-limited]",
+      attempt: 1,
+      finalizeReminderOnRateLimit: true,
+    });
     expect(runMutation).toHaveBeenCalledWith(expect.anything(), {
       reminderId,
       retryHoldUntil: now + 135 * 60 * 1000,
     });
-    expect(runAfter).toHaveBeenCalledWith(
-      120 * 60 * 1000,
-      expect.anything(),
-      {
-        reminderId,
-        now: now + 120 * 60 * 1000,
-        expectedScheduledFor: now + 135 * 60 * 1000,
-      },
-    );
+    expect(runAfter).toHaveBeenCalledWith(120 * 60 * 1000, expect.anything(), {
+      reminderId,
+      now: now + 120 * 60 * 1000,
+      expectedScheduledFor: now + 135 * 60 * 1000,
+    });
   });
 });
 
@@ -722,16 +909,12 @@ describe("notifications.retryRateLimitedDelivery", () => {
         ]),
       }),
     );
-    expect(runAfter).toHaveBeenCalledWith(
-      15 * 60 * 1000,
-      expect.anything(),
-      {
-        ticketId: "replacement_ticket",
-        reminderId,
-        token: "ExponentPushToken[rate-limited]",
-        attempt: 0,
-      },
-    );
+    expect(runAfter).toHaveBeenCalledWith(15 * 60 * 1000, expect.anything(), {
+      ticketId: "replacement_ticket",
+      reminderId,
+      token: "ExponentPushToken[rate-limited]",
+      attempt: 0,
+    });
     expect(runMutation).toHaveBeenCalledWith(expect.anything(), {
       reminderId,
       expoTicketId: "replacement_ticket",
@@ -872,14 +1055,10 @@ describe("notifications.sendDueReminders", () => {
         scheduledTokenRetry: true,
       }),
     );
-    expect(runAfter).toHaveBeenCalledWith(
-      120 * 60 * 1000,
-      expect.anything(),
-      {
-        reminderId,
-        now: expect.any(Number),
-        expectedScheduledFor: expect.any(Number),
-      },
-    );
+    expect(runAfter).toHaveBeenCalledWith(120 * 60 * 1000, expect.anything(), {
+      reminderId,
+      now: expect.any(Number),
+      expectedScheduledFor: expect.any(Number),
+    });
   });
 });

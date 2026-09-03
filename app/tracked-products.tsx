@@ -19,17 +19,19 @@ import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 import {
   buildTrackedProductRows,
+  getLearningProductCopy,
   type TrackedProductRow,
 } from "@/lib/trackedProducts";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ChevronRight,
   PackageCheck,
   Pause,
   Play,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -43,7 +45,7 @@ interface TrackedProduct {
   defaultUnit?: string;
   cadenceDays: number;
   purchaseObservationCount: number;
-  status: "active" | "paused";
+  status: "learning" | "active" | "paused";
 }
 
 function productAmount(product: TrackedProduct): string {
@@ -55,6 +57,10 @@ function productAmount(product: TrackedProduct): string {
 
 export default function TrackedProductsScreen() {
   const router = useRouter();
+  const { focus, source } = useLocalSearchParams<{
+    focus?: string;
+    source?: string;
+  }>();
   const pageHeaderHeight = usePageHeaderHeight();
   const { showToast } = useToast();
   const analytics = useAnalytics();
@@ -77,6 +83,20 @@ export default function TrackedProductsScreen() {
 
   const productRows = useMemo(
     () => buildTrackedProductRows(products ?? []),
+    [products],
+  );
+  const learningProductCount = useMemo(
+    () =>
+      products?.filter((product) => product.status === "learning").length ?? 0,
+    [products],
+  );
+  const possibleRegularCount = useMemo(
+    () =>
+      products?.filter(
+        (product) =>
+          product.status === "learning" &&
+          product.purchaseObservationCount >= 2,
+      ).length ?? 0,
     [products],
   );
 
@@ -104,110 +124,153 @@ export default function TrackedProductsScreen() {
     setFormError(null);
   }, []);
 
-  const saveChanges = useCallback(async () => {
-    if (!editingProduct) return;
-    const cadenceDays = Number(cadence);
-    const defaultQuantity = quantity.trim() ? Number(quantity) : null;
-    if (
-      !Number.isInteger(cadenceDays) ||
-      cadenceDays < 1 ||
-      cadenceDays > 180
-    ) {
-      setFormError("Choose a cadence between 1 and 180 days.");
-      return;
-    }
-    if (
-      defaultQuantity !== null &&
-      (!Number.isFinite(defaultQuantity) || defaultQuantity <= 0)
-    ) {
-      setFormError("Quantity must be greater than zero, or left blank.");
-      return;
-    }
+  const saveChanges = useCallback(
+    async (nextStatus?: "active" | "paused") => {
+      if (!editingProduct) return;
+      const cadenceDays = Number(cadence);
+      const defaultQuantity = quantity.trim() ? Number(quantity) : null;
+      if (
+        !Number.isInteger(cadenceDays) ||
+        cadenceDays < 1 ||
+        cadenceDays > 180
+      ) {
+        setFormError("Choose a cadence between 1 and 180 days.");
+        return;
+      }
+      if (
+        defaultQuantity !== null &&
+        (!Number.isFinite(defaultQuantity) || defaultQuantity <= 0)
+      ) {
+        setFormError("Quantity must be greater than zero, or left blank.");
+        return;
+      }
 
-    setIsSaving(true);
-    setFormError(null);
-    try {
-      await updateProduct({
-        householdProductId: editingProduct._id,
-        cadenceDays,
-        defaultQuantity,
-        defaultUnit: unit.trim() || null,
-        category: category.trim() || null,
-      });
-      await recalculateReminders({});
+      setIsSaving(true);
+      setFormError(null);
+      try {
+        await updateProduct({
+          householdProductId: editingProduct._id,
+          cadenceDays,
+          defaultQuantity,
+          defaultUnit: unit.trim() || null,
+          category: category.trim() || null,
+          status: nextStatus,
+        });
+        await recalculateReminders({});
 
-      const changedFields = [
-        cadenceDays !== editingProduct.cadenceDays && "cadence",
-        defaultQuantity !== (editingProduct.defaultQuantity ?? null) &&
-          "quantity",
-        (unit.trim() || null) !== (editingProduct.defaultUnit ?? null) &&
-          "unit",
-        (category.trim() || null) !== (editingProduct.category ?? null) &&
-          "category",
-      ].filter((field): field is string => Boolean(field));
-      changedFields.forEach((field) =>
+        const changedFields = [
+          cadenceDays !== editingProduct.cadenceDays && "cadence",
+          defaultQuantity !== (editingProduct.defaultQuantity ?? null) &&
+            "quantity",
+          (unit.trim() || null) !== (editingProduct.defaultUnit ?? null) &&
+            "unit",
+          (category.trim() || null) !== (editingProduct.category ?? null) &&
+            "category",
+        ].filter((field): field is string => Boolean(field));
+        changedFields.forEach((field) =>
+          analytics.track("tracked product corrected", {
+            household_id: household?._id,
+            market: household?.marketCountryCode,
+            field,
+          }),
+        );
+        if (editingProduct.status === "learning" && nextStatus) {
+          analytics.track("possible regular reviewed", {
+            household_id: household?._id,
+            market: household?.marketCountryCode,
+            decision: nextStatus === "active" ? "track" : "not_regular",
+            source:
+              source === "notification"
+                ? "notification"
+                : source === "plan"
+                  ? "plan"
+                  : "tracked_products",
+          });
+        }
+
+        editorSheetRef.current?.dismiss();
+        showToast({
+          message:
+            nextStatus === "active"
+              ? "Product added to your restock rhythm"
+              : nextStatus === "paused"
+                ? "Marked as not a regular"
+                : "Product rhythm updated",
+          tone: "success",
+        });
+      } catch (error) {
+        console.error("Couldn't update the tracked product:", error);
+        setFormError("We couldn't save those changes. Please try again.");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      analytics,
+      cadence,
+      category,
+      editingProduct,
+      household?._id,
+      household?.marketCountryCode,
+      quantity,
+      recalculateReminders,
+      showToast,
+      source,
+      unit,
+      updateProduct,
+    ],
+  );
+
+  const setTrackingStatus = useCallback(
+    async (status: "active" | "paused") => {
+      if (!editingProduct) return;
+      setIsSaving(true);
+      setFormError(null);
+      try {
+        await updateProduct({
+          householdProductId: editingProduct._id,
+          status,
+        });
+        await recalculateReminders({});
         analytics.track("tracked product corrected", {
           household_id: household?._id,
           market: household?.marketCountryCode,
-          field,
-        }),
-      );
+          field: "status",
+        });
+        editorSheetRef.current?.dismiss();
+        showToast({
+          message:
+            status === "active"
+              ? "Product added to your restock rhythm"
+              : editingProduct.status === "learning"
+                ? "Marked as not a regular"
+                : "Product tracking paused",
+          tone: "success",
+        });
+      } catch (error) {
+        console.error("Couldn't change product tracking:", error);
+        setFormError("We couldn't change tracking. Please try again.");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      analytics,
+      editingProduct,
+      household?._id,
+      household?.marketCountryCode,
+      recalculateReminders,
+      showToast,
+      updateProduct,
+    ],
+  );
 
-      editorSheetRef.current?.dismiss();
-      showToast({ message: "Product rhythm updated", tone: "success" });
-    } catch (error) {
-      console.error("Couldn't update the tracked product:", error);
-      setFormError("We couldn't save those changes. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    analytics,
-    cadence,
-    category,
-    editingProduct,
-    household?._id,
-    household?.marketCountryCode,
-    quantity,
-    recalculateReminders,
-    showToast,
-    unit,
-    updateProduct,
-  ]);
-
-  const toggleTracking = useCallback(async () => {
+  const toggleTracking = useCallback(() => {
     if (!editingProduct) return;
-    const status = editingProduct.status === "active" ? "paused" : "active";
-    setIsSaving(true);
-    setFormError(null);
-    try {
-      await updateProduct({
-        householdProductId: editingProduct._id,
-        status,
-      });
-      await recalculateReminders({});
-      analytics.track("tracked product corrected", {
-        household_id: household?._id,
-        market: household?.marketCountryCode,
-        field: "status",
-      });
-      editorSheetRef.current?.dismiss();
-      showToast({ message: "Product rhythm updated", tone: "success" });
-    } catch (error) {
-      console.error("Couldn't change product tracking:", error);
-      setFormError("We couldn't change tracking. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    analytics,
-    editingProduct,
-    household?._id,
-    household?.marketCountryCode,
-    recalculateReminders,
-    showToast,
-    updateProduct,
-  ]);
+    void setTrackingStatus(
+      editingProduct.status === "active" ? "paused" : "active",
+    );
+  }, [editingProduct, setTrackingStatus]);
 
   return (
     <SafeAreaView
@@ -245,9 +308,24 @@ export default function TrackedProductsScreen() {
                 Your grocery rhythm
               </Text>
               <Text className="mt-2 text-base leading-6 text-ink-secondary">
-                Adjust when an item comes back for review, or pause anything you
-                no longer want us to remember.
+                {focus === "learning" && possibleRegularCount > 0
+                  ? "Review the regulars OurPantry noticed from your completed shops."
+                  : "Adjust when an item comes back for review, or pause anything you no longer want us to remember."}
               </Text>
+              {learningProductCount > 0 ? (
+                <View className="mt-5 flex-row rounded-2xl border border-yellow/30 bg-yellow/10 p-4">
+                  <Sparkles size={20} color={themeColors.warningInk} />
+                  <View className="ml-3 flex-1">
+                    <Text className="font-semibold text-ink">
+                      Learning stays separate
+                    </Text>
+                    <Text className="mt-1 text-sm leading-5 text-ink-secondary">
+                      Completed purchases can appear here, but they only become
+                      reminders after you choose to track them.
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
           }
           ListEmptyComponent={
@@ -283,7 +361,11 @@ export default function TrackedProductsScreen() {
         >
           <GlassSheetHeader
             title={editingProduct?.displayName ?? "Edit product"}
-            description="Adjust reminder timing and defaults. This rhythm is a reminder, not a claim that the product has run out."
+            description={
+              editingProduct?.status === "learning"
+                ? "OurPantry noticed this in completed shops. Confirm it before it joins your restock reminders."
+                : "Adjust reminder timing and defaults. This rhythm is a reminder, not a claim that the product has run out."
+            }
             icon={
               <SlidersHorizontal
                 size={21}
@@ -329,13 +411,17 @@ export default function TrackedProductsScreen() {
 
           {editingProduct && (
             <Text className="mt-3 text-sm leading-5 text-ink-secondary">
-              {editingProduct.purchaseObservationCount === 0
-                ? "No completed-shop history yet. Your chosen timing is the starting point."
-                : `${editingProduct.purchaseObservationCount} completed ${
-                    editingProduct.purchaseObservationCount === 1
-                      ? "shop supports"
-                      : "shops support"
-                  } this rhythm.`}
+              {editingProduct.status === "learning"
+                ? getLearningProductCopy(
+                    editingProduct.purchaseObservationCount,
+                  ).detail
+                : editingProduct.purchaseObservationCount === 0
+                  ? "No completed-shop history yet. Your chosen timing is the starting point."
+                  : `${editingProduct.purchaseObservationCount} completed ${
+                      editingProduct.purchaseObservationCount === 1
+                        ? "shop supports"
+                        : "shops support"
+                    } this rhythm.`}
             </Text>
           )}
 
@@ -348,47 +434,71 @@ export default function TrackedProductsScreen() {
             </Text>
           )}
 
-          <Button
-            onPress={() => void saveChanges()}
-            loading={isSaving}
-            disabled={isSaving}
-            className="mt-6 w-full"
-          >
-            Save changes
-          </Button>
-          <Button
-            variant={
-              editingProduct?.status === "active" ? "tonal" : "secondary"
-            }
-            onPress={() => void toggleTracking()}
-            disabled={isSaving}
-            className="mt-3 w-full"
-            accessibilityLabel={
-              editingProduct?.status === "active"
-                ? "Pause product tracking"
-                : "Resume product tracking"
-            }
-          >
-            {editingProduct?.status === "active" ? (
-              <Pause size={18} color={themeColors.coral} />
-            ) : (
-              <Play size={18} color={themeColors.surface} />
-            )}
-            <Text
-              className={`ml-2 font-semibold ${
-                editingProduct?.status === "active"
-                  ? "text-coral"
-                  : "text-white"
-              }`}
-            >
-              {editingProduct?.status === "active"
-                ? "Pause tracking"
-                : "Resume tracking"}
-            </Text>
-          </Button>
+          {editingProduct?.status === "learning" ? (
+            <>
+              <Button
+                onPress={() => void saveChanges("active")}
+                loading={isSaving}
+                disabled={isSaving}
+                className="mt-6 w-full"
+                accessibilityLabel={`Track ${editingProduct.displayName} as a regular product`}
+              >
+                Track this product
+              </Button>
+              <Button
+                variant="tonal"
+                onPress={() => void saveChanges("paused")}
+                disabled={isSaving}
+                className="mt-3 w-full"
+                accessibilityLabel={`Mark ${editingProduct.displayName} as not a regular product`}
+              >
+                Not a regular
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onPress={() => void saveChanges()}
+                loading={isSaving}
+                disabled={isSaving}
+                className="mt-6 w-full"
+              >
+                Save changes
+              </Button>
+              <Button
+                variant={
+                  editingProduct?.status === "active" ? "tonal" : "secondary"
+                }
+                onPress={() => void toggleTracking()}
+                disabled={isSaving}
+                className="mt-3 w-full"
+                accessibilityLabel={
+                  editingProduct?.status === "active"
+                    ? "Pause product tracking"
+                    : "Resume product tracking"
+                }
+              >
+                {editingProduct?.status === "active" ? (
+                  <Pause size={18} color={themeColors.coral} />
+                ) : (
+                  <Play size={18} color={themeColors.surface} />
+                )}
+                <Text
+                  className={`ml-2 font-semibold ${
+                    editingProduct?.status === "active"
+                      ? "text-coral"
+                      : "text-white"
+                  }`}
+                >
+                  {editingProduct?.status === "active"
+                    ? "Pause tracking"
+                    : "Resume tracking"}
+                </Text>
+              </Button>
+            </>
+          )}
         </GlassBottomSheetScrollView>
       </GlassBottomSheet>
-
     </SafeAreaView>
   );
 }
@@ -406,6 +516,10 @@ function TrackedProductListItem({
   onPress: (product: TrackedProduct) => void;
 }) {
   const { firstInSection, lastInSection, paused, product } = row;
+  const learningCopy =
+    product.status === "learning"
+      ? getLearningProductCopy(product.purchaseObservationCount)
+      : null;
 
   return (
     <Pressable
@@ -418,18 +532,26 @@ function TrackedProductListItem({
       accessibilityRole="button"
       accessibilityLabel={`Edit ${product.displayName}, every ${product.cadenceDays} days${
         paused ? ", tracking paused" : ""
-      }`}
+      }${learningCopy ? `, ${learningCopy.detail}` : ""}`}
     >
       <View
         className={cn(
           "h-11 w-11 items-center justify-center rounded-xl",
-          paused ? "bg-warm-gray-100" : "bg-teal-soft",
+          paused
+            ? "bg-warm-gray-100"
+            : learningCopy
+              ? "bg-yellow/15"
+              : "bg-teal-soft",
         )}
       >
-        <PackageCheck
-          size={21}
-          color={paused ? themeColors.secondaryInk : themeColors.teal}
-        />
+        {learningCopy ? (
+          <Sparkles size={21} color={themeColors.warningInk} />
+        ) : (
+          <PackageCheck
+            size={21}
+            color={paused ? themeColors.secondaryInk : themeColors.teal}
+          />
+        )}
       </View>
       <View className="ml-3 min-w-0 flex-1 pr-3">
         <View className="flex-row items-start">
@@ -442,19 +564,31 @@ function TrackedProductListItem({
           >
             {product.displayName}
           </Text>
-          {paused && (
-            <View className="ml-2 shrink-0 rounded-full bg-warm-gray-100 px-2 py-0.5">
-              <Text className="text-xs font-semibold text-ink-secondary">
-                Paused
+          {paused || learningCopy ? (
+            <View
+              className={cn(
+                "ml-2 shrink-0 rounded-full px-2 py-0.5",
+                learningCopy ? "bg-yellow/15" : "bg-warm-gray-100",
+              )}
+            >
+              <Text
+                className={cn(
+                  "text-xs font-semibold",
+                  learningCopy ? "text-yellow-800" : "text-ink-secondary",
+                )}
+              >
+                {learningCopy?.badge ?? "Paused"}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
         <Text
           className="mt-0.5 text-sm leading-5 text-ink-secondary"
           numberOfLines={2}
         >
-          Every {product.cadenceDays} days · {productAmount(product)}
+          {learningCopy
+            ? learningCopy.detail
+            : `Every ${product.cadenceDays} days · ${productAmount(product)}`}
         </Text>
       </View>
       <ChevronRight size={20} color={themeColors.secondaryInk} />
