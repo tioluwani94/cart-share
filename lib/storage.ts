@@ -5,6 +5,8 @@ import { createMMKV, type MMKV } from "react-native-mmkv";
  * Used for fast local caching of lists and items for offline support.
  */
 export const storage: MMKV = createMMKV({
+  // Preserve the original internal ID so upgrades retain cached data and
+  // pending offline mutations while the public app identity changes.
   id: "cartshare-storage",
 });
 

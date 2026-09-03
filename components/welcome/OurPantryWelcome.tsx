@@ -55,6 +55,8 @@ export interface OurPantryWelcomeProps {
   onActionPress?: WelcomeActionPressHandler;
   onPrimary?: () => void;
   onSecondary?: () => void;
+  onTermsPress?: () => void;
+  onPrivacyPress?: () => void;
   loadingActionId?: WelcomeActionId | null;
   error?: string | null;
 }
@@ -190,6 +192,8 @@ function WelcomeShell({
   onActionPress,
   onPrimary,
   onSecondary,
+  onTermsPress,
+  onPrivacyPress,
   loadingActionId,
   error,
 }: {
@@ -199,6 +203,8 @@ function WelcomeShell({
   | "onActionPress"
   | "onPrimary"
   | "onSecondary"
+  | "onTermsPress"
+  | "onPrivacyPress"
   | "loadingActionId"
   | "error"
 >) {
@@ -334,16 +340,47 @@ function WelcomeShell({
             {error}
           </Text>
         ) : null}
-        <Text
+        <View
           style={{
             marginTop: error ? 17 : 51,
-            color: "#8B827B",
-            fontSize: 18,
-            textAlign: "center",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          By continuing, you agree to our Terms and Privacy Policy.
-        </Text>
+          <Text className="text-base leading-6 text-ink-secondary">
+            By continuing, you agree to our{` `}
+          </Text>
+          <Pressable
+            className="min-h-11 justify-center px-0.5"
+            accessibilityRole="link"
+            accessibilityLabel="Open Terms of Use"
+            accessibilityHint="Opens the OurPantry Terms of Use in your browser"
+            disabled={!interactive}
+            hitSlop={4}
+            onPress={interactive ? onTermsPress : undefined}
+          >
+            <Text className="text-base font-bold leading-6 text-ink-secondary underline">
+              Terms
+            </Text>
+          </Pressable>
+          <Text className="text-base leading-6 text-ink-secondary">{` and `}</Text>
+          <Pressable
+            className="min-h-11 justify-center px-0.5"
+            accessibilityRole="link"
+            accessibilityLabel="Open Privacy Policy"
+            accessibilityHint="Opens the OurPantry Privacy Policy in your browser"
+            disabled={!interactive}
+            hitSlop={4}
+            onPress={interactive ? onPrivacyPress : undefined}
+          >
+            <Text className="text-base font-bold leading-6 text-ink-secondary underline">
+              Privacy Policy
+            </Text>
+          </Pressable>
+          <Text className="text-base leading-6 text-ink-secondary">.</Text>
+        </View>
       </View>
     </View>
   );
@@ -439,6 +476,8 @@ function StaticFinalArtwork({
   onActionPress,
   onPrimary,
   onSecondary,
+  onTermsPress,
+  onPrivacyPress,
   loadingActionId,
   error,
 }: Pick<
@@ -446,6 +485,8 @@ function StaticFinalArtwork({
   | "onActionPress"
   | "onPrimary"
   | "onSecondary"
+  | "onTermsPress"
+  | "onPrivacyPress"
   | "loadingActionId"
   | "error"
 >) {
@@ -456,6 +497,8 @@ function StaticFinalArtwork({
         onActionPress={onActionPress}
         onPrimary={onPrimary}
         onSecondary={onSecondary}
+        onTermsPress={onTermsPress}
+        onPrivacyPress={onPrivacyPress}
         loadingActionId={loadingActionId}
         error={error}
       />
@@ -485,6 +528,8 @@ export function OurPantryWelcome({
   onActionPress,
   onPrimary,
   onSecondary,
+  onTermsPress,
+  onPrivacyPress,
   loadingActionId = null,
   error = null,
 }: OurPantryWelcomeProps) {
@@ -607,6 +652,8 @@ export function OurPantryWelcome({
             onActionPress={onActionPress}
             onPrimary={onPrimary}
             onSecondary={onSecondary}
+            onTermsPress={onTermsPress}
+            onPrivacyPress={onPrivacyPress}
             loadingActionId={loadingActionId}
             error={error}
           />

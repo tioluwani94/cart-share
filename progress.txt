@@ -1,4 +1,4 @@
-# CartShare Progress Log
+# OurPantry Progress Log
 
 ## US-001: Initialize Expo project with NativeWind and brand theme [COMPLETED]
 - Verified Expo SDK 52.0.0 already installed
@@ -74,7 +74,7 @@
 - Typecheck passes
 
 ## US-005: Integrate Clerk authentication provider [COMPLETED]
-- Installed @clerk/clerk-expo (v2.19.17) for authentication
+- Installed @clerk/expo (v3.7.8) for authentication
 - Installed expo-secure-store (v15.0.8) for secure token storage
 - Created convex/auth.config.ts for Clerk JWT validation:
   - Configures Convex to validate JWTs from Clerk
@@ -596,7 +596,7 @@
 ## US-027: Set up MMKV for local caching [COMPLETED]
 - Installed react-native-mmkv (v4.1.1) for fast key-value storage
 - Created lib/storage.ts with MMKV instance and helper functions:
-  - MMKV storage instance created with id "cartshare-storage"
+  - MMKV storage instance created with id "ourpantry-storage"
   - Storage keys defined for lists and items cache:
     - LISTS_CACHE: "cache:lists" - for household lists
     - LISTS_CACHE_TIMESTAMP: "cache:lists:timestamp" - for cache expiry
@@ -791,7 +791,7 @@
 ## US-034: Build fun receipt camera interface [COMPLETED]
 - Installed expo-camera (v17.0.10) for camera functionality
 - Updated app.json with expo-camera plugin and permission message:
-  - "CartShare needs camera access to scan your receipts and track spending."
+  - "OurPantry needs camera access to scan your receipts and track spending."
 - Implemented app/scan-receipt.tsx with playful camera UI:
   - Fun header: "Snap your receipt!" with camera emoji
   - Permission request screen with friendly messaging

@@ -96,7 +96,7 @@ function buildPushMessage(args: {
     title: "Your next shop needs a quick check",
     body: `${args.candidateCount} ${args.candidateCount === 1 ? "thing may" : "things may"} need a quick check before ${args.plannedDay}.`,
     data: {
-      url: "cartshare://restock-review",
+      url: "ourpantry://restock-review",
       kind: args.kind,
     },
   };

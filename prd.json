@@ -1,12 +1,12 @@
 {
-  "project": "CartShare",
-  "branchName": "ralph/cartshare-mvp",
-  "description": "CartShare - A sleek, fun, and playful real-time collaborative grocery shopping app for couples with shared lists, receipt scanning, and spending analytics. Design emphasizes delightful micro-interactions, warm colors, and personality-filled experiences.",
+  "project": "OurPantry",
+  "branchName": "ralph/ourpantry-mvp",
+  "description": "OurPantry - A sleek, fun, and playful real-time collaborative grocery shopping app for couples with shared lists, receipt scanning, and spending analytics. Design emphasizes delightful micro-interactions, warm colors, and personality-filled experiences.",
   "userStories": [
     {
       "id": "US-001",
       "title": "Initialize Expo project with NativeWind and brand theme",
-      "description": "As a developer, I need the base Expo project configured with NativeWind and the CartShare brand color palette.",
+      "description": "As a developer, I need the base Expo project configured with NativeWind and the OurPantry brand color palette.",
       "acceptanceCriteria": [
         "Expo SDK 52+ project initialized",
         "NativeWind 4.2+ installed and configured",
@@ -65,7 +65,7 @@
     {
       "id": "US-004",
       "title": "Create playful reusable UI components",
-      "description": "As a developer, I need sleek, fun UI components with the CartShare design language.",
+      "description": "As a developer, I need sleek, fun UI components with the OurPantry design language.",
       "acceptanceCriteria": [
         "lib/cn.ts created with clsx + tailwind-merge utility",
         "components/ui/Button.tsx with coral primary, teal secondary, scale-down press animation",
@@ -87,7 +87,7 @@
       "title": "Integrate Clerk authentication provider",
       "description": "As a developer, I need Clerk auth provider integrated with Convex.",
       "acceptanceCriteria": [
-        "@clerk/clerk-expo installed",
+        "@clerk/expo installed",
         "ConvexProviderWithClerk wrapper created in root layout",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable used",
         "EXPO_PUBLIC_CONVEX_URL environment variable used",
@@ -102,7 +102,7 @@
     {
       "id": "US-006",
       "title": "Build playful welcome screen with Google OAuth",
-      "description": "As a user, I want a delightful first impression when signing into CartShare.",
+      "description": "As a user, I want a delightful first impression when signing into OurPantry.",
       "acceptanceCriteria": [
         "app/(auth)/welcome.tsx with warm, inviting design",
         "Friendly illustration or animated grocery icons at top",

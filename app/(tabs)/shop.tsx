@@ -43,7 +43,7 @@ import { themeColors } from "@/lib/theme";
 import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useShoppingList } from "@/lib/useShoppingList";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { FlashList } from "@shopify/flash-list";
 import * as Clipboard from "expo-clipboard";

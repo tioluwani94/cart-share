@@ -20,6 +20,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
+import { OUR_PANTRY_URLS } from "@/lib/legalUrls";
 import {
   cancelAccountDeletionCleanup,
   finishAccountDeletionLocalCleanup,
@@ -38,7 +39,7 @@ import {
   isClerkAPIResponseError,
   useAuth,
   useUser,
-} from "@clerk/clerk-expo";
+} from "@clerk/expo";
 import { useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -47,11 +48,14 @@ import {
   BarChart3,
   Bell,
   Clock3,
+  FileText,
   Home,
+  LifeBuoy,
   LogOut,
   PiggyBank,
   RotateCcw,
   Share2,
+  ShieldCheck,
   Trash2,
   UserPlus,
 } from "lucide-react-native";
@@ -528,6 +532,21 @@ export default function SettingsScreen() {
     signOut,
   ]);
 
+  const openExternalPage = useCallback(
+    async (url: string, label: string) => {
+      try {
+        await Linking.openURL(url);
+      } catch (error) {
+        console.error(`Could not open ${label}:`, error);
+        showToast({
+          message: `Couldn't open ${label}`,
+          tone: "error",
+        });
+      }
+    },
+    [showToast],
+  );
+
   if (household === undefined) {
     return <SettingsLoadingState onBack={() => router.back()} />;
   }
@@ -795,6 +814,55 @@ export default function SettingsScreen() {
               ) : null}
             </View>
           ) : null}
+        </SettingsSection>
+
+        <SettingsSection title="About & legal">
+          <SettingsRow
+            icon={
+              <ShieldCheck size={19} color={themeColors.teal} strokeWidth={2} />
+            }
+            iconTone="teal"
+            title="Privacy Policy"
+            subtitle="How OurPantry handles your data"
+            disclosure
+            onPress={() =>
+              void openExternalPage(OUR_PANTRY_URLS.privacy, "Privacy Policy")
+            }
+            accessibilityLabel="Open Privacy Policy"
+            accessibilityHint="Opens the OurPantry Privacy Policy in your browser"
+          />
+          <SettingsRow
+            icon={
+              <FileText
+                size={19}
+                color={themeColors.secondaryInk}
+                strokeWidth={2}
+              />
+            }
+            title="Terms of Use"
+            subtitle="The terms for using OurPantry"
+            disclosure
+            onPress={() =>
+              void openExternalPage(OUR_PANTRY_URLS.terms, "Terms of Use")
+            }
+            accessibilityLabel="Open Terms of Use"
+            accessibilityHint="Opens the OurPantry Terms of Use in your browser"
+          />
+          <SettingsRow
+            icon={
+              <LifeBuoy size={19} color={themeColors.coral} strokeWidth={2} />
+            }
+            iconTone="coral"
+            title="Support"
+            subtitle="Help, contact and account deletion guidance"
+            disclosure
+            onPress={() =>
+              void openExternalPage(OUR_PANTRY_URLS.support, "Support")
+            }
+            isLast
+            accessibilityLabel="Open OurPantry Support"
+            accessibilityHint="Opens the OurPantry support page in your browser"
+          />
         </SettingsSection>
 
         <SettingsSection

@@ -31,7 +31,7 @@ import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
 import { themeColors } from "@/lib/theme";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 import { useMutation } from "convex/react";
 import { type Href, useRouter } from "expo-router";
 import {

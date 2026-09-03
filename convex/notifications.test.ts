@@ -604,7 +604,7 @@ describe("notifications.checkDeliveryReceipt", () => {
       title: "Your next shop needs a quick check",
       body: "2 things may need a quick check before Saturday.",
       data: {
-        url: "cartshare://restock-review",
+        url: "ourpantry://restock-review",
         kind: "restock_review" as const,
       },
     };
@@ -688,7 +688,7 @@ describe("notifications.retryRateLimitedDelivery", () => {
       title: "Your next shop needs a quick check",
       body: "1 thing may need a quick check before Monday.",
       data: {
-        url: "cartshare://restock-review",
+        url: "ourpantry://restock-review",
         kind: "restock_review" as const,
       },
     };

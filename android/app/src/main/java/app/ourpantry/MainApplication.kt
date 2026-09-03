@@ -1,4 +1,4 @@
-package com.cartshare.app
+package app.ourpantry
 
 import android.app.Application
 import android.content.res.Configuration

@@ -1,4 +1,4 @@
-# CartShare - Claude Code Instructions
+# OurPantry - Claude Code Instructions
 
 ## Build Commands
 
@@ -85,7 +85,7 @@ Do not use a plain `font-bold` system face for heading-sized text. Body copy and
 ## Project Structure
 
 ```
-cartshare/
+ourpantry/
 ├── app/                    # Expo Router screens
 │   ├── (auth)/             # Auth flow screens
 │   ├── (tabs)/             # Main app tabs (home, analytics, settings)

@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react";
-import { useOAuth } from "@clerk/clerk-expo";
+import { useSSO } from "@clerk/expo";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 
 import { OurPantryWelcome } from "@/components/welcome/OurPantryWelcome";
+import { OUR_PANTRY_URLS } from "@/lib/legalUrls";
 import type { WelcomeActionId } from "@/lib/welcomeActions";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -13,24 +14,20 @@ export default function WelcomeScreen() {
     useState<WelcomeActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { startOAuthFlow: startGoogleOAuth } = useOAuth({
-    strategy: "oauth_google",
-  });
-  const { startOAuthFlow: startAppleOAuth } = useOAuth({
-    strategy: "oauth_apple",
-  });
+  const { startSSOFlow } = useSSO();
 
   const redirectUrl = Linking.createURL("/(auth)/welcome");
 
   const completeOAuth = useCallback(
     async (
       actionId: WelcomeActionId,
-      startOAuthFlow: typeof startGoogleOAuth | typeof startAppleOAuth,
+      strategy: "oauth_google" | "oauth_apple",
     ) => {
       try {
         setLoadingActionId(actionId);
         setError(null);
-        const { createdSessionId, setActive } = await startOAuthFlow({
+        const { createdSessionId, setActive } = await startSSOFlow({
+          strategy,
           redirectUrl,
         });
 
@@ -44,23 +41,35 @@ export default function WelcomeScreen() {
         setLoadingActionId(null);
       }
     },
-    [redirectUrl],
+    [redirectUrl, startSSOFlow],
   );
 
   const handleWelcomeAction = useCallback(
     (actionId: WelcomeActionId) => {
-      const startOAuthFlow =
+      const strategy =
         actionId === "ourpantry.continue-google"
-          ? startGoogleOAuth
-          : startAppleOAuth;
-      void completeOAuth(actionId, startOAuthFlow);
+          ? "oauth_google"
+          : "oauth_apple";
+      void completeOAuth(actionId, strategy);
     },
-    [completeOAuth, startAppleOAuth, startGoogleOAuth],
+    [completeOAuth],
   );
+
+  const openLegalPage = useCallback(async (url: string) => {
+    try {
+      setError(null);
+      await Linking.openURL(url);
+    } catch (linkError) {
+      console.error("Could not open legal page:", linkError);
+      setError("We couldn't open that page. Please try again.");
+    }
+  }, []);
 
   return (
     <OurPantryWelcome
       onActionPress={handleWelcomeAction}
+      onTermsPress={() => void openLegalPage(OUR_PANTRY_URLS.terms)}
+      onPrivacyPress={() => void openLegalPage(OUR_PANTRY_URLS.privacy)}
       loadingActionId={loadingActionId}
       error={error}
     />

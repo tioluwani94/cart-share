@@ -34,7 +34,7 @@ import {
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   ChevronDown,

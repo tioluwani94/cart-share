@@ -64,7 +64,7 @@ jest.mock("convex/react", () => ({
   },
 }));
 
-jest.mock("@clerk/clerk-expo", () => ({
+jest.mock("@clerk/expo", () => ({
   useAuth: () => ({ signOut: mockSignOut }),
   useUser: () => ({ user: { delete: mockDeleteAccount } }),
   isClerkAPIResponseError: (error) =>
@@ -237,6 +237,7 @@ describe("SettingsScreen", () => {
     mockRecalculateReminders.mockResolvedValue({ success: true });
     mockSaveMonthlyBudget.mockResolvedValue({ success: true });
     jest.spyOn(Linking, "openSettings").mockResolvedValue();
+    jest.spyOn(Linking, "openURL").mockResolvedValue();
     jest.spyOn(Share, "share").mockResolvedValue({
       action: Share.dismissedAction,
     });
@@ -261,6 +262,26 @@ describe("SettingsScreen", () => {
       message:
         "Join Test household on OurPantry using invite code ABC123.",
     });
+  });
+
+  it("opens the verified legal and support pages", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<SettingsScreen />);
+    });
+
+    for (const [accessibilityLabel, expectedUrl] of [
+      ["Open Privacy Policy", "https://ourpantry.app/privacy"],
+      ["Open Terms of Use", "https://ourpantry.app/terms"],
+      ["Open OurPantry Support", "https://ourpantry.app/support"],
+    ]) {
+      await act(async () => {
+        await renderer.root
+          .findByProps({ accessibilityLabel })
+          .props.onPress();
+      });
+      expect(Linking.openURL).toHaveBeenLastCalledWith(expectedUrl);
+    }
   });
 
   it("lets this member choose an earlier reminder time", async () => {

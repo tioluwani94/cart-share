@@ -1,8 +1,8 @@
-# Product Requirements Document: CartShare — Collaborative Grocery Shopping App
+# Product Requirements Document: OurPantry — Collaborative Grocery Shopping App
 
 ## Executive Summary and Product Vision
 
-**CartShare** is a real-time collaborative grocery shopping mobile app designed for couples managing shared household shopping. The core problem: coordinating grocery shopping between two people leads to duplicated purchases, forgotten items, and no visibility into household spending patterns. CartShare solves this by providing **real-time shared lists**, **receipt scanning with OCR**, and **spending analytics**—all designed for seamless in-store use with offline-first capabilities.
+**OurPantry** is a real-time collaborative grocery shopping mobile app designed for couples managing shared household shopping. The core problem: coordinating grocery shopping between two people leads to duplicated purchases, forgotten items, and no visibility into household spending patterns. OurPantry solves this by providing **real-time shared lists**, **receipt scanning with OCR**, and **spending analytics**—all designed for seamless in-store use with offline-first capabilities.
 
 **Product Vision**: Become the indispensable shopping companion for couples who want to shop smarter together, eliminating the friction of "did you get the milk?" and providing clear visibility into where money goes.
 
@@ -16,7 +16,7 @@
 
 ### Design Principles
 
-CartShare should feel **sleek, fun, playful, and interesting**—turning the mundane task of grocery shopping into a delightful shared experience. The app should spark joy while remaining highly functional.
+OurPantry should feel **sleek, fun, playful, and interesting**—turning the mundane task of grocery shopping into a delightful shared experience. The app should spark joy while remaining highly functional.
 
 **Core Design Pillars:**
 
@@ -737,7 +737,7 @@ export default defineSchema({
 ### Project Structure
 
 ```
-cartshare/
+ourpantry/
 ├── app/                          # Expo Router screens
 │   ├── (auth)/                   # Auth flow screens
 │   │   ├── sign-in.tsx
@@ -805,7 +805,7 @@ cartshare/
 ### Clerk Authentication Setup
 
 **Required Clerk Dashboard Configuration:**
-1. Create Clerk application for "CartShare"
+1. Create Clerk application for "OurPantry"
 2. Enable authentication methods: Google OAuth, Apple Sign-In
 3. Create JWT Template named "convex" (must be this exact name)
 4. Configure Convex JWT settings in template
@@ -1141,7 +1141,7 @@ if (!identity) throw new Error("Not authenticated");
 Create this file in the project root for Claude Code context:
 
 ```markdown
-# CartShare - Claude Code Instructions
+# OurPantry - Claude Code Instructions
 
 ## Build Commands
 - `npm run start` - Start Expo development server
@@ -1180,4 +1180,4 @@ Create this file in the project root for Claude Code context:
 
 ---
 
-*This PRD provides comprehensive specifications for building CartShare. Implementation should proceed phase-by-phase, with each milestone validated before moving to the next. The acceptance criteria are designed to be testable and specific, enabling Claude Code to implement features with clear success definitions.*
+*This PRD provides comprehensive specifications for building OurPantry. Implementation should proceed phase-by-phase, with each milestone validated before moving to the next. The acceptance criteria are designed to be testable and specific, enabling Claude Code to implement features with clear success definitions.*

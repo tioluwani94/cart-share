@@ -156,7 +156,7 @@ jest.mock("@/lib/useRestockDecisionActions", () => ({
   }),
 }));
 
-jest.mock("@clerk/clerk-expo", () => ({
+jest.mock("@clerk/expo", () => ({
   useAuth: () => ({ userId: "clerk_1" }),
 }));
 

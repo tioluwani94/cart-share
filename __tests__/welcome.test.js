@@ -3,18 +3,16 @@ import TestRenderer, { act } from "react-test-renderer";
 
 import WelcomeScreen from "@/app/(auth)/welcome";
 
-const mockGoogleFlow = jest.fn();
-const mockAppleFlow = jest.fn();
+const mockSSOFlow = jest.fn();
+const mockOpenURL = jest.fn();
 
-jest.mock("@clerk/clerk-expo", () => ({
-  useOAuth: ({ strategy }) => ({
-    startOAuthFlow:
-      strategy === "oauth_google" ? mockGoogleFlow : mockAppleFlow,
-  }),
+jest.mock("@clerk/expo", () => ({
+  useSSO: () => ({ startSSOFlow: mockSSOFlow }),
 }));
 
 jest.mock("expo-linking", () => ({
-  createURL: jest.fn(() => "cartshare://welcome"),
+  createURL: jest.fn(() => "ourpantry://welcome"),
+  openURL: (...args) => mockOpenURL(...args),
 }));
 
 jest.mock("expo-web-browser", () => ({
@@ -40,7 +38,12 @@ jest.mock("@/components/welcome/OurPantryWelcome", () => {
   const { Pressable, Text, View } = require("react-native");
 
   return {
-    OurPantryWelcome: ({ error, onActionPress }) => (
+    OurPantryWelcome: ({
+      error,
+      onActionPress,
+      onTermsPress,
+      onPrivacyPress,
+    }) => (
       <View>
         <Pressable
           accessibilityLabel="Continue with Google"
@@ -49,6 +52,11 @@ jest.mock("@/components/welcome/OurPantryWelcome", () => {
         <Pressable
           accessibilityLabel="Continue with Apple"
           onPress={() => onActionPress("ourpantry.continue-apple")}
+        />
+        <Pressable accessibilityLabel="Open Terms of Use" onPress={onTermsPress} />
+        <Pressable
+          accessibilityLabel="Open Privacy Policy"
+          onPress={onPrivacyPress}
         />
         {error ? <Text accessibilityRole="alert">{error}</Text> : null}
       </View>
@@ -72,14 +80,11 @@ jest.mock("@/components/ui", () => {
 describe("welcome authentication", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGoogleFlow.mockResolvedValue({
+    mockSSOFlow.mockResolvedValue({
       createdSessionId: null,
       setActive: null,
     });
-    mockAppleFlow.mockResolvedValue({
-      createdSessionId: null,
-      setActive: null,
-    });
+    mockOpenURL.mockResolvedValue(undefined);
   });
 
   it("starts each provider directly from the welcome screen", async () => {
@@ -95,10 +100,11 @@ describe("welcome authentication", () => {
         .props.onPress();
     });
 
-    expect(mockGoogleFlow).toHaveBeenCalledWith({
-      redirectUrl: "cartshare://welcome",
+    expect(mockSSOFlow).toHaveBeenNthCalledWith(1, {
+      strategy: "oauth_google",
+      redirectUrl: "ourpantry://welcome",
     });
-    expect(mockAppleFlow).not.toHaveBeenCalled();
+    expect(mockSSOFlow).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       renderer.root
@@ -106,11 +112,36 @@ describe("welcome authentication", () => {
         .props.onPress();
     });
 
-    expect(mockAppleFlow).toHaveBeenCalledWith({
-      redirectUrl: "cartshare://welcome",
+    expect(mockSSOFlow).toHaveBeenNthCalledWith(2, {
+      strategy: "oauth_apple",
+      redirectUrl: "ourpantry://welcome",
     });
     expect(
       renderer.root.findByProps({ accessibilityLabel: "Continue with Google" }),
     ).toBeDefined();
+  });
+
+  it("opens the verified Terms and Privacy pages", async () => {
+    let renderer;
+
+    await act(async () => {
+      renderer = TestRenderer.create(<WelcomeScreen />);
+    });
+
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: "Open Terms of Use" })
+        .props.onPress();
+    });
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: "Open Privacy Policy" })
+        .props.onPress();
+    });
+
+    expect(mockOpenURL.mock.calls).toEqual([
+      ["https://ourpantry.app/terms"],
+      ["https://ourpantry.app/privacy"],
+    ]);
   });
 });

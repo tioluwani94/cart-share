@@ -17,7 +17,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { ReceiptText } from "lucide-react-native";

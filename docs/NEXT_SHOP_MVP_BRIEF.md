@@ -769,6 +769,6 @@ Approved checkpoints; implementation status is summarised in section 17:
 
 1. **Implemented:** stabilisation, deterministic restock engine, additive schema, authenticated Convex interface, activation, household inputs, historical suggestions, analytics consent, notification scheduling, scoped token lifecycle, account deletion, shared shopping-list modules, Plan, Shop, Spending, Settings, UK defaults, and the approved visual direction.
 2. **Locally verified:** TypeScript, lint, Jest, account-deletion invariants, iOS simulator flows, receipt cancellation, offline replay invariants, and analytics allow-list/identity isolation.
-3. **Release hardening in progress:** legal material, external account-deletion configuration, EAS project and credentials, production environment configuration, App Store privacy declarations, and release-build permission audit.
+3. **Release hardening in progress:** the legal website, in-app legal links, privacy-manifest baseline, and App Store disclosure mapping are complete locally. Dependency alignment, external account-deletion verification, EAS project and credentials, production environment configuration, final archive privacy verification, and release-build permission audit remain.
 4. **Physical-device validation pending:** Google and Apple production OAuth, APNs delivery and receipt cleanup, two-device household sync, real UK receipts, offline reconnect, accessibility, and consent/sign-out isolation.
 5. **Beta pending:** run the closed UK household beta before adding AI or another market.

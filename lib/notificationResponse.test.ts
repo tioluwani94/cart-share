@@ -7,7 +7,7 @@ describe("parseRestockNotificationResponse", () => {
       expect(
         parseRestockNotificationResponse({
           identifier: "notification_1",
-          data: { url: "cartshare://restock-review", kind },
+          data: { url: "ourpantry://restock-review", kind },
         }),
       ).toEqual({ identifier: "notification_1", kind });
     },
@@ -17,7 +17,7 @@ describe("parseRestockNotificationResponse", () => {
     expect(
       parseRestockNotificationResponse({
         identifier: "notification_2",
-        data: { url: "cartshare://restock-review" },
+        data: { url: "ourpantry://restock-review" },
       }),
     ).toBeNull();
   });
@@ -26,13 +26,13 @@ describe("parseRestockNotificationResponse", () => {
     expect(
       parseRestockNotificationResponse({
         identifier: "notification_3",
-        data: { url: "cartshare://settings", kind: "restock_review" },
+        data: { url: "ourpantry://settings", kind: "restock_review" },
       }),
     ).toBeNull();
     expect(
       parseRestockNotificationResponse({
         identifier: "notification_4",
-        data: { url: "cartshare://restock-review", kind: "other" },
+        data: { url: "ourpantry://restock-review", kind: "other" },
       }),
     ).toBeNull();
   });

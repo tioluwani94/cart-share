@@ -14,7 +14,7 @@ import { partitionRestockCandidates } from "@/lib/restockReview";
 import { useCachedHousehold } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Pause, ShoppingBasket } from "lucide-react-native";

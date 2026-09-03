@@ -24,7 +24,7 @@ import { SyncStatusProvider } from "@/lib/SyncStatusContext";
 import { getAuthRedirect } from "@/lib/authRouting";
 import { OfflineQueueProvider } from "@/lib/useScopedOfflineQueue";
 import type { OfflineScope } from "@/lib/offlineQueue";
-import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/expo";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import {
   Nunito_800ExtraBold,
@@ -63,13 +63,17 @@ const convex = new ConvexReactClient(
 );
 
 // Clerk publishable key from environment variables
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const publishableKey = (() => {
+  const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-if (!publishableKey) {
-  throw new Error(
-    "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Please set it in your .env file.",
-  );
-}
+  if (!key) {
+    throw new Error(
+      "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Please set it in your .env file.",
+    );
+  }
+
+  return key;
+})();
 
 /**
  * Initial layout component that handles auth-based route protection.

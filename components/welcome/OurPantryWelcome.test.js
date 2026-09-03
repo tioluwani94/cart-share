@@ -265,4 +265,34 @@ describe("OurPantryWelcome", () => {
         .children,
     ).toBe("Something went wrong. Please try again.");
   });
+
+  it("exposes the Terms and Privacy Policy as accessible links", () => {
+    const onTermsPress = jest.fn();
+    const onPrivacyPress = jest.fn();
+    let renderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <OurPantryWelcome
+          autoplay={false}
+          onTermsPress={onTermsPress}
+          onPrivacyPress={onPrivacyPress}
+        />,
+      );
+    });
+
+    const terms = renderer.root.findByProps({
+      accessibilityLabel: "Open Terms of Use",
+    });
+    const privacy = renderer.root.findByProps({
+      accessibilityLabel: "Open Privacy Policy",
+    });
+
+    expect(terms.props.accessibilityRole).toBe("link");
+    expect(privacy.props.accessibilityRole).toBe("link");
+    act(() => terms.props.onPress());
+    act(() => privacy.props.onPress());
+    expect(onTermsPress).toHaveBeenCalledTimes(1);
+    expect(onPrivacyPress).toHaveBeenCalledTimes(1);
+  });
 });

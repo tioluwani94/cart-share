@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useState, type PropsWithChildren } from "react";
 

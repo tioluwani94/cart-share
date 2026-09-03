@@ -12,7 +12,7 @@ export function parseRestockNotificationResponse({
   data: Record<string, unknown>;
   identifier: string;
 }): RestockNotificationResponse | null {
-  if (data.url !== "cartshare://restock-review") return null;
+  if (data.url !== "ourpantry://restock-review") return null;
   if (data.kind !== "restock_review" && data.kind !== "shop_reminder") {
     return null;
   }

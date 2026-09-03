@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useConvexAuth, useMutation } from "convex/react";
 import React from "react";
 import { Text } from "react-native";
@@ -12,7 +12,7 @@ jest.mock("@/convex/_generated/api", () => ({
   api: { users: { ensureCurrent: "users.ensureCurrent" } },
 }));
 
-jest.mock("@clerk/clerk-expo", () => ({
+jest.mock("@clerk/expo", () => ({
   useAuth: jest.fn(),
 }));
 

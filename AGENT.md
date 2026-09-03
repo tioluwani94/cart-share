@@ -1,10 +1,10 @@
-# CartShare - Agent Instructions
+# OurPantry - Agent Instructions
 
-This file provides context and guidelines for AI agents working autonomously on the CartShare project.
+This file provides context and guidelines for AI agents working autonomously on the OurPantry project.
 
 ## Project Overview
 
-CartShare is a real-time collaborative grocery shopping mobile app for couples. Key features:
+OurPantry is a real-time collaborative grocery shopping mobile app for couples. Key features:
 - Real-time shared shopping lists
 - Receipt scanning with OCR
 - Spending analytics

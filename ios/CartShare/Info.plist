@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-  <dict>
+<dict>
+	<key>ClerkExpoVersion</key>
+	<string>3.7.8</string>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>CFBundleDevelopmentRegion</key>
@@ -27,14 +29,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>cartshare</string>
-          <string>com.cartshare.app</string>
+          <string>ourpantry</string>
+          <string>app.ourpantry</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+cartshare</string>
+          <string>exp+ourpantry</string>
         </array>
       </dict>
     </array>
@@ -53,10 +55,6 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>OurPantry needs camera access to scan your receipts and track spending.</string>
-    <key>NSFaceIDUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

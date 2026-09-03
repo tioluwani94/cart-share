@@ -1,10 +1,11 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP locally complete; release infrastructure and compliance pending**
+Status: **Core MVP and legal foundation locally complete; release infrastructure and external verification pending**
 
-This checklist is the source of truth for the closed UK iOS beta. It does not
-authorize a production deployment. Repository checkpoints in `AGENT.md` still
-apply.
+This checklist is the source of truth for the closed iOS beta. The initial
+receipt, currency, date, unit, and retailer adapter remains GB-specific. This
+document does not authorize a production deployment. Repository checkpoints in
+`AGENT.md` still apply.
 
 ## Completed locally
 
@@ -148,10 +149,38 @@ attribution as `Former household member`; an unrecorded payer remains unlabeled.
 The configuration shape was approved in checkpoint F, but linking external
 projects and changing production services still requires explicit approval.
 
+### Pre-checkpoint dependency health
+
+The 3 September 2026 local pass has green TypeScript, ESLint, plist validation,
+resolved Expo config, all 317 Jest tests across 80 suites, and a successful arm64 iOS Simulator
+compile/link with code signing disabled. The approved dependency tranche
+installed the direct peers required by the current Clerk/Reanimated stack
+(`expo-auth-session`, `react-dom`, and `react-native-worklets`), aligned all nine
+Expo SDK 54 package drifts, and regenerated the iOS pod lockfile. Expo Doctor
+now passes 17 of 18 checks. Run release tooling on an Expo Doctor-supported Node
+LTS version rather than Node 23.
+
+Expo Doctor also warns that app-config fields are not automatically synced when
+checked-in `ios` and `android` directories exist. The privacy manifest and
+unused-permission cleanup are synchronized in both app config and native source
+in this tranche. Checkpoint K must treat the native projects as authoritative
+and inspect the resolved archive rather than assuming a future app-config edit
+was applied.
+
+The separately approved Clerk Core 3 migration is complete. The app now uses
+`@clerk/expo`, registers its Expo config plugin, and uses the supported
+browser-based `useSSO()` flow for both Google and Apple. This preserves the
+existing sign-in UX while removing the deprecated `@clerk/clerk-expo` package
+and `useOAuth()` hook. The installed Clerk Expo 3.7.8 native module requires
+iOS 17, so the Expo and checked-in Xcode deployment targets are both 17.0.
+Validate both providers against production credentials in Checkpoint K.
+
 ### EAS project and builds
 
-- Decide whether the permanent identifiers remain `com.cartshare.app` and
-  `cartshare`, or change before the first store record is created.
+- Permanent product identity is now `OurPantry`, with iOS and Android identifier
+  `app.ourpantry`, Expo slug `ourpantry`, and deep-link scheme `ourpantry`.
+- Register `app.ourpantry` in Apple Developer, Google/Firebase where applicable,
+  Clerk's native application settings, and EAS before creating store builds.
 - Link/create the EAS project and add `extra.eas.projectId`.
 - `eas.json` now contains profiles for:
   - `development`: internal development client;
@@ -161,8 +190,10 @@ projects and changing production services still requires explicit approval.
   the first preview build.
 - Configure the Apple team, distribution certificate, provisioning profile,
   and APNs key in EAS. Do not commit credentials.
-- Audit generated entitlements and remove unused microphone and Face ID
-  permission descriptions.
+- The unused microphone and Face ID permission descriptions are removed from
+  the checked-in native projects, and the Expo camera/SecureStore plugin options
+  keep them out of future prebuilds. Re-check the final generated entitlements
+  and permissions after Checkpoint K.
 
 ### Environment matrix
 
@@ -187,19 +218,32 @@ Production deployment order:
 
 ## Legal and App Store material
 
-The following content cannot be fabricated and needs product-owner input:
+Verified product-owner inputs as of 3 September 2026:
 
-- legal/controller name and contact email;
-- privacy-policy and terms URLs;
-- collected-data purposes, processors, retention periods, and deletion policy;
-- support URL;
-- App Store privacy answers, age rating, screenshots, description, keywords,
-  review notes, and a working review account/household.
+- operator/controller: Tioluwani Kolawole, trading as OurPantry;
+- public contact: `support@ourpantry.app`, with inbound delivery verified;
+- ICO data-protection fee self-assessment completed: no fee is currently due
+  because OurPantry has not started trading, and the ICO does not need to be
+  notified; retake the assessment when trading begins;
+- the privacy policy, terms, support, and account-deletion pages are deployed
+  and verified over HTTPS at `https://ourpantry.app`, with
+  `https://www.ourpantry.app` and the Pages domain redirecting or serving the
+  same project;
+- the legal baseline documents the current collected-data purposes,
+  processors, retention criteria, deletion behaviour, Sign in with Apple
+  guidance, provider backup behaviour, and support route;
+- Welcome and Settings link to the branded Privacy Policy and Terms of Use;
+  Settings also links to the public support route;
+- `app.json` and the checked-in iOS privacy manifest declare the implemented
+  data flows with tracking disabled, and
+  `docs/APP_STORE_PRIVACY_DISCLOSURES.md` maps them to App Store Connect.
 
-Once supplied, make Terms and Privacy Policy tappable from Welcome and
-Settings, and update `PrivacyInfo.xcprivacy` plus App Store privacy disclosures
-to match the actual Clerk, Convex, Google Vision, Expo Push, and consented
-PostHog data flows.
+Remaining external completion is limited to entering and verifying the privacy
+answers in App Store Connect against the final archived build, selecting the age
+rating, supplying screenshots, description, keywords and review notes, and
+providing a working review account/household. Re-run the privacy review if the
+production Clerk, Convex, Google Vision, Expo Push, or PostHog configuration
+differs from the documented MVP data flows.
 
 ## Release validation gate
 

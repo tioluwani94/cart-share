@@ -87,15 +87,18 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.cartshare.app'
+    namespace 'app.ourpantry'
     defaultConfig {
-        applicationId 'com.cartshare.app'
+        applicationId 'app.ourpantry'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+    }
+    kotlinOptions {
+        freeCompilerArgs += ['-Xskip-metadata-version-check']
     }
     signingConfigs {
         debug {
@@ -125,6 +128,9 @@ android {
         jniLibs {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
             useLegacyPackaging enableLegacyPackaging.toBoolean()
+        }
+        resources {
+            excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF']
         }
     }
     androidResources {
