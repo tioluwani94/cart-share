@@ -154,14 +154,48 @@ attribution as `Former household member`; an unrecorded payer remains unlabeled.
 
 ## Checkpoint K — EAS and production services
 
-The configuration shape was approved in checkpoint F, but linking external
-projects and changing production services still requires explicit approval.
+The configuration shape was approved in checkpoint F, and linking the Expo
+project plus non-production EAS configuration was approved for this checkpoint.
+Changing production services still requires separate explicit approval.
+
+### Execution status — 3 September 2026
+
+- Linked the repository to the Expo project `@jtioluwani/ourpantry`
+  (`c2227d67-2e66-4150-88c0-7944fe0dffd2`) and recorded the project owner and
+  ID in Expo app config.
+- Pinned EAS builds to Node 22.23.2 and pnpm 10.6.4. Added a credential-free
+  `preview-simulator` profile alongside the development, device-preview, and
+  production profiles.
+- Added the approved non-production Convex URLs and Clerk publishable key to
+  the EAS `development` and `preview` environments with sensitive visibility.
+  The EAS `production` environment remains empty and no production client key
+  has been copied from development.
+- Added a dedicated Convex TypeScript project configuration. Convex codegen and
+  a production **dry run** pass, including schema validation and a non-destructive
+  index diff. No Convex production code or schema has been deployed.
+- The existing Convex production deployment currently has only
+  `CLERK_JWT_ISSUER_DOMAIN`. The production Clerk webhook secret and Google
+  Vision key are still required; PostHog server credentials remain optional
+  while analytics is disabled.
+- EAS build `e2b50475-ca22-48d3-bec2-e3eca1be94ad` completed successfully for
+  the iOS `preview-simulator` profile as OurPantry 1.0.0 (build 1), bundle ID
+  `app.ourpantry`, without Apple credentials. This validates cloud packaging
+  and native compilation but is not a signed device, TestFlight, or App Store
+  build.
+- Apple release credentials remain blocked on paid Developer Program enrolment.
+  The checked-in Xcode project currently names team `5L6QPNNMP8`, while Expo
+  config names `W6SZ22J8C2`; do not select either for release until the paid team
+  is visible and verified. The native target also has no APNs entitlement yet,
+  so push-capability registration, the distribution certificate, provisioning
+  profile, and APNs key remain part of the post-enrolment pass.
+- Production service mutation, Convex deployment, and App Store/TestFlight
+  build creation remain unapproved and have not been performed.
 
 ### Pre-checkpoint dependency health
 
 The 3 September 2026 local pass has green TypeScript, ESLint, plist validation,
-resolved Expo config, all 317 Jest tests across 80 suites, and a successful arm64 iOS Simulator
-compile/link with code signing disabled. The approved dependency tranche
+resolved Expo config, all 339 Jest tests across 81 suites, and a successful
+arm64 iOS Simulator compile/link with code signing disabled. The approved dependency tranche
 installed the direct peers required by the current Clerk/Reanimated stack
 (`expo-auth-session`, `react-dom`, and `react-native-worklets`), aligned all nine
 Expo SDK 54 package drifts, and regenerated the iOS pod lockfile. Expo Doctor
@@ -191,8 +225,10 @@ Validate both providers against production credentials in Checkpoint K.
   Clerk's native application settings, and EAS before creating store builds.
 - Link/create the EAS project and add `extra.eas.projectId`.
 - `eas.json` now contains profiles for:
+  - `base`: shared Node and pnpm release-tool versions;
   - `development`: internal development client;
   - `preview`: internal distribution, production-like environment;
+  - `preview-simulator`: credential-free iOS simulator validation;
   - `production`: App Store build with auto-incremented build number.
 - Verify those profiles against the linked EAS project and environment before
   the first preview build.
