@@ -1,10 +1,10 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and legal foundation locally complete; release infrastructure and external verification pending**
+Status: **Core MVP, legal foundation, and production Convex/Clerk baseline complete; TestFlight credentials and external release verification pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
-document does not authorize a production deployment. Repository checkpoints in
+document does not authorize any further production deployment. Repository checkpoints in
 `AGENT.md` still apply.
 
 ## Completed locally
@@ -37,7 +37,8 @@ document does not authorize a production deployment. Repository checkpoints in
 
 The user approved this Clerk/Convex authentication-lifecycle, schema, and index
 checkpoint. The source and deterministic local tests are complete; production
-provider configuration and a real-provider deletion pass remain release gates.
+webhook delivery is verified, while real-provider deletion passes remain release
+gates.
 
 ### User experience
 
@@ -141,8 +142,8 @@ attribution as `Former household member`; an unrecorded payer remains unlabeled.
 ### Remaining external verification
 
 - Enable Clerk self-deletion in the production instance.
-- Subscribe the production signed Clerk webhook to `user.deleted` and confirm a
-  successful delivery reaches `/clerk-webhook`.
+- Run a real production or preview Clerk `user.deleted` event and confirm the
+  delivered cleanup result in Convex.
 - Verify with Clerk and Apple that deleting an Apple-authenticated OurPantry
   account revokes the Sign in with Apple authorization as required by Apple.
 - Run one shared-member, shared-owner, and final-member deletion against preview
@@ -166,30 +167,55 @@ Changing production services still requires separate explicit approval.
 - Pinned EAS builds to Node 22.23.2 and pnpm 10.6.4. Added a credential-free
   `preview-simulator` profile alongside the development, device-preview, and
   production profiles.
-- Added the approved non-production Convex URLs and Clerk publishable key to
-  the EAS `development` and `preview` environments with sensitive visibility.
-  The EAS `production` environment remains empty and no production client key
-  has been copied from development.
-- Added a dedicated Convex TypeScript project configuration. Convex codegen and
-  a production **dry run** pass, including schema validation and a non-destructive
-  index diff. No Convex production code or schema has been deployed.
-- The existing Convex production deployment currently has only
-  `CLERK_JWT_ISSUER_DOMAIN`. The production Clerk webhook secret and Google
-  Vision key are still required; PostHog server credentials remain optional
-  while analytics is disabled.
+- Added the approved Convex URLs and Clerk publishable keys to the EAS
+  `development`, `preview`, and `production` environments with sensitive
+  visibility. No development Clerk key was reused in production.
+- Added a dedicated Convex TypeScript project configuration. The production dry
+  run passed, and the reviewed production functions and schema were deployed on
+  5 September 2026 with typechecking enabled.
+- The production Convex environment contains `CLERK_JWT_ISSUER_DOMAIN`,
+  `CLERK_WEBHOOK_SECRET`, and `GOOGLE_CLOUD_VISION_API_KEY`; PostHog server
+  credentials remain optional while analytics is disabled.
 - EAS build `e2b50475-ca22-48d3-bec2-e3eca1be94ad` completed successfully for
   the iOS `preview-simulator` profile as OurPantry 1.0.0 (build 1), bundle ID
   `app.ourpantry`, without Apple credentials. This validates cloud packaging
   and native compilation but is not a signed device, TestFlight, or App Store
   build.
-- Apple release credentials remain blocked on paid Developer Program enrolment.
+- Apple Developer Program enrolment has been purchased and submitted but is
+  pending activation.
   The checked-in Xcode project currently names team `5L6QPNNMP8`, while Expo
   config names `W6SZ22J8C2`; do not select either for release until the paid team
   is visible and verified. The native target also has no APNs entitlement yet,
   so push-capability registration, the distribution certificate, provisioning
   profile, and APNs key remain part of the post-enrolment pass.
-- Production service mutation, Convex deployment, and App Store/TestFlight
-  build creation remain unapproved and have not been performed.
+- The production Convex deployment was performed with explicit approval. An App
+  Store/TestFlight build has not yet been created.
+
+### Production environment preparation — 5 September 2026
+
+- Apple Developer Program enrolment has been purchased and submitted, but the
+  membership is still pending Apple's activation. Do not create release
+  credentials or select a release team until the paid membership is active and
+  the final Team ID is verified.
+- A Clerk production instance was created from the development configuration.
+  `clerk.ourpantry.app` and the related account and mail DNS records are live,
+  and Clerk reports the custom domain as verified. A replacement production
+  user-sync webhook targets the Convex production HTTP action with
+  `user.created`, `user.updated`, and `user.deleted` subscribed. Its signing
+  secret is installed in Convex. A signed production request returned `200 OK`,
+  and the superseded endpoint was deleted after verification.
+- The EAS `production` environment now contains the production Clerk
+  publishable key and both production Convex public URLs. No development key
+  was reused.
+- The Convex production deployment has the verified Clerk custom-domain issuer,
+  the replacement Clerk webhook signing secret, and the restricted Google
+  Vision API key configured. Production HTTP actions, functions, and schema are
+  deployed with typechecking enabled.
+- Google Cloud project `ourpantry-production` has billing linked, Cloud Vision
+  enabled, and a dedicated API key restricted to the Cloud Vision API. Google
+  OAuth client credentials and their Clerk production connection remain to be
+  completed.
+- No App Store/TestFlight build has been created during this preparation pass.
 
 ### Pre-checkpoint dependency health
 
