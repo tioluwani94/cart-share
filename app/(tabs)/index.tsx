@@ -40,9 +40,7 @@ import {
   ChevronRight,
   CloudOff,
   Plus,
-  SlidersHorizontal,
   ShoppingBasket,
-  Sparkles,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -450,26 +448,7 @@ export default function PlanScreen() {
             )}
           </View>
 
-          {review.trackedProductCount === 0 &&
-          review.learningProductCount === 0 ? (
-            <View className="mt-3 rounded-2xl border border-separator bg-surface p-4">
-              <Text className="text-base font-semibold text-ink">
-                Let us remember the regulars
-              </Text>
-              <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-                Choose a few recurring products when you have a minute. You can
-                change them at any time.
-              </Text>
-              <Button
-                variant="tonal"
-                onPress={() => router.push("/restock-setup" as Href)}
-                className="mt-4 w-full"
-                accessibilityLabel="Continue grocery rhythm setup"
-              >
-                Continue setup
-              </Button>
-            </View>
-          ) : visibleCandidateCount > 0 ? (
+          {visibleCandidateCount > 0 ? (
             <View className="mt-3 overflow-hidden rounded-2xl border border-separator bg-surface px-4">
               {visibleCandidates.slice(0, 3).map((candidate, index) => (
                 <RestockQuickDecisionRow
@@ -523,53 +502,6 @@ export default function PlanScreen() {
               </View>
             </View>
           )}
-
-          {review.possibleRegularCount > 0 ? (
-            <Pressable
-              onPress={() =>
-                router.push(
-                  "/tracked-products?focus=learning&source=plan" as Href,
-                )
-              }
-              className="mt-3 min-h-20 flex-row items-center rounded-2xl border border-yellow/30 bg-yellow/10 p-4 active:opacity-80"
-              accessibilityLabel={`Review ${review.possibleRegularCount} possible ${review.possibleRegularCount === 1 ? "regular" : "regulars"} OurPantry noticed`}
-              accessibilityHint="Opens products learned from completed shops"
-              accessibilityRole="button"
-            >
-              <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow/15">
-                <Sparkles size={20} color={themeColors.warningInk} />
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="font-semibold text-ink">
-                  {review.possibleRegularCount === 1
-                    ? "OurPantry noticed a possible regular"
-                    : `OurPantry noticed ${review.possibleRegularCount} possible regulars`}
-                </Text>
-                <Text className="mt-0.5 text-sm leading-5 text-ink-secondary">
-                  Review what we learned before reminders begin
-                </Text>
-              </View>
-              <ChevronRight size={20} color={themeColors.secondaryInk} />
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            onPress={() => router.push("/tracked-products" as Href)}
-            className="mt-3 min-h-16 flex-row items-center rounded-2xl border border-separator bg-surface p-4"
-            accessibilityLabel="Manage tracked products"
-            accessibilityRole="button"
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-xl bg-warm-gray-100">
-              <SlidersHorizontal size={20} color={themeColors.secondaryInk} />
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className="font-semibold text-ink">Tracked products</Text>
-              <Text className="mt-0.5 text-sm text-ink-secondary">
-                Adjust timing or pause reminders
-              </Text>
-            </View>
-            <ChevronRight size={20} color={themeColors.secondaryInk} />
-          </Pressable>
 
           {activeList && otherLists.length > 0 && (
             <View className="mt-7">

@@ -41,6 +41,9 @@ jest.mock("@/components/ui", () => {
     GlassBottomSheet: ({ children }: { children?: ReactNode }) => (
       <View>{children}</View>
     ),
+    GlassBottomSheetView: ({ children }: { children?: ReactNode }) => (
+      <View>{children}</View>
+    ),
     GlassBottomSheetScrollView: ({ children }: { children?: ReactNode }) => (
       <View>{children}</View>
     ),

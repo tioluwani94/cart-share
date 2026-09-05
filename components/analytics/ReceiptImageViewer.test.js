@@ -11,17 +11,23 @@ jest.mock("@/components/ui", () => {
   const { View } = require("react-native");
 
   return {
-    GlassBottomSheet: React.forwardRef(({ children, onDismiss }, ref) => {
-      React.useImperativeHandle(ref, () => ({
-        present: mockPresent,
-        dismiss: mockDismiss,
-      }));
-      return (
-        <View testID="receipt-viewer-sheet" onDismiss={onDismiss}>
-          {children}
-        </View>
-      );
-    }),
+    GlassBottomSheet: React.forwardRef(
+      ({ children, onDismiss, surfaceVariant }, ref) => {
+        React.useImperativeHandle(ref, () => ({
+          present: mockPresent,
+          dismiss: mockDismiss,
+        }));
+        return (
+          <View
+            testID="receipt-viewer-sheet"
+            onDismiss={onDismiss}
+            surfaceVariant={surfaceVariant}
+          >
+            {children}
+          </View>
+        );
+      },
+    ),
     GlassBottomSheetView: View,
   };
 });
@@ -31,14 +37,24 @@ jest.mock("react-native-reanimated", () => {
   return {
     __esModule: true,
     default: { View },
+    ReduceMotion: { System: "system" },
     useAnimatedStyle: (factory) => factory(),
-    useSharedValue: (value) => ({ value }),
+    useReducedMotion: () => false,
+    useSharedValue: (value) => ({
+      current: value,
+      get() {
+        return this.current;
+      },
+      set(nextValue) {
+        this.current = nextValue;
+      },
+    }),
     withSpring: (value) => value,
   };
 });
 
 jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
+  impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: "light" },
 }));
 
@@ -76,27 +92,31 @@ describe("ReceiptImageViewer", () => {
 
     act(() => {
       renderer = TestRenderer.create(
-        <ReceiptImageViewer
-          visible
-          imageUrl={null}
-          onClose={onClose}
-        />,
+        <ReceiptImageViewer visible imageUrl={null} onClose={onClose} />,
       );
     });
 
     expect(mockPresent).toHaveBeenCalledTimes(1);
+    expect(
+      renderer.root.findByProps({ testID: "receipt-viewer-sheet" }).props
+        .surfaceVariant,
+    ).toBe("solid-dark");
 
     act(() => {
-      renderer.root.findByProps({
-        accessibilityLabel: "Close receipt viewer",
-      }).props.onPress();
+      renderer.root
+        .findByProps({
+          accessibilityLabel: "Close receipt viewer",
+        })
+        .props.onPress();
     });
 
     expect(mockDismiss).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
 
     act(() => {
-      renderer.root.findByProps({ testID: "receipt-viewer-sheet" }).props.onDismiss();
+      renderer.root
+        .findByProps({ testID: "receipt-viewer-sheet" })
+        .props.onDismiss();
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);

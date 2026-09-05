@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP, legal foundation, and production Convex/Clerk baseline complete; TestFlight credentials and external release verification pending**
+Status: **Core MVP, legal foundation, production services, and the first signed App Store build complete; TestFlight submission and external release verification pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -9,7 +9,7 @@ document does not authorize any further production deployment. Repository checkp
 
 ## Completed locally
 
-- Plan / Shop / Spending navigation and hidden Settings route.
+- Plan / Shop / Pantry / Spending navigation and hidden Settings route.
 - Required four-step household activation with people served, cadence,
   shopping mode, recurring products, and a Next shop.
 - Deterministic restock review, tracked-product controls, and duplicate-safe
@@ -159,7 +159,7 @@ The configuration shape was approved in checkpoint F, and linking the Expo
 project plus non-production EAS configuration was approved for this checkpoint.
 Changing production services still requires separate explicit approval.
 
-### Execution status — 3 September 2026
+### Execution status — 5 September 2026
 
 - Linked the repository to the Expo project `@jtioluwani/ourpantry`
   (`c2227d67-2e66-4150-88c0-7944fe0dffd2`) and recorded the project owner and
@@ -181,22 +181,27 @@ Changing production services still requires separate explicit approval.
   `app.ourpantry`, without Apple credentials. This validates cloud packaging
   and native compilation but is not a signed device, TestFlight, or App Store
   build.
-- Apple Developer Program enrolment has been purchased and submitted but is
-  pending activation.
-  The checked-in Xcode project currently names team `5L6QPNNMP8`, while Expo
-  config names `W6SZ22J8C2`; do not select either for release until the paid team
-  is visible and verified. The native target also has no APNs entitlement yet,
-  so push-capability registration, the distribution certificate, provisioning
-  profile, and APNs key remain part of the post-enrolment pass.
-- The production Convex deployment was performed with explicit approval. An App
-  Store/TestFlight build has not yet been created.
+- Apple Developer Program enrolment is active for the Individual team
+  `5L6QPNNMP8`, and the checked-in Xcode project and Expo config now agree on
+  that Team ID. EAS now holds a valid distribution certificate and active App
+  Store provisioning profile for `app.ourpantry`.
+- EAS build `b3cf78a6-63bd-41f7-b13d-db5bc82a1fd4` completed successfully for
+  the iOS `production` profile as OurPantry 1.0.0 (build 4). Inspection of the
+  signed IPA confirmed the display name and bundle identifier, the Individual
+  team application identifier, `get-task-allow = false`, TestFlight beta-report
+  support, and `aps-environment = production`. The build has not been submitted
+  to App Store Connect.
+- Apple Push Notifications key `888WSH9FC5` was created through EAS and assigned
+  to `app.ourpantry`. Together with the production entitlement verified in the
+  signed IPA, the Apple credential layer is ready for device push-notification
+  UAT. End-to-end delivery and notification deep links still require TestFlight
+  verification.
 
 ### Production environment preparation — 5 September 2026
 
-- Apple Developer Program enrolment has been purchased and submitted, but the
-  membership is still pending Apple's activation. Do not create release
-  credentials or select a release team until the paid membership is active and
-  the final Team ID is verified.
+- Apple Developer Program membership is active as an Individual membership for
+  Team ID `5L6QPNNMP8` (renewal date 6 September 2027). The verified team is now
+  used by both Expo config and the checked-in Xcode project.
 - A Clerk production instance was created from the development configuration.
   `clerk.ourpantry.app` and the related account and mail DNS records are live,
   and Clerk reports the custom domain as verified. A replacement production
@@ -215,7 +220,8 @@ Changing production services still requires separate explicit approval.
   enabled, and a dedicated API key restricted to the Cloud Vision API. Google
   OAuth client credentials and their Clerk production connection remain to be
   completed.
-- No App Store/TestFlight build has been created during this preparation pass.
+- The first signed App Store candidate is available in EAS as build 4. It has
+  not been submitted to App Store Connect or distributed through TestFlight.
 
 ### Pre-checkpoint dependency health
 

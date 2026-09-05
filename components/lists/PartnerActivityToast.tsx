@@ -1,138 +1,22 @@
-import { useEffect, useCallback } from "react";
-import { View, Text, Pressable } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withDelay,
-  withTiming,
-  runOnJS,
-  FadeIn,
-} from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 import { UserAvatar } from "@/components/ui";
+import { PAGE_HEADER_ROW_HEIGHT } from "@/lib/navigationGeometry";
+import { themeColors } from "@/lib/theme";
+import { useCallback, useEffect, useRef } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Emoji mapping for common grocery items
-const ITEM_EMOJIS: Record<string, string> = {
-  // Dairy
-  milk: "🥛",
-  cheese: "🧀",
-  butter: "🧈",
-  yogurt: "🥛",
-  eggs: "🥚",
-  cream: "🥛",
-  // Fruits
-  apple: "🍎",
-  apples: "🍎",
-  banana: "🍌",
-  bananas: "🍌",
-  orange: "🍊",
-  oranges: "🍊",
-  lemon: "🍋",
-  lemons: "🍋",
-  grapes: "🍇",
-  strawberry: "🍓",
-  strawberries: "🍓",
-  blueberry: "🫐",
-  blueberries: "🫐",
-  watermelon: "🍉",
-  peach: "🍑",
-  peaches: "🍑",
-  pear: "🍐",
-  pears: "🍐",
-  mango: "🥭",
-  pineapple: "🍍",
-  avocado: "🥑",
-  // Vegetables
-  carrot: "🥕",
-  carrots: "🥕",
-  broccoli: "🥦",
-  lettuce: "🥬",
-  salad: "🥗",
-  tomato: "🍅",
-  tomatoes: "🍅",
-  potato: "🥔",
-  potatoes: "🥔",
-  onion: "🧅",
-  onions: "🧅",
-  garlic: "🧄",
-  corn: "🌽",
-  pepper: "🌶️",
-  peppers: "🫑",
-  cucumber: "🥒",
-  eggplant: "🍆",
-  mushroom: "🍄",
-  mushrooms: "🍄",
-  // Meat & Protein
-  chicken: "🍗",
-  beef: "🥩",
-  steak: "🥩",
-  bacon: "🥓",
-  fish: "🐟",
-  salmon: "🐟",
-  shrimp: "🦐",
-  // Bread & Bakery
-  bread: "🍞",
-  bagel: "🥯",
-  bagels: "🥯",
-  croissant: "🥐",
-  pretzel: "🥨",
-  cookie: "🍪",
-  cookies: "🍪",
-  cake: "🍰",
-  pie: "🥧",
-  donut: "🍩",
-  donuts: "🍩",
-  // Beverages
-  water: "💧",
-  juice: "🧃",
-  coffee: "☕",
-  tea: "🍵",
-  wine: "🍷",
-  beer: "🍺",
-  soda: "🥤",
-  // Snacks
-  chips: "🍿",
-  popcorn: "🍿",
-  candy: "🍬",
-  chocolate: "🍫",
-  ice: "🧊",
-  "ice cream": "🍦",
-  // Other
-  rice: "🍚",
-  pasta: "🍝",
-  noodles: "🍜",
-  pizza: "🍕",
-  sandwich: "🥪",
-  taco: "🌮",
-  burrito: "🌯",
-  sushi: "🍣",
-  honey: "🍯",
-  salt: "🧂",
-  peanut: "🥜",
-  peanuts: "🥜",
-  nuts: "🥜",
-};
-
-// Get relevant emoji for an item name
-function getItemEmoji(itemName: string): string {
-  const lowerName = itemName.toLowerCase().trim();
-
-  // Check for exact match
-  if (ITEM_EMOJIS[lowerName]) {
-    return ITEM_EMOJIS[lowerName];
-  }
-
-  // Check if any key is contained in the item name
-  for (const [key, emoji] of Object.entries(ITEM_EMOJIS)) {
-    if (lowerName.includes(key)) {
-      return emoji;
-    }
-  }
-
-  // Default grocery emoji
-  return "🛒";
-}
+const ENTER_DURATION = 180;
+const EXIT_DURATION = 150;
+const HEADER_GAP = 8;
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
 interface PartnerActivityToastProps {
   visible: boolean;
@@ -153,120 +37,136 @@ export function PartnerActivityToast({
   onPress,
   duration = 3000,
 }: PartnerActivityToastProps) {
-  const translateY = useSharedValue(-100);
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const translateY = useSharedValue(reduceMotion ? 0 : -8);
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.9);
+  const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDismissingRef = useRef(false);
 
-  const handleDismiss = useCallback(() => {
-    onDismiss();
-  }, [onDismiss]);
+  const dismiss = useCallback(() => {
+    if (isDismissingRef.current) return;
+    isDismissingRef.current = true;
+
+    cancelAnimation(translateY);
+    cancelAnimation(opacity);
+    if (!reduceMotion) {
+      translateY.set(
+        withTiming(-8, { duration: EXIT_DURATION, easing: EASE_OUT }),
+      );
+    }
+    opacity.set(withTiming(0, { duration: EXIT_DURATION, easing: EASE_OUT }));
+    exitTimeoutRef.current = setTimeout(onDismiss, EXIT_DURATION);
+  }, [onDismiss, opacity, reduceMotion, translateY]);
 
   useEffect(() => {
-    if (visible) {
-      // Slide in from top with spring animation
-      translateY.value = withSpring(0, { damping: 15, stiffness: 180 });
-      opacity.value = withSpring(1);
-      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-
-      // Light haptic feedback
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics not available
-      }
-
-      // Auto dismiss after duration
-      const timeout = setTimeout(() => {
-        // Fade out with slide up
-        translateY.value = withTiming(-100, { duration: 250 });
-        opacity.value = withDelay(
-          150,
-          withTiming(0, { duration: 100 }, () => {
-            runOnJS(handleDismiss)();
-          })
-        );
-      }, duration);
-
-      return () => clearTimeout(timeout);
-    } else {
-      translateY.value = -100;
-      opacity.value = 0;
-      scale.value = 0.9;
+    if (!visible) {
+      isDismissingRef.current = false;
+      translateY.set(reduceMotion ? 0 : -8);
+      opacity.set(0);
+      return;
     }
-  }, [visible, duration, handleDismiss, translateY, opacity, scale]);
+
+    isDismissingRef.current = false;
+    translateY.set(
+      reduceMotion
+        ? 0
+        : withTiming(0, { duration: ENTER_DURATION, easing: EASE_OUT }),
+    );
+    opacity.set(
+      withTiming(1, {
+        duration: reduceMotion ? EXIT_DURATION : ENTER_DURATION,
+        easing: EASE_OUT,
+      }),
+    );
+
+    const autoDismissTimeout = setTimeout(dismiss, duration);
+    return () => {
+      clearTimeout(autoDismissTimeout);
+      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
+      cancelAnimation(translateY);
+      cancelAnimation(opacity);
+    };
+  }, [dismiss, duration, opacity, reduceMotion, translateY, visible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
+    opacity: opacity.get(),
+    transform: [{ translateY: translateY.get() }],
   }));
 
-  const handlePress = useCallback(() => {
-    // Dismiss immediately
-    translateY.value = withTiming(-100, { duration: 200 });
-    opacity.value = withTiming(0, { duration: 150 }, () => {
-      runOnJS(handleDismiss)();
-    });
-
-    // Call onPress if provided (for scroll-to functionality)
-    if (onPress) {
-      onPress();
-    }
-  }, [onPress, handleDismiss, translateY, opacity]);
-
-  // Get emoji for the item
-  const itemEmoji = getItemEmoji(itemName);
-
-  // Get partner's first name
   const firstName = partnerName?.split(" ")[0] || "Partner";
+  const message = `${firstName} added ${itemName}`;
 
   if (!visible) return null;
 
   return (
     <Animated.View
-      style={animatedStyle}
-      className="absolute left-4 right-4 top-16 z-50"
+      style={[
+        styles.position,
+        { top: insets.top + PAGE_HEADER_ROW_HEIGHT + HEADER_GAP },
+        animatedStyle,
+      ]}
     >
       <Pressable
-        onPress={handlePress}
-        accessibilityLabel={`${firstName} added ${itemName}. Tap to view.`}
+        onPress={onPress ?? dismiss}
+        hitSlop={8}
+        accessibilityLabel={`${message}. Tap to view.`}
         accessibilityRole="button"
       >
-        <Animated.View
-          entering={FadeIn.duration(100)}
-          className="flex-row items-center rounded-full bg-warm-gray-900 px-4 py-3 shadow-lg"
-          style={{
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 5,
-          }}
+        <View
+          style={styles.surface}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
         >
-          {/* Partner Avatar */}
           <UserAvatar
             name={partnerName}
             imageUrl={partnerImageUrl}
-            size={32}
+            size={34}
             showTooltip={false}
           />
-
-          {/* Message */}
-          <View className="ml-3 flex-1">
-            <Text
-              className="text-base text-white"
-              numberOfLines={1}
-            >
-              <Text className="font-semibold">{firstName}</Text>
-              <Text> added </Text>
-              <Text className="font-semibold">{itemName}</Text>
-              <Text> {itemEmoji}</Text>
-            </Text>
-          </View>
-        </Animated.View>
+          <Text numberOfLines={2} style={styles.message}>
+            {message}
+          </Text>
+        </View>
       </Pressable>
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  position: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    zIndex: 50,
+    alignItems: "center",
+  },
+  surface: {
+    maxWidth: 360,
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "center",
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: themeColors.separator,
+    backgroundColor: themeColors.surface,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    shadowColor: themeColors.ink,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  message: {
+    maxWidth: 286,
+    flexShrink: 1,
+    marginLeft: 10,
+    marginRight: 4,
+    color: themeColors.ink,
+    fontFamily: "Nunito_800ExtraBold",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+});

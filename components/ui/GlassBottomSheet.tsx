@@ -47,19 +47,20 @@ const StyledBottomSheetTextInput = cssInterop(BottomSheetTextInput, {
 
 export type GlassBottomSheetRef = React.ElementRef<typeof BottomSheetModal>;
 
-export interface GlassBottomSheetProps
-  extends Omit<
-    BottomSheetModalProps,
-    | "animationConfigs"
-    | "backdropComponent"
-    | "backgroundComponent"
-    | "backgroundStyle"
-    | "children"
-    | "handleIndicatorStyle"
-    | "overrideReduceMotion"
-  > {
+export interface GlassBottomSheetProps extends Omit<
+  BottomSheetModalProps,
+  | "animationConfigs"
+  | "backdropComponent"
+  | "backgroundComponent"
+  | "backgroundStyle"
+  | "children"
+  | "handleIndicatorStyle"
+  | "overrideReduceMotion"
+> {
   /** Prevent gesture and backdrop dismissal while a sheet action is in flight. */
   dismissible?: boolean;
+  /** Use an immersive opaque surface for media viewers that should not inherit glass. */
+  surfaceVariant?: "glass" | "solid-dark";
   children: React.ReactNode;
 }
 
@@ -73,6 +74,7 @@ export const GlassBottomSheet = forwardRef<
 >(function GlassBottomSheet(
   {
     dismissible = true,
+    surfaceVariant = "glass",
     enableDynamicSizing = false,
     enablePanDownToClose = true,
     keyboardBehavior = "interactive",
@@ -85,6 +87,7 @@ export const GlassBottomSheet = forwardRef<
   ref,
 ) {
   const reduceTransparency = useReduceTransparency();
+  const usesSolidDarkSurface = surfaceVariant === "solid-dark";
   const material = useMemo(
     () => getGlassSheetMaterial({ reduceTransparency }),
     [reduceTransparency],
@@ -119,7 +122,7 @@ export const GlassBottomSheet = forwardRef<
           {
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
-            backgroundColor: "transparent",
+            backgroundColor: usesSolidDarkSurface ? "#000000" : "transparent",
             shadowColor: "#171714",
             shadowOffset: { width: 0, height: -8 },
             shadowOpacity: 0.16,
@@ -137,32 +140,39 @@ export const GlassBottomSheet = forwardRef<
             borderTopRightRadius: 28,
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: material.borderColor,
-            backgroundColor:
-              !reduceTransparency && Platform.OS === "ios"
+            borderColor: usesSolidDarkSurface
+              ? "#000000"
+              : material.borderColor,
+            backgroundColor: usesSolidDarkSurface
+              ? "#000000"
+              : !reduceTransparency && Platform.OS === "ios"
                 ? "transparent"
                 : material.surfaceColor,
           }}
         >
-          {!reduceTransparency && Platform.OS === "ios" ? (
+          {!usesSolidDarkSurface &&
+          !reduceTransparency &&
+          Platform.OS === "ios" ? (
             <BlurView
               tint={material.tint}
               intensity={material.blurIntensity}
               style={{ position: "absolute", inset: 0 }}
             />
           ) : null}
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              inset: 0,
-              backgroundColor: material.highlightColor,
-            }}
-          />
+          {!usesSolidDarkSurface ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                inset: 0,
+                backgroundColor: material.highlightColor,
+              }}
+            />
+          ) : null}
         </View>
       </Animated.View>
     ),
-    [material, reduceTransparency],
+    [material, reduceTransparency, usesSolidDarkSurface],
   );
 
   return (
@@ -183,11 +193,15 @@ export const GlassBottomSheet = forwardRef<
       handleIndicatorStyle={{
         width: 40,
         height: 5,
-        backgroundColor: material.handleColor,
+        backgroundColor: usesSolidDarkSurface
+          ? "rgba(255, 255, 255, 0.36)"
+          : material.handleColor,
       }}
     >
       <SheetTextInputProvider value={StyledBottomSheetTextInput}>
-        <GlassSurfaceProvider value>{children}</GlassSurfaceProvider>
+        <GlassSurfaceProvider value={!usesSolidDarkSurface}>
+          {children}
+        </GlassSurfaceProvider>
       </SheetTextInputProvider>
     </BottomSheetModal>
   );

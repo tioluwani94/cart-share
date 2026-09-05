@@ -3,7 +3,7 @@
 Status: **Core MVP implemented; release hardening and closed-beta validation in progress**
 Application code changed: **Yes**
 Schema changed: **Yes — approved additive fields, tables, and indexes**
-Navigation changed: **Yes — approved Plan / Shop / Spending structure**
+Navigation changed: **Yes — approved Plan / Shop / Pantry / Spending structure**
 
 ## 1. Feature summary
 
@@ -165,7 +165,7 @@ The next steps suggest recurring products from existing history and starter cate
 │ Already planned                 12 ›│
 │ Other lists                      2 ›│
 │                                     │
-│ Plan          Shop         Spending │
+│ Plan      Shop      Pantry  Spending │
 └─────────────────────────────────────┘
 ```
 
@@ -219,7 +219,7 @@ Only a small number of suggestions are expanded. Additional candidates sit behin
 │ ● Pasta                    500 g     │
 │                                     │
 │                       [Finish shop] │
-│ Plan          Shop         Spending │
+│ Plan      Shop      Pantry  Spending │
 └─────────────────────────────────────┘
 ```
 
@@ -394,23 +394,23 @@ cadence window. Paused products retain history but remain excluded from review.
 
 Initial event contract:
 
-| Event                              | Safe properties                                                       |
-| ---------------------------------- | --------------------------------------------------------------------- |
-| `activation started`               | market, platform, app version                                         |
-| `activation completed`             | household-size bucket, cadence bucket, shopping mode                  |
-| `activation skipped`               | step identifier                                                       |
-| `notification permission answered` | granted/denied/provisional                                            |
-| `restock review shown`             | candidate-count bucket, source                                        |
-| `restock decision made`            | add/still-have/not-now/stop-tracking, source                          |
-| `shopping item added`              | manual/restock                                                        |
-| `shop started`                     | physical/online                                                       |
-| `shop completed`                   | item-count bucket, total-present, receipt-present                     |
-| `receipt attached`                 | source camera/library                                                 |
-| `notification scheduled`           | restock-review/shop-reminder/product-learning                         |
-| `notification sent`                | kind, delivery result                                                 |
-| `notification opened`              | kind                                                                  |
-| `possible regular reviewed`        | track/not-regular decision, plan/notification/tracked-products source |
-| `tracked product corrected`        | field category only                                                   |
+| Event                              | Safe properties                                        |
+| ---------------------------------- | ------------------------------------------------------ |
+| `activation started`               | market, platform, app version                          |
+| `activation completed`             | household-size bucket, cadence bucket, shopping mode   |
+| `activation skipped`               | step identifier                                        |
+| `notification permission answered` | granted/denied/provisional                             |
+| `restock review shown`             | candidate-count bucket, source                         |
+| `restock decision made`            | add/still-have/not-now/stop-tracking, source           |
+| `shopping item added`              | manual/restock                                         |
+| `shop started`                     | physical/online                                        |
+| `shop completed`                   | item-count bucket, total-present, receipt-present      |
+| `receipt attached`                 | source camera/library                                  |
+| `notification scheduled`           | restock-review/shop-reminder/product-learning          |
+| `notification sent`                | kind, delivery result                                  |
+| `notification opened`              | kind                                                   |
+| `possible regular reviewed`        | track/not-regular decision, pantry/notification source |
+| `tracked product corrected`        | field category only                                    |
 
 Event names use the `[object] [verb]` convention and live in one typed contract. Adding an event or property requires updating the allow-list and its privacy review.
 
@@ -707,7 +707,7 @@ These functions accept time and return results without I/O. Their interface is t
 | Receipt cancelled                | Return to usable finish flow; no archival                                                            |
 | Session saved without total      | Archive safely; omit spend from monetary aggregates                                                  |
 | Prediction is wrong              | One-tap correction changes future review timing                                                      |
-| Product paused                   | Removed from review; restorable from tracked-products settings                                       |
+| Product paused                   | Removed from review; restorable from Pantry                                                          |
 | Notification permission denied   | Activation completes; Settings explains how to enable it without nagging                             |
 | Push opens after review resolved | Show the current completed Plan state; do not resurrect decisions                                    |
 | Signed-out device                | Disable its user-token binding and send nothing for the previous household                           |
@@ -818,7 +818,7 @@ Implementation must pause for explicit approval at each checkpoint required by `
 
 Approved checkpoints; implementation status is summarised in section 17:
 
-1. **A — Navigation:** Plan / Shop / Spending tabs and hidden Settings route.
+1. **A — Navigation:** Plan / Shop / Pantry / Spending tabs and hidden Settings route. Pantry is the sole persistent home for the household's learned and tracked products.
 2. **B — Core restock schema and indexes:** `householdProducts` plus the previously proposed optional fields and two indexes.
 3. **C — Offline strategy:** Restock-decision and atomic shop-completion queue semantics.
 4. **D — Auth/activation placement:** Activation occurs after household setup; Clerk authentication is unchanged.
@@ -833,7 +833,7 @@ Approved checkpoints; implementation status is summarised in section 17:
 
 ## 17. Implementation and release status
 
-1. **Implemented:** stabilisation, deterministic restock engine, additive schema, authenticated Convex interface, activation, household inputs, historical suggestions, analytics consent, notification scheduling, scoped token lifecycle, account deletion, shared shopping-list modules, Plan, Shop, Spending, Settings, UK defaults, and the approved visual direction.
+1. **Implemented:** stabilisation, deterministic restock engine, additive schema, authenticated Convex interface, activation, household inputs, historical suggestions, analytics consent, notification scheduling, scoped token lifecycle, account deletion, shared shopping-list modules, Plan, Shop, Pantry, Spending, Settings, UK defaults, and the approved visual direction.
 2. **Locally verified:** TypeScript, lint, Jest, account-deletion invariants, iOS simulator flows, receipt cancellation, offline replay invariants, and analytics allow-list/identity isolation.
 3. **Release hardening in progress:** the legal website, in-app legal links, privacy-manifest baseline, and App Store disclosure mapping are complete locally. Dependency alignment, external account-deletion verification, EAS project and credentials, production environment configuration, final archive privacy verification, and release-build permission audit remain.
 4. **Physical-device validation pending:** Google and Apple production OAuth, APNs delivery and receipt cleanup, two-device household sync, real UK receipts, offline reconnect, accessibility, and consent/sign-out isolation.

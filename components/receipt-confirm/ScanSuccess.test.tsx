@@ -1,5 +1,6 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import React, { type PropsWithChildren } from "react";
+import { StyleSheet } from "react-native";
 import TestRenderer, {
   act,
   type ReactTestRenderer,
@@ -12,10 +13,21 @@ jest.mock("@/components/ui", () => {
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
     Button: ({
+      accessibilityLabel,
       children,
+      forceSolid,
       onPress,
-    }: PropsWithChildren<{ onPress?: () => void }>) => (
-      <Pressable accessibilityRole="button" onPress={onPress}>
+    }: PropsWithChildren<{
+      accessibilityLabel?: string;
+      forceSolid?: boolean;
+      onPress?: () => void;
+    }>) => (
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        onPress={onPress}
+        testID={forceSolid ? "solid-button" : undefined}
+      >
         {children}
       </Pressable>
     ),
@@ -60,6 +72,31 @@ jest.mock("react-native-reanimated", () => {
 });
 
 describe("ScanSuccess", () => {
+  it("gives the large receipt total enough vertical space for Nunito", () => {
+    let renderer!: ReactTestRenderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <ScanSuccess
+          extractedTotal={4567}
+          handleConfirm={jest.fn()}
+          handleNotQuite={jest.fn()}
+          paidBy="joint"
+          onPaidByChange={jest.fn()}
+          paymentOptions={[{ value: "joint", label: "Joint account" }]}
+          storeName=""
+          onStoreNameChange={jest.fn()}
+        />,
+      );
+    });
+
+    const total = renderer.root.findByProps({ children: "£45.67" });
+
+    expect(StyleSheet.flatten(total.props.style)).toEqual(
+      expect.objectContaining({ lineHeight: 60, paddingVertical: 3 }),
+    );
+  });
+
   it("lets the household add an optional store and choose who paid", () => {
     const onStoreNameChange = jest.fn();
     const onPaidByChange = jest.fn();
@@ -97,5 +134,31 @@ describe("ScanSuccess", () => {
 
     expect(onStoreNameChange).toHaveBeenCalledWith("Tesco Extra");
     expect(onPaidByChange).toHaveBeenCalledWith("user_123");
+  });
+
+  it("keeps the primary save action on a dependable solid surface", () => {
+    let renderer!: ReactTestRenderer;
+
+    act(() => {
+      renderer = TestRenderer.create(
+        <ScanSuccess
+          extractedTotal={2000}
+          handleConfirm={jest.fn()}
+          handleNotQuite={jest.fn()}
+          paidBy="joint"
+          onPaidByChange={jest.fn()}
+          paymentOptions={[{ value: "joint", label: "Joint account" }]}
+          storeName="Londis"
+          onStoreNameChange={jest.fn()}
+        />,
+      );
+    });
+
+    expect(
+      renderer.root.findByProps({
+        accessibilityLabel: "Save trip with this receipt total",
+        testID: "solid-button",
+      }),
+    ).toBeDefined();
   });
 });

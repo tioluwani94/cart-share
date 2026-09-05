@@ -3,6 +3,7 @@ import {
   Button,
   GlassBottomSheet,
   GlassBottomSheetScrollView,
+  GlassBottomSheetView,
   GlassSheetHeader,
   type GlassBottomSheetRef,
   Input,
@@ -19,6 +20,8 @@ import { CATEGORIES, CategoryChip } from "./CategoryChip";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
 import { themeColors } from "@/lib/theme";
 import { useIsOnline } from "@/lib/useNetworkStatus";
+
+const SUCCESS_DWELL_MS = 1200;
 
 /**
  * Bottom sheet for creating a new shopping list.
@@ -124,12 +127,13 @@ export const CreateListSheet = forwardRef<
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowSuccess(true);
 
-        // Navigate to the new list after celebration
+        // Give the confirmation a short, readable beat without making the
+        // user wait through a long, non-interruptible success animation.
         setTimeout(() => {
           resetForm();
           dismissSheet();
           router.push(`/list/${result.listId}`);
-        }, 1800);
+        }, SUCCESS_DWELL_MS);
       } catch (err) {
         console.error("Failed to create list:", err);
         setError("Something went wrong. Please try again!");
@@ -145,13 +149,17 @@ export const CreateListSheet = forwardRef<
         onDismiss={resetForm}
         dismissible={!isCreating}
       >
-        <GlassBottomSheetScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 36 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {showSuccess ? (
+        {showSuccess ? (
+          <GlassBottomSheetView
+            style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 36 }}
+          >
             <SuccessCelebration listName={listName.trim()} />
-          ) : (
+          </GlassBottomSheetView>
+        ) : (
+          <GlassBottomSheetScrollView
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 36 }}
+            showsVerticalScrollIndicator={false}
+          >
             <>
               <GlassSheetHeader
                 title={setAsNextShop ? "New Next shop" : "New shopping list"}
@@ -246,8 +254,8 @@ export const CreateListSheet = forwardRef<
                 )}
               </View>
             </>
-          )}
-        </GlassBottomSheetScrollView>
+          </GlassBottomSheetScrollView>
+        )}
       </GlassBottomSheet>
     );
   },

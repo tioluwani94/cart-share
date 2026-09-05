@@ -55,7 +55,10 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
       {/* Large extracted total */}
       {extractedTotal !== null && (
         <View className="my-6">
-          <Text className="text-center text-5xl font-heading text-coral">
+          <Text
+            className="text-center text-5xl font-heading text-coral"
+            style={{ lineHeight: 60, paddingVertical: 3 }}
+          >
             {formatAmount(extractedTotal)}
           </Text>
         </View>
@@ -132,6 +135,7 @@ export const ScanSuccess = (props: ScanSuccessProps) => {
       <Button
         size="lg"
         variant="primary"
+        forceSolid
         className="w-full"
         onPress={handleConfirm}
         accessibilityLabel="Save trip with this receipt total"

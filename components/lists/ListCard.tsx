@@ -5,20 +5,34 @@ import { Archive } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  FadeInDown,
+  Easing,
+  Extrapolation,
+  ReduceMotion,
   interpolate,
   interpolateColor,
-  runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Thresholds for swipe actions
 const SWIPE_REVEAL_THRESHOLD = -40;
 const ARCHIVE_THRESHOLD = -80;
+const SWIPE_LIMIT = -104;
+const EDGE_RESISTANCE = 0.14;
+const VELOCITY_PROJECTION_SECONDS = 0.08;
+const PRESS_EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const SWIPE_SETTLE = {
+  duration: 260,
+  dampingRatio: 1,
+  overshootClamping: true,
+  reduceMotion: ReduceMotion.System,
+} as const;
 
 interface ListCardProps {
   id: Id<"lists">;
@@ -79,8 +93,8 @@ export function ListCard({
   completedItems,
   onPress,
   onArchive,
-  index = 0,
 }: ListCardProps) {
+  const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const hasTriggeredRevealHaptic = useSharedValue(false);
@@ -89,53 +103,76 @@ export function ListCard({
 
   const triggerArchive = () => {
     if (onArchive) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {
+        // Haptics are supplementary; the archive action still completes.
+      });
       onArchive(id);
     }
   };
 
   const triggerRevealHaptic = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      // Haptics are supplementary to the revealed archive surface.
+    });
   };
 
   const panGesture = Gesture.Pan()
+    .enabled(Boolean(onArchive))
     .activeOffsetX([-15, 15])
     .failOffsetY([-10, 10])
     .onUpdate((event) => {
-      // Only allow swiping left
-      translateX.value = Math.min(0, Math.max(event.translationX, -120));
+      const proposedPosition = Math.min(0, event.translationX);
+      const nextPosition =
+        proposedPosition < SWIPE_LIMIT
+          ? SWIPE_LIMIT + (proposedPosition - SWIPE_LIMIT) * EDGE_RESISTANCE
+          : proposedPosition;
+      translateX.set(nextPosition);
 
       // Trigger haptic on reveal
       if (
-        translateX.value < SWIPE_REVEAL_THRESHOLD &&
-        !hasTriggeredRevealHaptic.value
+        translateX.get() < SWIPE_REVEAL_THRESHOLD &&
+        !hasTriggeredRevealHaptic.get()
       ) {
-        hasTriggeredRevealHaptic.value = true;
-        runOnJS(triggerRevealHaptic)();
-      } else if (translateX.value >= SWIPE_REVEAL_THRESHOLD) {
-        hasTriggeredRevealHaptic.value = false;
+        hasTriggeredRevealHaptic.set(true);
+        scheduleOnRN(triggerRevealHaptic);
+      } else if (translateX.get() >= SWIPE_REVEAL_THRESHOLD) {
+        hasTriggeredRevealHaptic.set(false);
       }
     })
-    .onEnd(() => {
-      if (translateX.value < ARCHIVE_THRESHOLD && onArchive) {
-        runOnJS(triggerArchive)();
+    .onEnd((event) => {
+      const projectedPosition =
+        translateX.get() + event.velocityX * VELOCITY_PROJECTION_SECONDS;
+      if (projectedPosition < ARCHIVE_THRESHOLD && onArchive) {
+        scheduleOnRN(triggerArchive);
       }
-      translateX.value = withSpring(0, { damping: 100, stiffness: 500 });
+      translateX.set(
+        withSpring(0, {
+          ...SWIPE_SETTLE,
+          velocity: event.velocityX,
+        }),
+      );
+      hasTriggeredRevealHaptic.set(false);
     });
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { translateX: translateX.value }],
+    transform: [{ scale: scale.get() }, { translateX: translateX.get() }],
   }));
 
   const archiveBackgroundStyle = useAnimatedStyle(() => {
     const swipeProgress = interpolate(
-      translateX.value,
+      translateX.get(),
       [0, ARCHIVE_THRESHOLD],
       [0, 1],
+      Extrapolation.CLAMP,
     );
 
     return {
-      opacity: interpolate(translateX.value, [0, -20], [0, 1]),
+      opacity: interpolate(
+        translateX.get(),
+        [0, -20],
+        [0, 1],
+        Extrapolation.CLAMP,
+      ),
       backgroundColor: interpolateColor(
         swipeProgress,
         [0, 1],
@@ -146,26 +183,33 @@ export function ListCard({
 
   const archiveIconStyle = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(translateX.value, [0, -30], [0, 1]),
+      opacity: interpolate(
+        translateX.get(),
+        [0, -30],
+        [0, 1],
+        Extrapolation.CLAMP,
+      ),
     };
   });
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+    scale.set(
+      reduceMotion
+        ? 1
+        : withTiming(0.97, { duration: 100, easing: PRESS_EASE_OUT }),
+    );
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    scale.set(
+      reduceMotion
+        ? 1
+        : withTiming(1, { duration: 140, easing: PRESS_EASE_OUT }),
+    );
   };
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 100)
-        .duration(400)
-        .springify()
-        .damping(90)}
-      className="mb-3"
-    >
+    <View className="mb-3">
       {/* Archive background */}
       <Animated.View
         style={archiveBackgroundStyle}
@@ -183,7 +227,7 @@ export function ListCard({
           onPressOut={handlePressOut}
           style={cardAnimatedStyle}
           accessibilityRole="button"
-          accessibilityLabel={`${name} list, ${formatItemCount(totalItems, completedItems)}. Swipe left to archive.`}
+          accessibilityLabel={`${name} list, ${formatItemCount(totalItems, completedItems)}${onArchive ? ". Swipe left to archive." : "."}`}
           className={cn("rounded-2xl bg-white p-4", "shadow-warm")}
         >
           {/* Header row */}
@@ -225,6 +269,6 @@ export function ListCard({
           )}
         </AnimatedPressable>
       </GestureDetector>
-    </Animated.View>
+    </View>
   );
 }

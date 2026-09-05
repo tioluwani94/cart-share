@@ -1,63 +1,104 @@
 import { useEffect } from "react";
 import { Text, View } from "react-native";
+import { CircleCheck } from "lucide-react-native";
 import Animated, {
-  FadeIn,
+  Easing,
+  ReduceMotion,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
+import { themeColors } from "@/lib/theme";
+
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const CONTENT_ENTER_MS = 220;
 
 /**
  * Success celebration overlay.
  */
 export function SuccessCelebration({ listName }: { listName: string }) {
-  const scale = useSharedValue(0);
-  const checkScale = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(reduceMotion ? 0 : 10);
+  const badgeScale = useSharedValue(reduceMotion ? 1 : 0.94);
 
   useEffect(() => {
-    scale.value = withSpring(1, { damping: 100, stiffness: 200 });
-    checkScale.value = withDelay(
-      200,
-      withSpring(1, { damping: 100, stiffness: 300 }),
+    opacity.set(
+      withTiming(1, {
+        duration: reduceMotion ? 120 : CONTENT_ENTER_MS,
+        easing: EASE_OUT,
+        reduceMotion: ReduceMotion.System,
+      }),
     );
-  }, [checkScale, scale]);
+    if (!reduceMotion) {
+      translateY.set(
+        withTiming(0, {
+          duration: CONTENT_ENTER_MS,
+          easing: EASE_OUT,
+          reduceMotion: ReduceMotion.System,
+        }),
+      );
+      badgeScale.set(
+        withDelay(
+          40,
+          withSpring(1, {
+            duration: 400,
+            dampingRatio: 1,
+            reduceMotion: ReduceMotion.System,
+          }),
+        ),
+      );
+    }
+  }, [badgeScale, opacity, reduceMotion, translateY]);
 
   const containerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    opacity: opacity.get(),
+    transform: [{ translateY: translateY.get() }],
   }));
-
-  const checkStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: checkScale.value }],
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgeScale.get() }],
   }));
 
   return (
-    <View className="items-center justify-center flex-1 py-12">
+    <View
+      className="flex-1 items-center justify-center py-12"
+      accessibilityRole="summary"
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={`List created. ${listName} is ready.`}
+    >
       <Animated.View
         style={containerStyle}
-        className="items-center justify-center flex-1"
+        className="w-full items-center justify-center"
       >
-        {/* Check circle */}
         <Animated.View
-          style={checkStyle}
-          className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-teal"
+          style={badgeStyle}
+          className="h-24 w-24 items-center justify-center rounded-3xl bg-teal-soft"
+          accessible={false}
         >
-          <Text className="text-3xl text-white">✓</Text>
+          <CircleCheck
+            size={48}
+            color={themeColors.teal}
+            strokeWidth={2.25}
+          />
         </Animated.View>
 
-        <Animated.Text
-          entering={FadeIn.delay(300).duration(400)}
-          className="text-xl font-heading text-warm-gray-900"
+        <Text
+          className="mt-6 text-center text-2xl font-heading leading-8 text-ink"
+          accessibilityRole="header"
         >
-          List created!
-        </Animated.Text>
+          List created
+        </Text>
 
-        <Animated.Text
-          entering={FadeIn.delay(400).duration(400)}
-          className="mt-2 text-center text-warm-gray-600"
+        <Text
+          className="mt-2 max-w-xs text-center text-base leading-6 text-ink-secondary"
+          numberOfLines={3}
         >
-          "{listName}" is ready for shopping 🛒
-        </Animated.Text>
+          {listName} is ready. Add the first item or share it with your
+          household.
+        </Text>
       </Animated.View>
     </View>
   );

@@ -1,11 +1,18 @@
 import { View, Text, Pressable, Image, Dimensions } from "react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Animated, {
+  ReduceMotion,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { X, ZoomIn, ZoomOut, Receipt as ReceiptIcon } from "lucide-react-native";
+import {
+  X,
+  ZoomIn,
+  ZoomOut,
+  Receipt as ReceiptIcon,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import {
   formatCurrencyFromPence,
@@ -18,6 +25,18 @@ import {
 } from "@/components/ui";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const ZOOMED_SCALE = 1.5;
+const ZOOM_SPRING = {
+  duration: 400,
+  dampingRatio: 1,
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+function triggerLightImpact() {
+  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+    // Haptics are supplementary; the visual response remains complete without them.
+  });
+}
 
 interface ReceiptImageViewerProps {
   visible: boolean;
@@ -42,20 +61,23 @@ export function ReceiptImageViewer({
   const [isZoomed, setIsZoomed] = useState(false);
   const sheetRef = useRef<GlassBottomSheetRef>(null);
   const isPresentedRef = useRef(false);
+  const isZoomedRef = useRef(false);
+  const reduceMotion = useReducedMotion();
 
   // Scale for zoom
   const scale = useSharedValue(1);
 
-  const handleToggleZoom = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (isZoomed) {
-      scale.value = withSpring(1, { damping: 15, stiffness: 200 });
-      setIsZoomed(false);
-    } else {
-      scale.value = withSpring(1.5, { damping: 15, stiffness: 200 });
-      setIsZoomed(true);
-    }
-  };
+  const handleToggleZoom = useCallback(() => {
+    const nextIsZoomed = !isZoomedRef.current;
+    const targetScale = nextIsZoomed ? ZOOMED_SCALE : 1;
+
+    isZoomedRef.current = nextIsZoomed;
+    scale.set(
+      reduceMotion ? targetScale : withSpring(targetScale, ZOOM_SPRING),
+    );
+    setIsZoomed(nextIsZoomed);
+    triggerLightImpact();
+  }, [reduceMotion, scale]);
 
   useEffect(() => {
     if (visible) {
@@ -72,28 +94,22 @@ export function ReceiptImageViewer({
     }
   }, [visible]);
 
-  const resetViewer = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = 1;
-    setIsZoomed(false);
-    setImageError(false);
-  }, [scale]);
-
-  const handleClose = () => {
-    resetViewer();
+  const handleClose = useCallback(() => {
+    triggerLightImpact();
     sheetRef.current?.dismiss();
-  };
+  }, []);
 
   const handleDismiss = useCallback(() => {
     isPresentedRef.current = false;
-    scale.value = 1;
+    scale.set(1);
+    isZoomedRef.current = false;
     setIsZoomed(false);
     setImageError(false);
     onClose();
   }, [onClose, scale]);
 
   const imageAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.get() }],
   }));
 
   return (
@@ -101,9 +117,10 @@ export function ReceiptImageViewer({
       ref={sheetRef}
       snapPoints={["94%"]}
       onDismiss={handleDismiss}
+      surfaceVariant="solid-dark"
     >
       <GlassBottomSheetView
-        className="flex-1 overflow-hidden rounded-t-[28px] bg-black/95"
+        className="flex-1 overflow-hidden rounded-t-[28px] bg-black"
         style={{ minHeight: SCREEN_HEIGHT * 0.84 }}
       >
         <View className="absolute left-0 right-0 top-0 z-10 flex-row items-center justify-between px-5 pb-4 pt-5">
@@ -131,7 +148,13 @@ export function ReceiptImageViewer({
 
         <View className="flex-1 items-center justify-center px-4">
           {imageUrl && !imageError ? (
-            <Pressable onPress={handleToggleZoom}>
+            <Pressable
+              onPress={handleToggleZoom}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isZoomed ? "Zoom out receipt" : "Zoom in receipt"
+              }
+            >
               <Animated.View style={imageAnimatedStyle}>
                 <Image
                   source={{ uri: imageUrl }}

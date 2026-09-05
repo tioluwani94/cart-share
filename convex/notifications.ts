@@ -102,7 +102,7 @@ function buildPushMessage(args: {
       title: "OurPantry is learning your regulars",
       body: `${args.candidateCount} ${args.candidateCount === 1 ? "product looks" : "products look"} like a household regular. Take a quick look.`,
       data: {
-        url: "ourpantry://tracked-products?focus=learning&source=notification",
+        url: "ourpantry://pantry?focus=learning&source=notification",
         kind: args.kind,
       },
     };

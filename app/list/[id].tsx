@@ -66,6 +66,10 @@ interface PartnerActivity {
   partnerImageUrl?: string;
 }
 
+// The page header's progressive blur feathers 16pt into the content. Keep
+// summary text beyond that material so the first line remains fully legible.
+const PAGE_HEADER_CONTENT_CLEARANCE = 24;
+
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const listId = id as Id<"lists">;
@@ -389,7 +393,9 @@ export default function ListDetailScreen() {
 
       <View
         className="border-b border-separator px-6 pb-4"
-        style={{ paddingTop: pageHeaderHeight + 8 }}
+        style={{
+          paddingTop: pageHeaderHeight + PAGE_HEADER_CONTENT_CLEARANCE,
+        }}
       >
         <View>
           <View className="flex-row items-center justify-between">
@@ -504,8 +510,8 @@ export default function ListDetailScreen() {
               title="No items yet"
               description="Add the first thing you need for this shop."
               artworkSource={emptyBasketArtwork}
-              variant="embedded"
-              className="py-12"
+              density="compact"
+              className="mt-8"
             />
           ) : null
         }

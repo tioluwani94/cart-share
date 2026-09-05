@@ -21,12 +21,27 @@ describe("parseRestockNotificationResponse", () => {
       parseRestockNotificationResponse({
         identifier: "notification_learning_1",
         data: {
-          url: "ourpantry://tracked-products?focus=learning&source=notification",
+          url: "ourpantry://pantry?focus=learning&source=notification",
           kind: "product_learning",
         },
       }),
     ).toEqual({
       identifier: "notification_learning_1",
+      kind: "product_learning",
+    });
+  });
+
+  it("keeps already-delivered tracked-products notifications compatible", () => {
+    expect(
+      parseRestockNotificationResponse({
+        identifier: "notification_learning_legacy",
+        data: {
+          url: "ourpantry://tracked-products?focus=learning&source=notification",
+          kind: "product_learning",
+        },
+      }),
+    ).toEqual({
+      identifier: "notification_learning_legacy",
       kind: "product_learning",
     });
   });
@@ -59,7 +74,7 @@ describe("parseRestockNotificationResponse", () => {
 describe("getNotificationDestination", () => {
   it("routes learning notifications to the household memory review", () => {
     expect(getNotificationDestination("product_learning")).toBe(
-      "/tracked-products?focus=learning&source=notification",
+      "/(tabs)/pantry?focus=learning&source=notification",
     );
   });
 });

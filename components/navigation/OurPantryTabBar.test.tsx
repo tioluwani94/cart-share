@@ -2,10 +2,7 @@ import React from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { OurPantryTabBar } from "./OurPantryTabBar";
-import {
-  TabBarChromeProvider,
-  useTabBarChrome,
-} from "./TabBarChromeContext";
+import { TabBarChromeProvider, useTabBarChrome } from "./TabBarChromeContext";
 
 jest.mock("expo-blur", () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
@@ -69,6 +66,7 @@ function createProps() {
   const routes = [
     { key: "index-key", name: "index", params: undefined },
     { key: "shop-key", name: "shop", params: undefined },
+    { key: "pantry-key", name: "pantry", params: undefined },
     { key: "analytics-key", name: "analytics", params: undefined },
   ];
   const emit = jest.fn(() => ({ defaultPrevented: false }));
@@ -129,23 +127,26 @@ describe("OurPantryTabBar", () => {
         };
       }[];
     };
-    const tabs = ["Plan", "Shop", "Spending"].map((label) =>
-      root
-        .findAllByProps({ accessibilityLabel: label })
-        .find(
-          (node) =>
-            node.props.accessibilityRole === "tab" &&
-            typeof node.props.onPress === "function",
-        )!,
+    const tabs = ["Plan", "Shop", "Pantry", "Spending"].map(
+      (label) =>
+        root
+          .findAllByProps({ accessibilityLabel: label })
+          .find(
+            (node) =>
+              node.props.accessibilityRole === "tab" &&
+              typeof node.props.onPress === "function",
+          )!,
     );
     expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual([
       "Plan",
       "Shop",
+      "Pantry",
       "Spending",
     ]);
     expect(tabs.map((tab) => tab.props.accessibilityState.selected)).toEqual([
       false,
       true,
+      false,
       false,
     ]);
 
@@ -189,9 +190,7 @@ describe("OurPantryTabBar", () => {
     expect(footerMaterial.props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ bottom: -34 })]),
     );
-    expect(
-      blurLayers.some((layer) => layer.props.intensity === 28),
-    ).toBe(true);
+    expect(blurLayers.some((layer) => layer.props.intensity === 28)).toBe(true);
   });
 
   it("renders a screen accessory inside the same protected footer dock", () => {

@@ -8,6 +8,7 @@ import {
 import {
   BarChart3,
   CalendarDays,
+  PackageOpen,
   ShoppingBasket,
   type LucideIcon,
 } from "lucide-react-native";
@@ -46,14 +47,12 @@ import { useTabBarChrome } from "./TabBarChromeContext";
 
 const AnimatedText = Animated.createAnimatedComponent(Text);
 const ICON_SELECTION_EASE = Easing.bezier(0.23, 1, 0.32, 1);
-const TAB_COUNT = 3;
+const TAB_COUNT = 4;
 
-const TAB_ITEMS: Record<
-  string,
-  { label: string; Icon: LucideIcon }
-> = {
+const TAB_ITEMS: Record<string, { label: string; Icon: LucideIcon }> = {
   index: { label: "Plan", Icon: CalendarDays },
   shop: { label: "Shop", Icon: ShoppingBasket },
+  pantry: { label: "Pantry", Icon: PackageOpen },
   analytics: { label: "Spending", Icon: BarChart3 },
 };
 
@@ -113,7 +112,7 @@ function TabButton({
 }: TabButtonProps) {
   const edgeDirection = index === 0 ? 1 : index === TAB_COUNT - 1 ? -1 : 0;
   const horizontalShift =
-    edgeDirection * (TAB_BAR_COMPACT_EXTRA_INSET * 2) / TAB_COUNT;
+    (edgeDirection * (TAB_BAR_COMPACT_EXTRA_INSET * 2)) / TAB_COUNT;
 
   const contentStyle = useAnimatedStyle(() => ({
     transform: [
@@ -198,19 +197,14 @@ export function OurPantryTabBar({
   const { width: viewportWidth } = useWindowDimensions();
   const reduceTransparency = useReduceTransparency();
   const reduceMotion = useReducedMotion();
-  const { compactProgress, expandTabBar, footerAccessory } =
-    useTabBarChrome();
+  const { compactProgress, expandTabBar, footerAccessory } = useTabBarChrome();
   const selectedIndex = useSharedValue(state.index);
-  const expandedWidth = Math.max(
-    0,
-    viewportWidth - TAB_BAR_OUTER_MARGIN * 2,
-  );
+  const expandedWidth = Math.max(0, viewportWidth - TAB_BAR_OUTER_MARGIN * 2);
   const compactScaleX =
     expandedWidth > 0
       ? Math.max(
           0,
-          (expandedWidth - TAB_BAR_COMPACT_EXTRA_INSET * 2) /
-            expandedWidth,
+          (expandedWidth - TAB_BAR_COMPACT_EXTRA_INSET * 2) / expandedWidth,
         )
       : 1;
   const compactScaleY = TAB_BAR_COMPACT_HEIGHT / TAB_BAR_EXPANDED_HEIGHT;
@@ -271,11 +265,11 @@ export function OurPantryTabBar({
 
     return {
       height:
-        TAB_BAR_EXPANDED_HEIGHT - 8 -
+        TAB_BAR_EXPANDED_HEIGHT -
+        8 -
         (TAB_BAR_EXPANDED_HEIGHT - TAB_BAR_COMPACT_HEIGHT) * compact,
       top:
-        4 +
-        ((TAB_BAR_EXPANDED_HEIGHT - TAB_BAR_COMPACT_HEIGHT) / 2) * compact,
+        4 + ((TAB_BAR_EXPANDED_HEIGHT - TAB_BAR_COMPACT_HEIGHT) / 2) * compact,
       transform: [
         {
           translateX: visualLeft + 4 + selectedIndex.get() * segmentWidth,

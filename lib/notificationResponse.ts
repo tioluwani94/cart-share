@@ -10,7 +10,7 @@ export interface RestockNotificationResponse {
 
 export function getNotificationDestination(kind: NotificationKind): string {
   return kind === "product_learning"
-    ? "/tracked-products?focus=learning&source=notification"
+    ? "/(tabs)/pantry?focus=learning&source=notification"
     : "/restock-review?source=notification";
 }
 
@@ -28,8 +28,9 @@ export function parseRestockNotificationResponse({
     return { identifier, kind: data.kind };
   }
   if (
-    data.url ===
-      "ourpantry://tracked-products?focus=learning&source=notification" &&
+    (data.url === "ourpantry://pantry?focus=learning&source=notification" ||
+      data.url ===
+        "ourpantry://tracked-products?focus=learning&source=notification") &&
     data.kind === "product_learning"
   ) {
     return { identifier, kind: data.kind };

@@ -1,104 +1,25 @@
+import { Button } from "@/components/ui";
+import { themeColors } from "@/lib/theme";
 import * as Haptics from "expo-haptics";
-import { Camera } from "lucide-react-native";
-import { useEffect, useMemo } from "react";
+import { Camera, CircleCheck } from "lucide-react-native";
+import { useCallback, useEffect, useRef } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, {
+  Easing,
   FadeIn,
   FadeOut,
+  ReduceMotion,
+  cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
-  withDelay,
-  withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
-const CONFETTI_EMOJIS = ["🎉", "✨", "🎊", "💫", "🌟", "⭐", "🥳", "🎈"];
-
-interface ConfettiParticleProps {
-  emoji: string;
-  index: number;
-  total: number;
-}
-
-function ConfettiParticle({ emoji, index, total }: ConfettiParticleProps) {
-  const translateY = useSharedValue(0);
-  const translateX = useSharedValue(0);
-  const rotate = useSharedValue(0);
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(0);
-
-  // Calculate position around a circle
-  const { targetX, targetY } = useMemo(() => {
-    const angle = (index / total) * Math.PI * 2;
-    const radius = 120 + Math.random() * 60;
-    return {
-      targetX: Math.cos(angle) * radius,
-      targetY: Math.sin(angle) * radius - 50,
-    };
-  }, [index, total]);
-
-  useEffect(() => {
-    const delay = index * 30;
-
-    opacity.value = withDelay(delay, withTiming(1, { duration: 150 }));
-    scale.value = withDelay(
-      delay,
-      withSequence(
-        withSpring(1.2, { damping: 8, stiffness: 300 }),
-        withSpring(1, { damping: 12, stiffness: 200 }),
-      ),
-    );
-    translateX.value = withDelay(
-      delay,
-      withSpring(targetX, { damping: 12, stiffness: 80 }),
-    );
-    translateY.value = withDelay(
-      delay,
-      withSpring(targetY, { damping: 12, stiffness: 80 }),
-    );
-    rotate.value = withDelay(
-      delay,
-      withTiming(360 + Math.random() * 180, { duration: 1000 }),
-    );
-
-    // Fade out after burst
-    opacity.value = withDelay(delay + 800, withTiming(0, { duration: 400 }));
-  }, [
-    index,
-    opacity,
-    rotate,
-    scale,
-    targetX,
-    targetY,
-    translateX,
-    translateY,
-  ]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${rotate.value}deg` },
-      { scale: scale.value },
-    ],
-  }));
-
-  return (
-    <Animated.Text
-      style={[
-        {
-          position: "absolute",
-          fontSize: 24,
-        },
-        animatedStyle,
-      ]}
-    >
-      {emoji}
-    </Animated.Text>
-  );
-}
+const ENTER_DURATION = 220;
+const EXIT_DURATION = 150;
+const AUTO_DISMISS_DURATION = 1800;
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
 interface CompletionCelebrationProps {
   visible: boolean;
@@ -106,145 +27,171 @@ interface CompletionCelebrationProps {
   onScanReceipt?: () => void;
 }
 
+/**
+ * A restrained completion moment for the end of a shopping trip.
+ * The acknowledgement is immediate, readable, and never blocks the next task.
+ */
 export function CompletionCelebration({
   visible,
   onDismiss,
   onScanReceipt,
 }: CompletionCelebrationProps) {
-  const checkScale = useSharedValue(0);
-  const checkOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
+  const contentOpacity = useSharedValue(0);
+  const contentTranslateY = useSharedValue(reduceMotion ? 0 : 8);
+  const badgeScale = useSharedValue(reduceMotion ? 1 : 0.96);
+  const dismissRef = useRef(onDismiss);
 
   useEffect(() => {
-    if (visible) {
-      // Trigger success haptic
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    dismissRef.current = onDismiss;
+  }, [onDismiss]);
 
-      // Animate check mark
-      checkOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
-      checkScale.value = withDelay(
-        200,
-        withSequence(
-          withSpring(1.05, { damping: 15, stiffness: 200 }),
-          withSpring(1, { damping: 20, stiffness: 180 }),
-        ),
+  useEffect(() => {
+    cancelAnimation(contentOpacity);
+    cancelAnimation(contentTranslateY);
+    cancelAnimation(badgeScale);
+
+    if (!visible) {
+      contentOpacity.set(0);
+      contentTranslateY.set(reduceMotion ? 0 : 8);
+      badgeScale.set(reduceMotion ? 1 : 0.96);
+      return;
+    }
+
+    void Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Success,
+    ).catch(() => {
+      // Haptics are supplementary; the visible confirmation is authoritative.
+    });
+
+    contentOpacity.set(
+      withTiming(1, {
+        duration: reduceMotion ? 120 : ENTER_DURATION,
+        easing: EASE_OUT,
+        reduceMotion: ReduceMotion.System,
+      }),
+    );
+    contentTranslateY.set(
+      reduceMotion
+        ? 0
+        : withTiming(0, {
+            duration: ENTER_DURATION,
+            easing: EASE_OUT,
+            reduceMotion: ReduceMotion.System,
+          }),
+    );
+    badgeScale.set(
+      reduceMotion
+        ? 1
+        : withTiming(1, {
+            duration: ENTER_DURATION,
+            easing: EASE_OUT,
+            reduceMotion: ReduceMotion.System,
+          }),
+    );
+
+    if (!onScanReceipt) {
+      const timer = setTimeout(
+        () => dismissRef.current(),
+        AUTO_DISMISS_DURATION,
       );
-
-      // Show button after celebration
-      buttonOpacity.value = withDelay(1200, withTiming(1, { duration: 300 }));
-
-      // Auto-dismiss after 2 seconds (but keep scan receipt option visible)
-      const timer = setTimeout(() => {
-        if (!onScanReceipt) {
-          onDismiss();
-        }
-      }, 2000);
-
       return () => clearTimeout(timer);
-    } else {
-      checkScale.value = 0;
-      checkOpacity.value = 0;
-      buttonOpacity.value = 0;
     }
   }, [
-    buttonOpacity,
-    checkOpacity,
-    checkScale,
-    onDismiss,
+    badgeScale,
+    contentOpacity,
+    contentTranslateY,
     onScanReceipt,
+    reduceMotion,
     visible,
   ]);
 
-  const checkStyle = useAnimatedStyle(() => ({
-    opacity: checkOpacity.value,
-    transform: [{ scale: checkScale.value }],
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.get(),
+    transform: [{ translateY: contentTranslateY.get() }],
+  }));
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgeScale.get() }],
   }));
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-  }));
+  const handleScanReceipt = useCallback(() => {
+    onDismiss();
+    onScanReceipt?.();
+  }, [onDismiss, onScanReceipt]);
 
   if (!visible) return null;
 
-  // Generate confetti particles
-  const confettiParticles = [];
-  for (let i = 0; i < 16; i++) {
-    const emoji = CONFETTI_EMOJIS[i % CONFETTI_EMOJIS.length];
-    confettiParticles.push(
-      <ConfettiParticle key={i} emoji={emoji} index={i} total={16} />,
-    );
-  }
-
   return (
     <Animated.View
-      entering={FadeIn.duration(200)}
-      exiting={FadeOut.duration(200)}
-      className="absolute inset-0 z-50 items-center justify-center bg-black/40"
+      entering={FadeIn.duration(EXIT_DURATION)
+        .easing(EASE_OUT)
+        .reduceMotion(ReduceMotion.System)}
+      exiting={FadeOut.duration(EXIT_DURATION)
+        .easing(EASE_OUT)
+        .reduceMotion(ReduceMotion.System)}
+      className="absolute inset-0 z-50 items-center justify-center bg-black/30 px-6"
     >
       <Pressable
         onPress={onDismiss}
         className="absolute inset-0"
-        accessibilityLabel="Dismiss celebration"
+        accessibilityLabel="Dismiss completion message"
+        accessibilityRole="button"
       />
 
-      {/* Celebration content */}
-      <View className="items-center">
-        {/* Confetti burst */}
-        <View className="relative h-48 w-48 items-center justify-center">
-          {confettiParticles}
-
-          {/* Center check circle */}
-          <Animated.View
-            style={checkStyle}
-            className="h-24 w-24 items-center justify-center rounded-full bg-teal"
-          >
-            <Text className="text-4xl text-white">✓</Text>
-          </Animated.View>
-        </View>
-
-        {/* Message */}
-        <Animated.Text
-          entering={FadeIn.delay(300).duration(300)}
-          className="mt-4 text-2xl font-heading text-white"
+      <Animated.View
+        style={[{ width: "100%", maxWidth: 360 }, contentStyle]}
+        className="items-center rounded-[32px] border border-separator bg-surface px-6 py-7 shadow-lg"
+        accessibilityRole="summary"
+        accessibilityLiveRegion="polite"
+        accessibilityLabel="Shopping list complete. Everything on your list is picked up."
+      >
+        <Animated.View
+          style={badgeStyle}
+          className="h-20 w-20 items-center justify-center rounded-3xl bg-teal-soft"
+          accessible={false}
         >
-          All done! 🎉
-        </Animated.Text>
+          <CircleCheck size={42} color={themeColors.teal} strokeWidth={2.25} />
+        </Animated.View>
 
-        <Animated.Text
-          entering={FadeIn.delay(400).duration(300)}
-          className="mt-2 text-base text-white/80"
+        <Text
+          className="mt-5 text-center text-2xl font-heading leading-8 text-ink"
+          accessibilityRole="header"
         >
-          Great job finishing your list!
-        </Animated.Text>
+          List complete
+        </Text>
+        <Text className="mt-2 text-center text-base leading-6 text-ink-secondary">
+          Everything on your list is picked up.
+        </Text>
 
-        {/* Scan receipt button */}
-        {onScanReceipt && (
-          <Animated.View style={buttonStyle} className="mt-6">
-            <Pressable
-              onPress={() => {
-                onDismiss();
-                onScanReceipt();
-              }}
-              className="flex-row items-center rounded-full bg-coral px-6 py-4"
+        {onScanReceipt ? (
+          <>
+            <Button
+              className="mt-6 w-full"
+              size="lg"
+              onPress={handleScanReceipt}
               accessibilityLabel="Scan receipt"
-              accessibilityRole="button"
             >
-              <Camera size={20} color="#FFFFFF" strokeWidth={2} />
-              <Text className="ml-2 text-base font-semibold text-white">
-                Scan Receipt
-              </Text>
-            </Pressable>
-          </Animated.View>
+              <View className="flex-row items-center">
+                <Camera
+                  size={20}
+                  color={themeColors.surface}
+                  strokeWidth={2.25}
+                />
+                <Text className="ml-2 font-heading text-base text-white">
+                  Scan receipt
+                </Text>
+              </View>
+            </Button>
+            <Button className="mt-2 w-full" variant="ghost" onPress={onDismiss}>
+              Not now
+            </Button>
+          </>
+        ) : (
+          <Button className="mt-6 w-full" onPress={onDismiss}>
+            Done
+          </Button>
         )}
-
-        {/* Dismiss hint */}
-        <Animated.Text
-          entering={FadeIn.delay(1500).duration(300)}
-          className="mt-4 text-sm text-white/60"
-        >
-          Tap anywhere to dismiss
-        </Animated.Text>
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 }

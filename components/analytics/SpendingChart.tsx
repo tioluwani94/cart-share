@@ -2,6 +2,8 @@ import { View, Text, Pressable } from "react-native";
 import { useState, useEffect } from "react";
 import Svg, { Rect, Line, G } from "react-native-svg";
 import Animated, {
+  Easing,
+  ReduceMotion,
   useSharedValue,
   useAnimatedProps,
   withTiming,
@@ -34,12 +36,15 @@ interface SpendingChartProps {
 // Chart dimensions
 const CHART_HEIGHT = 200;
 const CHART_WIDTH = 320;
-const BAR_WIDTH = 36;
-const BAR_GAP = 16;
+const BAR_WIDTH = 32;
+const BAR_GAP = 14;
 const PADDING_LEFT = 45;
+const PADDING_RIGHT = 12;
 const PADDING_BOTTOM = 30;
 const PADDING_TOP = 20;
 const CORNER_RADIUS = 6;
+const CHART_HEADROOM_FACTOR = 1.08;
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
 /**
  * Individual animated bar component with tooltip.
@@ -65,15 +70,29 @@ function AnimatedBar({
   const animatedHeight = useSharedValue(0);
   // Animate bar height on mount with sequential delay
   useEffect(() => {
-    animatedHeight.value = reduceMotion
-      ? barHeight
-      : withTiming(barHeight, { duration: 220 });
+    animatedHeight.set(
+      reduceMotion
+        ? barHeight
+        : withTiming(barHeight, {
+            duration: 220,
+            easing: EASE_OUT,
+            reduceMotion: ReduceMotion.System,
+          }),
+    );
   }, [animatedHeight, barHeight, reduceMotion]);
 
   const animatedProps = useAnimatedProps(() => {
     return {
-      height: animatedHeight.value,
-      y: PADDING_TOP + maxHeight - animatedHeight.value,
+      height: animatedHeight.get(),
+      y: PADDING_TOP + maxHeight - animatedHeight.get(),
+    };
+  });
+  const squareBaseAnimatedProps = useAnimatedProps(() => {
+    const squareBaseHeight = Math.min(animatedHeight.get(), CORNER_RADIUS);
+
+    return {
+      height: squareBaseHeight,
+      y: PADDING_TOP + maxHeight - squareBaseHeight,
     };
   });
 
@@ -98,6 +117,14 @@ function AnimatedBar({
         fill={themeColors.coral}
         opacity={isSelected ? 1 : 0.72}
       />
+      {/* Fill the rounded lower corners without drawing anything for zero months. */}
+      <AnimatedRect
+        animatedProps={squareBaseAnimatedProps}
+        x={x}
+        width={BAR_WIDTH}
+        fill={themeColors.coral}
+        opacity={isSelected ? 1 : 0.72}
+      />
     </G>
   );
 }
@@ -118,7 +145,9 @@ function Tooltip({
 
   return (
     <Animated.View
-      entering={FadeIn.duration(150)}
+      entering={FadeIn.duration(150)
+        .easing(EASE_OUT)
+        .reduceMotion(ReduceMotion.System)}
       className="absolute bg-warm-gray-900 rounded-xl px-3 py-2 shadow-lg"
       style={{
         top: -10,
@@ -129,7 +158,8 @@ function Tooltip({
         <Text className="text-white font-bold text-sm">{formattedAmount}</Text>
         <Text className="text-warm-gray-400 text-xs mt-0.5">
           {data.label} {data.year}
-          {data.sessionCount > 0 && ` · ${data.sessionCount} trip${data.sessionCount === 1 ? "" : "s"}`}
+          {data.sessionCount > 0 &&
+            ` · ${data.sessionCount} trip${data.sessionCount === 1 ? "" : "s"}`}
         </Text>
       </Pressable>
     </Animated.View>
@@ -145,8 +175,11 @@ export function SpendingChart({ data }: SpendingChartProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const reduceMotion = useReducedMotion();
 
-  // Calculate max value for scaling
-  const maxValue = Math.max(...data.map((d) => d.totalPence), 100); // Minimum £1 to avoid division by 0
+  // Keep the real maximum legible while reserving a little breathing room
+  // above it so a rounded bar never collides with the chart boundary.
+  const actualMaxValue = Math.max(...data.map((d) => d.totalPence), 0);
+  const maxValue = Math.max(actualMaxValue, 100); // Minimum £1 avoids division by zero.
+  const chartDomainMax = maxValue * CHART_HEADROOM_FACTOR;
   const maxBarHeight = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
   // Calculate Y-axis labels (0, mid, max)
@@ -154,13 +187,17 @@ export function SpendingChart({ data }: SpendingChartProps) {
 
   // Handle bar press
   const handleBarPress = (index: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      // Haptics are supplementary; selection remains visually apparent.
+    });
     setSelectedIndex(selectedIndex === index ? null : index);
   };
 
   // Calculate bar positions
-  const totalBarsWidth = data.length * BAR_WIDTH + (data.length - 1) * BAR_GAP;
-  const startX = PADDING_LEFT + (CHART_WIDTH - PADDING_LEFT - totalBarsWidth) / 2;
+  const totalBarsWidth =
+    data.length * BAR_WIDTH + Math.max(0, data.length - 1) * BAR_GAP;
+  const plotWidth = CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT;
+  const startX = PADDING_LEFT + Math.max(0, (plotWidth - totalBarsWidth) / 2);
 
   return (
     <View
@@ -168,8 +205,8 @@ export function SpendingChart({ data }: SpendingChartProps) {
       accessibilityRole="image"
       accessibilityLabel={`Spending chart showing ${data.length} months. ${
         data.filter((d) => d.totalPence > 0).length > 0
-          ? `Highest spending was ${formatChartCurrencyFromPence(maxValue)} in ${
-              data.find((d) => d.totalPence === maxValue)?.label ?? ""
+          ? `Highest spending was ${formatChartCurrencyFromPence(actualMaxValue)} in ${
+              data.find((d) => d.totalPence === actualMaxValue)?.label ?? ""
             }.`
           : "No spending data available."
       }`}
@@ -189,14 +226,14 @@ export function SpendingChart({ data }: SpendingChartProps) {
           const y =
             PADDING_TOP +
             maxBarHeight -
-            (value / maxValue) * maxBarHeight;
+            (value / chartDomainMax) * maxBarHeight;
           return (
             <G key={`grid-${i}`}>
               {/* Gridline */}
               <Line
                 x1={PADDING_LEFT}
                 y1={y}
-                x2={CHART_WIDTH - 10}
+                x2={CHART_WIDTH - PADDING_RIGHT}
                 y2={y}
                 stroke="#E5E5E0"
                 strokeWidth={1}
@@ -208,7 +245,10 @@ export function SpendingChart({ data }: SpendingChartProps) {
 
         {/* Bars */}
         {data.map((item, index) => {
-          const barHeight = (item.totalPence / maxValue) * maxBarHeight;
+          const calculatedHeight =
+            (item.totalPence / chartDomainMax) * maxBarHeight;
+          const barHeight =
+            item.totalPence === 0 ? 0 : Math.max(calculatedHeight, 3);
           const x = startX + index * (BAR_WIDTH + BAR_GAP);
 
           return (
@@ -216,7 +256,7 @@ export function SpendingChart({ data }: SpendingChartProps) {
               key={`bar-${item.month}-${item.year}`}
               x={x}
               maxHeight={maxBarHeight}
-              barHeight={Math.max(barHeight, 4)} // Minimum 4px height for visibility
+              barHeight={barHeight}
               data={item}
               onPress={() => handleBarPress(index)}
               isSelected={selectedIndex === index}
@@ -229,23 +269,24 @@ export function SpendingChart({ data }: SpendingChartProps) {
       {/* Y-axis labels (rendered as React Native Text for better styling) */}
       <View
         className="absolute left-0"
-        style={{ top: PADDING_TOP, height: maxBarHeight }}
+        style={{
+          top: PADDING_TOP,
+          width: PADDING_LEFT - 4,
+          height: maxBarHeight,
+        }}
         pointerEvents="none"
       >
-        {yLabels
-          .slice()
-          .reverse()
-          .map((value, i) => (
-            <Text
-              key={`y-label-${i}`}
-              className="text-xs text-warm-gray-500 absolute right-1"
-              style={{
-                top: i * (maxBarHeight / 2) - 6,
-              }}
-            >
-              {formatChartCurrencyFromPence(value)}
-            </Text>
-          ))}
+        {yLabels.map((value) => (
+          <Text
+            key={`y-label-${value}`}
+            className="text-xs text-warm-gray-500 absolute right-1"
+            style={{
+              top: maxBarHeight - (value / chartDomainMax) * maxBarHeight - 6,
+            }}
+          >
+            {formatChartCurrencyFromPence(value)}
+          </Text>
+        ))}
       </View>
 
       {/* X-axis labels */}

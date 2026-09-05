@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.ourpantry",
-      "appleTeamId": "W6SZ22J8C2",
+      "appleTeamId": "5L6QPNNMP8",
       "privacyManifests": {
         "NSPrivacyTracking": false,
         "NSPrivacyTrackingDomains": [],

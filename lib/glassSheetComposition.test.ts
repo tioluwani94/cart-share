@@ -59,6 +59,8 @@ describe("glass sheet composition", () => {
       "components/analytics/ReceiptImageViewer.tsx",
     );
 
-    expect(receiptViewer).toContain("bg-black/95");
+    expect(receiptViewer).toContain('surfaceVariant="solid-dark"');
+    expect(receiptViewer).toContain("bg-black");
+    expect(receiptViewer).not.toContain("bg-black/95");
   });
 });

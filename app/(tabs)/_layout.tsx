@@ -26,6 +26,7 @@ export default function TabsLayout() {
       >
         <Tabs.Screen name="index" options={{ title: "Plan" }} />
         <Tabs.Screen name="shop" options={{ title: "Shop" }} />
+        <Tabs.Screen name="pantry" options={{ title: "Pantry" }} />
         <Tabs.Screen name="analytics" options={{ title: "Spending" }} />
       </Tabs>
     </TabBarChromeProvider>

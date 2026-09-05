@@ -1,12 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import Animated, {
+  ReduceMotion,
+  cancelAnimation,
   Easing,
   useAnimatedProps,
-  useDerivedValue,
+  useReducedMotion,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, G } from "react-native-svg";
@@ -42,9 +42,10 @@ export function UploadProgressRing({
   isUploading = false,
   message,
 }: UploadProgressRingProps) {
+  const reduceMotion = useReducedMotion();
   const animatedProgress = useSharedValue(0);
-  const messageIndex = useSharedValue(0);
-  const pulseScale = useSharedValue(1);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const clampedProgress = Math.min(100, Math.max(0, progress));
 
   // Calculate circle dimensions
   const radius = (size - strokeWidth) / 2;
@@ -53,64 +54,43 @@ export function UploadProgressRing({
 
   // Animate progress changes
   useEffect(() => {
-    animatedProgress.value = withTiming(progress, {
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [animatedProgress, progress]);
-
-  // Pulse animation when uploading
-  useEffect(() => {
-    if (isUploading) {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.02, {
-            duration: 800,
-            easing: Easing.inOut(Easing.ease),
+    cancelAnimation(animatedProgress);
+    animatedProgress.set(
+      reduceMotion
+        ? clampedProgress
+        : withTiming(clampedProgress, {
+            duration: 220,
+            easing: Easing.linear,
+            reduceMotion: ReduceMotion.System,
           }),
-          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      );
-    } else {
-      pulseScale.value = withTiming(1, { duration: 200 });
-    }
-  }, [isUploading, pulseScale]);
+    );
+
+    return () => cancelAnimation(animatedProgress);
+  }, [animatedProgress, clampedProgress, reduceMotion]);
 
   // Rotate through messages
   useEffect(() => {
     if (isUploading) {
       const interval = setInterval(() => {
-        messageIndex.value = (messageIndex.value + 1) % UPLOAD_MESSAGES.length;
+        setMessageIndex((current) => (current + 1) % UPLOAD_MESSAGES.length);
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [isUploading, messageIndex]);
-
-  // Animated stroke dash offset for progress
-  const strokeDashoffset = useDerivedValue(() => {
-    const progressFraction = animatedProgress.value / 100;
-    return circumference * (1 - progressFraction);
-  });
+    setMessageIndex(0);
+  }, [isUploading]);
 
   const animatedCircleProps = useAnimatedProps(() => ({
-    strokeDashoffset: strokeDashoffset.value,
+    strokeDashoffset: circumference * (1 - animatedProgress.get() / 100),
   }));
 
   // Get current message
   const currentMessage =
-    message ||
-    (isUploading ? UPLOAD_MESSAGES[Math.floor(messageIndex.value)] : "");
+    message || (isUploading ? UPLOAD_MESSAGES[messageIndex] : "");
 
   return (
     <View className="items-center justify-center">
       {/* Progress Ring */}
-      <Animated.View
-        style={{
-          transform: [{ scale: pulseScale }],
-        }}
-      >
+      <View>
         <Svg width={size} height={size}>
           {/* Background circle */}
           <Circle
@@ -146,10 +126,10 @@ export function UploadProgressRing({
           }}
         >
           <Text className="text-3xl font-heading text-warm-gray-800">
-            {Math.round(progress)}%
+            {Math.round(clampedProgress)}%
           </Text>
         </View>
-      </Animated.View>
+      </View>
 
       {/* Message below ring */}
       {currentMessage ? (
