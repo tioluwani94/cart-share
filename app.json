@@ -108,6 +108,7 @@
       },
       "infoPlist": {
         "CADisableMinimumFrameDurationOnPhone": true,
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "OurPantry needs camera access to scan your receipts and track spending."
       }
     },
