@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP, legal foundation, production services, and the first signed App Store build complete; TestFlight submission and external release verification pending**
+Status: **Core MVP, legal foundation, and production services complete; TestFlight build 5 uploaded and Apple processing/external beta verification pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -159,7 +159,7 @@ The configuration shape was approved in checkpoint F, and linking the Expo
 project plus non-production EAS configuration was approved for this checkpoint.
 Changing production services still requires separate explicit approval.
 
-### Execution status — 5 September 2026
+### Execution status — 6 September 2026
 
 - Linked the repository to the Expo project `@jtioluwani/ourpantry`
   (`c2227d67-2e66-4150-88c0-7944fe0dffd2`) and recorded the project owner and
@@ -192,6 +192,15 @@ Changing production services still requires separate explicit approval.
   team application identifier, `get-task-allow = false`, TestFlight beta-report
   support, and `aps-environment = production`. The build has not been submitted
   to App Store Connect.
+- EAS build `106c4f06-4c14-4fbf-aa29-7b8044f4e7c7` completed successfully for
+  the iOS `production` profile as OurPantry 1.0.0 (build 5) from commit
+  `883e3ed9c43adb1888d559d90901f02797b581c0`. The matching reviewed Convex
+  schema and functions were deployed to production with typechecking enabled.
+- App Store Connect app `6809059306` is linked to bundle ID `app.ourpantry`, and
+  its ID is recorded in the EAS production submission profile. EAS created the
+  internal TestFlight group `Team (Expo)`, enabled the account holder as an
+  internal tester, and uploaded build 5 successfully. Apple is processing the
+  binary before it becomes selectable in TestFlight.
 - Apple Push Notifications key `888WSH9FC5` was created through EAS and assigned
   to `app.ourpantry`. Together with the production entitlement verified in the
   signed IPA, the Apple credential layer is ready for device push-notification
@@ -226,8 +235,11 @@ Changing production services still requires separate explicit approval.
   enabled, and a dedicated API key restricted to the Cloud Vision API. Google
   OAuth client credentials and their Clerk production connection remain to be
   completed.
-- The first signed App Store candidate is available in EAS as build 4. It has
-  not been submitted to App Store Connect or distributed through TestFlight.
+- The current signed App Store candidate is build 5. It has been uploaded to
+  App Store Connect and is awaiting Apple processing before internal TestFlight
+  installation. Production Google OAuth client credentials and their Clerk
+  production connection remain to be completed before external beta testing if
+  Google sign-in remains visible.
 
 ### Pre-checkpoint dependency health
 
