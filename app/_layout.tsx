@@ -124,7 +124,9 @@ function InitialLayout() {
 
   const { redirect: authRedirect, canRenderCurrentRoute } =
     getAuthRoutingDecision({
+      analyticsConsent: notificationPreference?.analyticsConsent,
       isNavigationReady: Boolean(navigationState?.key),
+      isAnalyticsPreferenceResolved: notificationPreference !== undefined,
       isClerkLoaded: isLoaded,
       isSignedIn,
       isConvexAuthenticated,

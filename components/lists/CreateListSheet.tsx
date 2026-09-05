@@ -18,6 +18,7 @@ import { Keyboard, Text, View } from "react-native";
 import { SuccessCelebration } from "./SuccessCelebration";
 import { CATEGORIES, CategoryChip } from "./CategoryChip";
 import { parseCurrencyInputToPence } from "@/lib/formatters";
+import { useAnalytics } from "@/lib/AnalyticsContext";
 import { themeColors } from "@/lib/theme";
 import { useIsOnline } from "@/lib/useNetworkStatus";
 
@@ -32,6 +33,7 @@ export const CreateListSheet = forwardRef<
 >(
   function CreateListSheet({ setAsNextShop = false }, ref) {
     const router = useRouter();
+    const analytics = useAnalytics();
     const isOnline = useIsOnline();
     const [listName, setListName] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string | null>(
@@ -110,6 +112,10 @@ export const CreateListSheet = forwardRef<
           tripBudgetPence: tripBudgetPence ?? undefined,
           setAsNextShop: setAsNextShop || undefined,
           onlyIfNoActiveList: setAsNextShop || undefined,
+        });
+        analytics.track("shopping list created", {
+          household_id: household._id,
+          source: "plan",
         });
 
         if (setAsNextShop) {

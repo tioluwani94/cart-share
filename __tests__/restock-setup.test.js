@@ -308,6 +308,15 @@ describe("RestockSetupScreen", () => {
     );
     expect(mockRegisterDevice).not.toHaveBeenCalled();
     expect(mockAnalytics.setConsent).not.toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: "/notification-setup",
+      params: {
+        cadence_bucket: "7_days",
+        created_starter_list: "0",
+        household_size_bucket: "1-2",
+        origin: "activation",
+        shopping_mode: "in_store",
+      },
+    });
   });
 });

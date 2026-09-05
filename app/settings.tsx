@@ -215,13 +215,17 @@ export default function SettingsScreen() {
       });
       if (result.action === Share.sharedAction) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        analytics.track("household invite shared", {
+          household_id: household._id,
+          source: "settings",
+        });
       }
     } catch (error) {
       console.error("Failed to share household invite:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast({ message: "Couldn't open sharing", tone: "error" });
     }
-  }, [household?.inviteCode, household?.name, showToast]);
+  }, [analytics, household, showToast]);
 
   const openBudgetEditor = useCallback(() => {
     setMonthlyBudget(

@@ -1,4 +1,8 @@
-import { createAnalytics, getItemCountBucket } from "./analytics";
+import {
+  createAnalytics,
+  getDaysUntilShopBucket,
+  getItemCountBucket,
+} from "./analytics";
 
 describe("analytics", () => {
   it("groups shopping-list sizes without exposing an exact count", () => {
@@ -6,6 +10,13 @@ describe("analytics", () => {
     expect(getItemCountBucket(1)).toBe("1-10");
     expect(getItemCountBucket(10)).toBe("1-10");
     expect(getItemCountBucket(11)).toBe("11+");
+  });
+
+  it("groups planned-shop lead time without exposing an exact date", () => {
+    const now = Date.UTC(2026, 8, 5, 12);
+    expect(getDaysUntilShopBucket(now + 2 * 86_400_000, now)).toBe("0-3");
+    expect(getDaysUntilShopBucket(now + 6 * 86_400_000, now)).toBe("4-7");
+    expect(getDaysUntilShopBucket(now + 9 * 86_400_000, now)).toBe("8+");
   });
 
   it("does not identify or capture product events before explicit consent", () => {
@@ -76,5 +87,32 @@ describe("analytics", () => {
         exact_total_pence: 4567,
       }),
     ).toThrow("prohibited properties: exact_total_pence");
+  });
+
+  it("accepts the privacy-reviewed closed-beta journey events", () => {
+    const adapter = {
+      capture: jest.fn(),
+      identify: jest.fn(),
+      reset: jest.fn(),
+      optIn: jest.fn(),
+      optOut: jest.fn(),
+    };
+    const analytics = createAnalytics(adapter);
+    analytics.setConsent("granted");
+
+    analytics.track("shopping list created", {
+      household_id: "household_1",
+      source: "plan",
+    });
+    analytics.track("shop planned", {
+      household_id: "household_1",
+      days_until_shop_bucket: "4-7",
+    });
+    analytics.track("tab viewed", {
+      household_id: "household_1",
+      tab: "pantry",
+    });
+
+    expect(adapter.capture).toHaveBeenCalledTimes(3);
   });
 });

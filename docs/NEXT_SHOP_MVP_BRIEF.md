@@ -263,7 +263,10 @@ The list is archived only after a shopping session is saved. “Skip for now” 
 - The activation success state is the first useful Next shop or restock review, not a generic completion screen.
 - `peopleServed` is a cold-start prior for starter suggestions and sensible quantities for scalable staples. It must not directly multiply cadence or claim to predict consumption. Purchase history and explicit corrections supersede it as evidence accumulates.
 - After the first useful plan is visible, show an in-app explanation of notification value and then the operating-system permission prompt. Denial is respected without repeated prompting.
-- Analytics consent is a separate, optional beta choice. Absence or dismissal means no analytics collection.
+- Analytics consent is a separate, optional beta choice shown after the first
+  useful plan is ready. Declining continues into the app normally, absence or
+  dismissal means no analytics collection, and the choice remains editable in
+  Settings.
 
 ### 8.2 Initial cadence
 
@@ -387,7 +390,10 @@ cadence window. Paused products retain history but remain excluded from review.
 
 - Use PostHog Cloud EU for the closed beta, behind an internal analytics module rather than calling the SDK from screens.
 - Start with explicit, allow-listed events only. Disable touch autocapture, automatic screen capture, session replay, and IP-based geolocation. App lifecycle events may remain enabled.
-- Configure analytics as opt-in. Before consent, use the no-op adapter and do not queue product events. Consent can be changed in Settings.
+- Configure analytics as opt-in. After activation's first-value moment, offer a
+  skippable consent choice that names the excluded data categories. Before
+  consent, use the no-op adapter and do not queue product events. Consent can be
+  changed in Settings.
 - After consent, identify with opaque internal user and household IDs. These identifiers remain pseudonymous personal data and must be disclosed; never send names, email addresses, invite codes, product names, notes, receipt images/OCR, exact spend, budgets, or retailer credentials.
 - On sign-out, flush only the current user's already-consented events, then call the analytics reset and replace the client with the no-op adapter. A subsequent user must never inherit the previous user's distinct ID or queued events.
 - Do not depend on PostHog's paid Group Analytics for the beta. Include an opaque `household_id` property on the allow-listed events so household-level beta behaviour can be analysed on the free product-analytics tier.
@@ -402,7 +408,9 @@ Initial event contract:
 | `notification permission answered` | granted/denied/provisional                             |
 | `restock review shown`             | candidate-count bucket, source                         |
 | `restock decision made`            | add/still-have/not-now/stop-tracking, source           |
-| `shopping item added`              | manual/restock                                         |
+| `shopping list created`            | activation/plan source                                 |
+| `shopping item added`              | active-shop/list-detail/restock source                 |
+| `shop planned`                     | lead-time bucket                                       |
 | `shop started`                     | physical/online                                        |
 | `shop completed`                   | item-count bucket, total-present, receipt-present      |
 | `receipt attached`                 | source camera/library                                  |
@@ -411,6 +419,9 @@ Initial event contract:
 | `notification opened`              | kind                                                   |
 | `possible regular reviewed`        | track/not-regular decision, pantry/notification source |
 | `tracked product corrected`        | field category only                                    |
+| `household invite shared`          | settings source                                        |
+| `household member joined`          | invite-code source                                     |
+| `tab viewed`                       | Plan/Shop/Pantry/Spending only                         |
 
 Event names use the `[object] [verb]` convention and live in one typed contract. Adding an event or property requires updating the allow-list and its privacy review.
 

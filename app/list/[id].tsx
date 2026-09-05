@@ -32,6 +32,7 @@ import {
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
+import { useAnalytics } from "@/lib/AnalyticsContext";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/expo";
@@ -76,6 +77,7 @@ export default function ListDetailScreen() {
   const { userId } = useAuth();
   const pageHeaderHeight = usePageHeaderHeight();
   const { showToast } = useToast();
+  const analytics = useAnalytics();
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
@@ -233,8 +235,12 @@ export default function ListDetailScreen() {
   const handleAddItem = useCallback(
     async (name: string) => {
       await offlineAddItem(name);
+      analytics.track("shopping item added", {
+        household_id: list?.householdId,
+        source: "list_detail",
+      });
     },
-    [offlineAddItem],
+    [analytics, list?.householdId, offlineAddItem],
   );
 
   const handleDelete = useCallback(

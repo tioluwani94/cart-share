@@ -7,6 +7,18 @@ export function getItemCountBucket(itemCount: number): "0" | "1-10" | "11+" {
   return itemCount <= 10 ? "1-10" : "11+";
 }
 
+export function getDaysUntilShopBucket(
+  plannedFor: number,
+  now = Date.now(),
+): "0-3" | "4-7" | "8+" {
+  const daysUntilShop = Math.max(
+    0,
+    Math.ceil((plannedFor - now) / (24 * 60 * 60 * 1000)),
+  );
+  if (daysUntilShop <= 3) return "0-3";
+  return daysUntilShop <= 7 ? "4-7" : "8+";
+}
+
 type CommonProperties = {
   household_id?: string;
   market?: string;
@@ -33,7 +45,15 @@ export interface AnalyticsEvents {
     decision: "add" | "still_have_some" | "not_this_time" | "stop_tracking";
     source: "plan" | "notification";
   };
-  "shopping item added": CommonProperties & { source: "manual" | "restock" };
+  "shopping list created": CommonProperties & {
+    source: "activation" | "plan";
+  };
+  "shopping item added": CommonProperties & {
+    source: "active_shop" | "list_detail" | "restock";
+  };
+  "shop planned": CommonProperties & {
+    days_until_shop_bucket: "0-3" | "4-7" | "8+";
+  };
   "shop started": CommonProperties & { mode: "physical" | "online" };
   "shop completed": CommonProperties & {
     item_count_bucket: string;
@@ -46,7 +66,7 @@ export interface AnalyticsEvents {
   };
   "notification sent": CommonProperties & {
     kind: NotificationKind;
-    delivery_result: "accepted" | "failed";
+    delivery_result: "accepted" | "failed" | "retry_scheduled";
   };
   "notification opened": CommonProperties & {
     kind: NotificationKind;
@@ -56,6 +76,11 @@ export interface AnalyticsEvents {
     source: "plan" | "notification" | "tracked_products";
   };
   "tracked product corrected": CommonProperties & { field: string };
+  "household invite shared": CommonProperties & { source: "settings" };
+  "household member joined": CommonProperties & { source: "invite_code" };
+  "tab viewed": CommonProperties & {
+    tab: "plan" | "shop" | "pantry" | "spending";
+  };
 }
 
 export interface AnalyticsAdapter {
@@ -92,7 +117,9 @@ const eventPropertyNames: {
     "source",
   ],
   "restock decision made": [...commonPropertyNames, "decision", "source"],
+  "shopping list created": [...commonPropertyNames, "source"],
   "shopping item added": [...commonPropertyNames, "source"],
+  "shop planned": [...commonPropertyNames, "days_until_shop_bucket"],
   "shop started": [...commonPropertyNames, "mode"],
   "shop completed": [
     ...commonPropertyNames,
@@ -106,6 +133,9 @@ const eventPropertyNames: {
   "notification opened": [...commonPropertyNames, "kind"],
   "possible regular reviewed": [...commonPropertyNames, "decision", "source"],
   "tracked product corrected": [...commonPropertyNames, "field"],
+  "household invite shared": [...commonPropertyNames, "source"],
+  "household member joined": [...commonPropertyNames, "source"],
+  "tab viewed": [...commonPropertyNames, "tab"],
 };
 
 function assertAllowedProperties(

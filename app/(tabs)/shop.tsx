@@ -241,7 +241,7 @@ function ActiveShop({
       await addItem(name);
       analytics.track("shopping item added", {
         household_id: householdId,
-        source: "manual",
+        source: "active_shop",
       });
     },
     [addItem, analytics, householdId],

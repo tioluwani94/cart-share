@@ -918,13 +918,22 @@ async function captureServerAnalytics(
   const apiKey = process.env.POSTHOG_API_KEY;
   const host = process.env.POSTHOG_HOST;
   if (!apiKey || !host) return;
-  await fetch(`${host.replace(/\/$/, "")}/capture/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      buildServerAnalyticsPayload(apiKey, event, distinctId, properties),
-    ),
-  });
+  try {
+    const response = await fetch(`${host.replace(/\/$/, "")}/capture/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildServerAnalyticsPayload(apiKey, event, distinctId, properties),
+      ),
+    });
+    if (!response.ok) {
+      console.warn(`PostHog capture failed with status ${response.status}`);
+    }
+  } catch (error) {
+    // Product analytics is best-effort and must never interrupt notification
+    // delivery or its retry bookkeeping.
+    console.warn("PostHog capture failed", error);
+  }
 }
 
 async function scheduleDeliveryReceiptRetry(

@@ -174,8 +174,9 @@ Changing production services still requires separate explicit approval.
   run passed, and the reviewed production functions and schema were deployed on
   5 September 2026 with typechecking enabled.
 - The production Convex environment contains `CLERK_JWT_ISSUER_DOMAIN`,
-  `CLERK_WEBHOOK_SECRET`, and `GOOGLE_CLOUD_VISION_API_KEY`; PostHog server
-  credentials remain optional while analytics is disabled.
+  `CLERK_WEBHOOK_SECRET`, `GOOGLE_CLOUD_VISION_API_KEY`, `POSTHOG_API_KEY`, and
+  the EU `POSTHOG_HOST`. The matching public, write-only PostHog project token
+  and EU host are stored in all three EAS environments.
 - EAS build `e2b50475-ca22-48d3-bec2-e3eca1be94ad` completed successfully for
   the iOS `preview-simulator` profile as OurPantry 1.0.0 (build 1), bundle ID
   `app.ourpantry`, without Apple credentials. This validates cloud packaging
@@ -196,6 +197,11 @@ Changing production services still requires separate explicit approval.
   signed IPA, the Apple credential layer is ready for device push-notification
   UAT. End-to-end delivery and notification deep links still require TestFlight
   verification.
+- A dedicated PostHog Cloud EU project was created for OurPantry. Client
+  autocapture, heatmaps, Web Vitals capture, session replay, and error
+  autocapture are disabled; client IP data is discarded. Product events remain
+  behind explicit per-member opt-in and a typed property allow-list. The
+  measurement definitions live in `docs/ANALYTICS_MEASUREMENT_PLAN.md`.
 
 ### Production environment preparation — 5 September 2026
 

@@ -49,7 +49,10 @@ export default function JoinHouseholdScreen() {
       setShowSuccess(true);
 
       setTimeout(() => {
-        router.replace("/(tabs)");
+        router.replace({
+          pathname: "/notification-setup",
+          params: { origin: "join" },
+        });
       }, SUCCESS_DWELL_MS);
     } catch (err) {
       const message =

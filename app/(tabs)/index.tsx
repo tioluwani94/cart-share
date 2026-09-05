@@ -20,6 +20,8 @@ import {
   formatFriendlyDate,
 } from "@/lib/formatters";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
+import { getDaysUntilShopBucket } from "@/lib/analytics";
+import { useAnalytics } from "@/lib/AnalyticsContext";
 import { partitionRestockCandidates } from "@/lib/restockReview";
 import {
   getEffectiveShoppingMode,
@@ -83,6 +85,7 @@ function nextSaturday(now = new Date()): number {
 
 export default function PlanScreen() {
   const router = useRouter();
+  const analytics = useAnalytics();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -159,18 +162,23 @@ export default function PlanScreen() {
     setIsPlanning(true);
     setPlanningError(null);
     try {
+      const plannedFor = nextSaturday();
       await setNextShop({
         listId: review.activeList._id,
-        plannedFor: nextSaturday(),
+        plannedFor,
       });
       await recalculate({});
+      analytics.track("shop planned", {
+        household_id: household?._id,
+        days_until_shop_bucket: getDaysUntilShopBucket(plannedFor),
+      });
     } catch (error) {
       console.error("Couldn't schedule the next shop:", error);
       setPlanningError("We couldn't save that date. Please try again.");
     } finally {
       setIsPlanning(false);
     }
-  }, [recalculate, review?.activeList, setNextShop]);
+  }, [analytics, household?._id, recalculate, review?.activeList, setNextShop]);
 
   const chooseExistingList = useCallback(
     async (listId: Id<"lists">) => {

@@ -1,11 +1,44 @@
-import { Tabs } from "expo-router";
+import { api } from "@/convex/_generated/api";
+import { useAnalytics } from "@/lib/AnalyticsContext";
+import { useQuery } from "convex/react";
+import { Tabs, usePathname } from "expo-router";
+import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { OurPantryTabBar } from "@/components/navigation/OurPantryTabBar";
 import { TabBarChromeProvider } from "@/components/navigation/TabBarChromeContext";
 
+const tabByPathname = {
+  "/": "plan",
+  "/shop": "shop",
+  "/pantry": "pantry",
+  "/analytics": "spending",
+} as const;
+
+function TabAnalyticsTracker() {
+  const pathname = usePathname();
+  const analytics = useAnalytics();
+  const household = useQuery(api.households.getCurrentHousehold);
+  const lastTrackedKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    const tab = tabByPathname[pathname as keyof typeof tabByPathname];
+    if (!tab || !household?._id) return;
+    const key = `${household._id}:${tab}`;
+    if (lastTrackedKey.current === key) return;
+    lastTrackedKey.current = key;
+    analytics.track("tab viewed", {
+      household_id: household._id,
+      tab,
+    });
+  }, [analytics, household?._id, pathname]);
+
+  return null;
+}
+
 export default function TabsLayout() {
   return (
     <TabBarChromeProvider>
+      <TabAnalyticsTracker />
       <Tabs
         tabBar={(props) => <OurPantryTabBar {...props} />}
         screenOptions={{

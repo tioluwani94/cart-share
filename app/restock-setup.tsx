@@ -151,6 +151,7 @@ export default function RestockSetupScreen() {
     setError(null);
     try {
       let activeListId = lists?.[0]?._id;
+      let createdStarterList = false;
       if (!activeListId) {
         const result = await createList({
           householdId: household._id,
@@ -158,6 +159,7 @@ export default function RestockSetupScreen() {
           category: "Groceries",
         });
         activeListId = result.listId;
+        createdStarterList = true;
       }
 
       const products = suggestions
@@ -188,15 +190,17 @@ export default function RestockSetupScreen() {
       });
       await updatePreferences({ notificationTimeZone: planningTimeZone });
 
-      analytics.track("activation completed", {
-        household_id: household._id,
-        market: "GB",
-        household_size_bucket:
-          peopleServed <= 2 ? "1-2" : peopleServed <= 4 ? "3-4" : "5+",
-        cadence_bucket: cadenceDays ? `${cadenceDays}_days` : "variable",
-        shopping_mode: shoppingMode,
+      router.replace({
+        pathname: "/notification-setup",
+        params: {
+          origin: "activation",
+          created_starter_list: createdStarterList ? "1" : "0",
+          household_size_bucket:
+            peopleServed <= 2 ? "1-2" : peopleServed <= 4 ? "3-4" : "5+",
+          cadence_bucket: cadenceDays ? `${cadenceDays}_days` : "variable",
+          shopping_mode: shoppingMode,
+        },
       });
-      router.replace("/(tabs)");
     } catch (caughtError) {
       console.error("Couldn't complete restock setup:", caughtError);
       setError("We couldn't save your setup. Please try again.");

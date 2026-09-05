@@ -1,3 +1,5 @@
+import type { AnalyticsConsent } from "./analytics";
+
 export type HouseholdRoutingState =
   | { restockSetupCompletedAt?: number }
   | null
@@ -7,11 +9,15 @@ export type AuthRedirect =
   | "/(auth)/welcome"
   | "/household-setup"
   | "/restock-setup"
+  | "/notification-setup"
+  | "/analytics-setup"
   | "/(tabs)"
   | null;
 
 export interface AuthRoutingInput {
+  analyticsConsent: AnalyticsConsent;
   isNavigationReady: boolean;
+  isAnalyticsPreferenceResolved: boolean;
   isClerkLoaded: boolean;
   isSignedIn: boolean | undefined;
   isConvexAuthenticated: boolean;
@@ -25,7 +31,9 @@ export interface AuthRoutingDecision {
 }
 
 export function getAuthRedirect({
+  analyticsConsent,
   isNavigationReady,
+  isAnalyticsPreferenceResolved,
   isClerkLoaded,
   isSignedIn,
   isConvexAuthenticated,
@@ -35,7 +43,11 @@ export function getAuthRedirect({
   if (
     !isNavigationReady ||
     !isClerkLoaded ||
-    (isSignedIn && (!isConvexAuthenticated || household === undefined))
+    (isSignedIn &&
+      (!isConvexAuthenticated ||
+        household === undefined ||
+        (household?.restockSetupCompletedAt !== undefined &&
+          !isAnalyticsPreferenceResolved)))
   ) {
     return null;
   }
@@ -46,14 +58,32 @@ export function getAuthRedirect({
 
   if (
     household?.restockSetupCompletedAt !== undefined &&
-    ["(auth)", "household-setup", "join-household"].includes(rootSegment ?? "")
+    analyticsConsent === undefined &&
+    ![
+      "notification-setup",
+      "analytics-setup",
+      "join-household",
+      "restock-setup",
+    ].includes(rootSegment ?? "")
+  ) {
+    return "/notification-setup";
+  }
+
+  if (
+    household?.restockSetupCompletedAt !== undefined &&
+    ["(auth)", "household-setup"].includes(rootSegment ?? "")
   ) {
     return "/(tabs)";
   }
 
   if (
     household === null &&
-    !["household-setup", "join-household"].includes(rootSegment ?? "")
+    ![
+      "household-setup",
+      "join-household",
+      "notification-setup",
+      "analytics-setup",
+    ].includes(rootSegment ?? "")
   ) {
     return "/household-setup";
   }
@@ -85,7 +115,9 @@ export function getAuthRoutingDecision(
     (input.isSignedIn === false ||
       (input.isSignedIn === true &&
         input.isConvexAuthenticated &&
-        input.household !== undefined));
+        input.household !== undefined &&
+        (input.household?.restockSetupCompletedAt === undefined ||
+          input.isAnalyticsPreferenceResolved)));
 
   return {
     redirect,
