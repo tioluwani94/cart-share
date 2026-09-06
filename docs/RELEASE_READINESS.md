@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP, legal foundation, and production services complete; TestFlight build 6 available for internal testing and external beta review/verification pending**
+Status: **Core MVP, legal foundation, and production services complete; TestFlight build 6 installed for internal UAT, with external beta review/verification pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -206,7 +206,12 @@ Changing production services still requires separate explicit approval.
 - App Store Connect app `6809059306` is linked to bundle ID `app.ourpantry`, and
   its ID is recorded in the EAS production submission profile. EAS created the
   internal TestFlight group `Team (Expo)`, enabled the account holder as an
-  internal tester, and assigned the accepted build 6 to internal testing.
+  internal tester, and assigned the accepted build 6 to internal testing. Build
+  6 is installed on the account holder's iPhone 13.
+- The App Store Connect listing name is `OurPantry: Family Groceries`. The
+  TestFlight beta description, feedback and contact information, public
+  marketing and privacy URLs, beta review notes, and build 6 `What to Test`
+  guidance are saved.
 - Apple Push Notifications key `888WSH9FC5` was created through EAS and assigned
   to `app.ourpantry`. Together with the production entitlement verified in the
   signed IPA, the Apple credential layer is ready for device push-notification
@@ -238,14 +243,16 @@ Changing production services still requires separate explicit approval.
   Vision API key configured. Production HTTP actions, functions, and schema are
   deployed with typechecking enabled.
 - Google Cloud project `ourpantry-production` has billing linked, Cloud Vision
-  enabled, and a dedicated API key restricted to the Cloud Vision API. Google
-  OAuth client credentials and their Clerk production connection remain to be
-  completed.
+  enabled, and a dedicated API key restricted to the Cloud Vision API. Its
+  external Google OAuth client uses Clerk's production callback, is connected
+  to the Clerk production instance, and is published with status `In
+  production`. OAuth branding identifies OurPantry, uses
+  `ourpantrysupport@gmail.com` for Google-facing support and developer contact,
+  authorizes `ourpantry.app`, and links to the public home, privacy, and terms
+  pages.
 - The current signed App Store candidate is build 6. It is available for
-  internal TestFlight testing and ready to submit for external beta review.
-  Production Google OAuth client credentials and their Clerk production
-  connection remain to be completed before external beta testing if Google
-  sign-in remains visible.
+  internal TestFlight testing, has been installed on an iPhone 13, and is ready
+  to submit for external beta review after internal UAT.
 
 ### Pre-checkpoint dependency health
 
@@ -340,7 +347,7 @@ Verified product-owner inputs as of 3 September 2026:
 
 Remaining external completion is limited to entering and verifying the privacy
 answers in App Store Connect against the final archived build, selecting the age
-rating, supplying screenshots, description, keywords and review notes, and
+rating, supplying App Store screenshots, description, and keywords, and
 providing a working review account/household. Re-run the privacy review if the
 production Clerk, Convex, Google Vision, Expo Push, or PostHog configuration
 differs from the documented MVP data flows.
