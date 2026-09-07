@@ -4,6 +4,9 @@ import { api } from "@/convex/_generated/api";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
+import { pantryArtwork } from "@/lib/pantryArtwork";
+import { resolvePantryArtwork } from "@/lib/pantryCatalogue";
+import { themeColors } from "@/lib/theme";
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { getCalendars } from "expo-localization";
@@ -17,6 +20,7 @@ import {
   ScrollView,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import {
   SafeAreaView,
@@ -492,6 +496,10 @@ function ProductChoice({
 }) {
   const reduceMotion = useReducedMotion();
   const [pressed, setPressed] = useState(false);
+  const { fontScale } = useWindowDimensions();
+  const artwork = pantryArtwork[resolvePantryArtwork(label)];
+  // Reuse the catalogue's optical sizing, with clearance for the checkbox.
+  const artworkScale = 0.72;
 
   return (
     <AnimatedPressable
@@ -500,12 +508,14 @@ function ProductChoice({
       onPressOut={() => setPressed(false)}
       pressRetentionOffset={16}
       className={cn(
-        "min-h-16 w-[48.5%] flex-row items-center justify-between rounded-2xl border px-4 py-3",
+        "relative items-center rounded-3xl border px-3 pb-4 pt-7",
+        fontScale >= 1.6 ? "w-full" : "w-[48.5%]",
         selected
           ? "border-coral bg-coral-soft"
           : "border-warm-gray-200 bg-white",
       )}
       style={{
+        backgroundColor: selected ? themeColors.coralSoft : themeColors.surface,
         opacity: pressed ? 0.84 : 1,
         transform: [{ scale: pressed && !reduceMotion ? 0.98 : 1 }],
         transitionProperty: reduceMotion
@@ -518,18 +528,43 @@ function ProductChoice({
       accessibilityState={{ checked: selected }}
       accessibilityLabel={label}
     >
+      <View
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="items-center overflow-hidden"
+        style={{ width: 140 * artworkScale, height: 162 * artworkScale }}
+      >
+        <Image
+          testID={`activation-product-artwork-${label}`}
+          source={artwork.source}
+          contentFit="contain"
+          transition={0}
+          accessible={false}
+          style={{
+            position: "absolute",
+            width: artwork.size * artworkScale,
+            height: artwork.size * artworkScale,
+            bottom: artwork.bottom * artworkScale,
+          }}
+        />
+      </View>
       <Text
         className={cn(
-          "mr-2 flex-1 text-base font-semibold",
+          "mt-2 text-center font-heading text-base leading-6",
           selected ? "text-coral" : "text-warm-gray-900",
         )}
-        numberOfLines={2}
       >
         {label}
       </Text>
       <View
+        testID={`activation-product-checkbox-${label}`}
+        pointerEvents="none"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         className={cn(
-          "h-6 w-6 items-center justify-center rounded-full",
+          "absolute right-3 top-3 h-6 w-6 items-center justify-center rounded-full",
           selected ? "bg-coral" : "border border-warm-gray-300",
         )}
       >

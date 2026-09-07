@@ -311,6 +311,15 @@ A shopping row prioritises the checkbox, product name, quantity, and optional pr
 
 ### Activation Step
 
+The product-selection step uses two-column image cards with a persistent
+top-right checkbox and a Nunito product label below the image. Make the whole
+card one accessible checkbox target; keep artwork and the visual check hidden
+from VoiceOver. Use the shared local catalogue and exact-name matcher, with the
+neutral fallback for unmatched products. Images retain optical padding and
+`contain` sizing, with separate clearance below the checkbox. At large Dynamic
+Type sizes, switch to one column and let labels wrap without truncation. Keep
+the existing suggestions, selected-product payload and activation navigation.
+
 Each activation screen asks for one small household decision. The four-step launch activation is deliberately short and required; do not add a skip action inside it. Optional notification and analytics choices remain separate and skippable. “People you usually buy groceries for” uses a simple stepper with a numeric accessibility value; it is not presented as surveillance or a precise consumption formula. The flow ends by revealing a useful Next shop, not with a decorative success screen.
 
 ### Onboarding Form Screen

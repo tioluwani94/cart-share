@@ -2,6 +2,7 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 
 import RestockSetupScreen from "../app/restock-setup";
+import { pantryArtwork } from "../lib/pantryArtwork";
 
 jest.mock("react-native-reanimated", () => {
   const React = require("react");
@@ -181,6 +182,76 @@ describe("RestockSetupScreen", () => {
     mockUpdatePreferences.mockResolvedValue({ success: true });
   });
 
+  it("uses catalogue images with top-right checkboxes and preserves selected products", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<RestockSetupScreen />);
+    });
+    for (let step = 0; step < 3; step += 1) {
+      await act(async () =>
+        renderer.root
+          .findByProps({ accessibilityLabel: "Continue setup" })
+          .props.onPress(),
+      );
+    }
+    const milkImage = renderer.root.findByProps({
+      testID: "activation-product-artwork-Milk",
+    });
+    expect(milkImage.props.source).toBe(pantryArtwork.milk.source);
+    expect(milkImage.props.contentFit).toBe("contain");
+    expect(milkImage.props.accessible).toBe(false);
+    expect(
+      renderer.root.findByProps({
+        testID: "activation-product-artwork-Toilet roll",
+      }).props.source,
+    ).toBe(pantryArtwork.fallback.source);
+    const checkbox = renderer.root.findByProps({
+      testID: "activation-product-checkbox-Milk",
+    });
+    expect(checkbox.props.className).toContain("absolute right-3 top-3");
+    expect(checkbox.props.pointerEvents).toBe("none");
+    const milk = () =>
+      renderer.root.findByProps({ accessibilityLabel: "Milk" });
+    expect(milk().props.accessibilityRole).toBe("checkbox");
+    expect(milk().props.accessibilityState.checked).toBe(false);
+    await act(async () => milk().props.onPress());
+    expect(milk().props.accessibilityState.checked).toBe(true);
+    await act(async () => milk().props.onPress());
+    expect(milk().props.accessibilityState.checked).toBe(false);
+    await act(async () =>
+      renderer.root
+        .findByProps({ accessibilityLabel: "Bread" })
+        .props.onPress(),
+    );
+    await act(async () =>
+      renderer.root
+        .findByProps({ accessibilityLabel: "Go back one setup step" })
+        .props.onPress(),
+    );
+    await act(async () =>
+      renderer.root
+        .findByProps({ accessibilityLabel: "Continue setup" })
+        .props.onPress(),
+    );
+    expect(
+      renderer.root.findByProps({ accessibilityLabel: "Bread" }).props
+        .accessibilityState.checked,
+    ).toBe(true);
+    await act(async () =>
+      renderer.root
+        .findByProps({ accessibilityLabel: "Build my grocery plan" })
+        .props.onPress(),
+    );
+    expect(mockCompleteSetup.mock.calls[0][0].products).toEqual([
+      expect.objectContaining({
+        displayName: "Bread",
+        category: "Bakery",
+        cadenceDays: 7,
+      }),
+    ]);
+    act(() => renderer.unmount());
+  });
+
   it("keeps activation focused without a skip action and puts back in the header", async () => {
     let renderer;
     await act(async () => {
@@ -211,9 +282,7 @@ describe("RestockSetupScreen", () => {
       back.props.onPress();
     });
 
-    expect(
-      getSetupProgress(renderer).props.accessibilityValue.now,
-    ).toBe(1);
+    expect(getSetupProgress(renderer).props.accessibilityValue.now).toBe(1);
   });
 
   it("presents one short setup question at a time with progress", async () => {
@@ -222,9 +291,7 @@ describe("RestockSetupScreen", () => {
       renderer = TestRenderer.create(<RestockSetupScreen />);
     });
 
-    expect(
-      getSetupProgress(renderer).props,
-    ).toEqual(
+    expect(getSetupProgress(renderer).props).toEqual(
       expect.objectContaining({
         accessibilityValue: { min: 1, max: 4, now: 1, text: "Step 1 of 4" },
       }),
@@ -252,9 +319,7 @@ describe("RestockSetupScreen", () => {
         children: "How often is your main grocery shop?",
       }),
     ).toBeTruthy();
-    expect(
-      getSetupProgress(renderer).props.accessibilityValue.now,
-    ).toBe(2);
+    expect(getSetupProgress(renderer).props.accessibilityValue.now).toBe(2);
 
     await act(async () => {
       renderer.root
