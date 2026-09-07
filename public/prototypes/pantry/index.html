@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#FAFAFA" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>OurPantry · Pantry explorations</title>
+    <link rel="stylesheet" href="./picker.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="phone">
+      <header class="app-header">
+        <div class="eyebrow">THE KOLAWOLE HOUSEHOLD <span>LOCAL DEMO</span></div>
+        <div class="title-row"><h1>Pantry</h1><div class="header-actions">
+          <button class="icon-button" id="search-toggle" aria-label="Search pantry" aria-expanded="false"></button>
+          <button class="icon-button" id="shop-open" aria-label="View demo shopping list"><span id="shop-icon"></span><span id="shop-count" hidden>0</span></button>
+        </div></div>
+        <p class="intro">A little less to keep in your head.</p>
+        <div class="search-wrap" hidden><label class="sr-only" for="search">Search your pantry</label><input id="search" type="search" placeholder="Find something on your shelves" enterkeyhint="done" autocomplete="off" /></div>
+        <div class="filters" id="filters" aria-label="Product status"></div>
+      </header>
+      <main id="stage" aria-label="Pantry prototype"></main>
+      <div class="app-tabs" aria-label="App navigation context, preview only">
+        <span data-tab="plan"></span><span data-tab="shop"></span><span class="selected" data-tab="pantry" aria-current="page"></span><span data-tab="spending"></span>
+      </div>
+    </div>
+    <nav class="proto-picker" aria-label="Prototype variants">
+      <span class="proto-picker-highlight" aria-hidden="true"></span>
+      <button class="proto-picker-item" data-active aria-current="true">Oak</button>
+      <button class="proto-picker-item">Rail</button>
+      <button class="proto-picker-item">Aisle</button>
+      <button class="proto-picker-item">Nest</button>
+      <button class="proto-picker-item">Focus</button>
+      <span class="proto-picker-divider" aria-hidden="true"></span>
+      <button class="proto-picker-item proto-picker-replay" aria-label="Replay animation (R)">↻</button>
+    </nav>
+    <dialog id="detail" aria-labelledby="detail-title"><div id="detail-body"></div></dialog>
+    <div class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./harness.js"></script>
+  </body>
+</html>

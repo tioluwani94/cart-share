@@ -268,6 +268,39 @@ Settings use the shared primitives in `components/settings` so household informa
 - **Accessibility:** Follow the system Reduce Motion setting. When Reduce Transparency is enabled, replace blur with an opaque Clean Canvas surface while preserving contrast and hierarchy.
 - **Boundaries:** System alerts, popovers, celebrations, and full-screen media viewers keep their purpose-built interaction patterns. The receipt image viewer intentionally uses a dark media stage instead of the ordinary light sheet hierarchy.
 
+### Pantry shelves
+
+The Pantry tab is the approved exception to flat grocery rows: browse household
+grocery memory in horizontal category shelves (Breakfast, Cupboard, Fruit & veg,
+Fresh favourites, then custom categories and Your extras). No numbered shelf
+labels, redundant Shop header shortcut, or prototype variant picker ships.
+Search lives below the large title in scroll content, followed by All shelves,
+Learning and Paused filters. Keep the shared profile header and four global tabs.
+Do not add a second Shop navigation button at the bottom of Pantry. Empty and
+filtered-result states use the shared opaque white `surface` card.
+
+- Use the approved local artwork in `assets/pantry`, not prototype/CDN images.
+  The transparent silhouette occupies at most roughly 103 × 114 pt inside a
+  140 × 162 pt arch. Preserve side clearance, headroom and an 8 pt baseline gap;
+  never enlarge images to fill the arch or use cover/cropping. Larger Dynamic
+  Type grows labels and tile width, not the image. Keep status chips centred.
+- Catalogue aliases affect imagery only. Honour user categories and preserve
+  household product IDs, names, cadence and purchase history. Unknown names
+  receive the neutral fallback. No runtime AI generation for MVP.
+- Product presses open the existing keyboard-safe editor. Learning still needs
+  explicit opt-in; pausing and editing keep existing backend semantics. Shopping
+  actions use the shared offline-capable list path. New completed purchases feed
+  the existing learning flow; do not replay activation to add products.
+- Gorhom modal contents render at a root portal host, outside the screen's
+  Clerk/Convex/offline/toast providers. Resolve these scoped hooks in a controller
+  **outside** the modal and pass rendered controls or data/callbacks into it.
+  Never mount a context-dependent shopping hook directly inside sheet content.
+  Native product-open UAT is required; pure catalogue tests cannot catch this.
+- Native scrolling owns momentum; both shelf and screen lists are virtualized.
+  Frequent product presses use 120 ms, 0.97-scale Reanimated CSS feedback with
+  `cubicBezier(0.23, 1, 0.32, 1)`. Reduce Motion substitutes opacity. No looping
+  artwork, staggered tile entrances, tab slides or per-scroll haptics.
+
 ### Restock Row
 
 The signature element presents a product name, one plain-language reason, and three decisions. On compact screens, Add is immediately visible while Still have some and Not this time remain reachable without horizontal scrolling. The row never claims an item is out of stock; it communicates an estimate.

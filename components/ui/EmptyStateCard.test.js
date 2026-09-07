@@ -1,6 +1,8 @@
+/* eslint-env jest */
+/* eslint-disable @typescript-eslint/no-var-requires -- Jest mock factories are hoisted. */
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { EmptyStateCard } from "./EmptyStateCard";
 
@@ -58,6 +60,9 @@ describe("EmptyStateCard", () => {
     const root = renderer.root.findByProps({ testID: "empty-state-card" });
     expect(root.props.className).toContain("bg-surface");
     expect(root.props.className).not.toContain("glass");
+    expect(StyleSheet.flatten(root.props.style)?.backgroundColor).toBe(
+      "#FFFFFF",
+    );
 
     const artwork = renderer.root.findByProps({
       testID: "empty-state-artwork",
@@ -93,6 +98,9 @@ describe("EmptyStateCard", () => {
 
     const root = renderer.root.findByProps({ testID: "empty-state-card" });
     expect(root.props.className).not.toContain("bg-surface");
+    expect(
+      StyleSheet.flatten(root.props.style)?.backgroundColor,
+    ).toBeUndefined();
     expect(renderer.root.findByProps({ testID: "fallback-icon" })).toBeTruthy();
   });
 });

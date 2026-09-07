@@ -19,28 +19,37 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
-import { keyboardDismissScrollProps } from "@/lib/keyboard";
-import { themeColors } from "@/lib/theme";
+import { PantryShelf } from "@/components/pantry/PantryShelf";
+import { PantryShopAction } from "@/components/pantry/PantryShopAction";
+import { buildPantryShelves, type PantryFilter } from "@/lib/pantryCatalogue";
+import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import {
-  buildTrackedProductRows,
-  getLearningProductCopy,
-  type TrackedProductRow,
-} from "@/lib/trackedProducts";
+  dismissKeyboardForOutsideTouch,
+  keyboardDismissScrollProps,
+} from "@/lib/keyboard";
+import { themeColors } from "@/lib/theme";
+import { getLearningProductCopy } from "@/lib/trackedProducts";
 import { FlashList } from "@shopify/flash-list";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useUser } from "@clerk/expo";
 import { useMutation, useQuery } from "convex/react";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
-  ChevronRight,
-  PackageCheck,
+  Search,
   Pause,
   Play,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react-native";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,13 +66,6 @@ interface TrackedProduct {
   cadenceDays: number;
   purchaseObservationCount: number;
   status: "learning" | "active" | "paused";
-}
-
-function productAmount(product: TrackedProduct): string {
-  if (product.defaultQuantity === undefined) return "Amount optional";
-  return `${product.defaultQuantity}${
-    product.defaultUnit ? ` ${product.defaultUnit}` : ""
-  }`;
 }
 
 export default function PantryScreen() {
@@ -95,9 +97,17 @@ export default function PantryScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const productRows = useMemo(
-    () => buildTrackedProductRows(products ?? []),
-    [products],
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<PantryFilter>(
+    focus === "learning" ? "learning" : "all",
+  );
+  const { data: review } = useCachedRestockReview(user?.id, household?._id);
+  useEffect(() => {
+    if (focus === "learning") setFilter("learning");
+  }, [focus]);
+  const shelves = useMemo(
+    () => buildPantryShelves(products ?? [], filter, search),
+    [products, filter, search],
   );
   const learningProductCount = useMemo(
     () =>
@@ -115,6 +125,7 @@ export default function PantryScreen() {
   );
 
   const openEditor = useCallback((product: TrackedProduct) => {
+    Keyboard.dismiss();
     setEditingProduct(product);
     setCadence(String(product.cadenceDays));
     setQuantity(
@@ -141,6 +152,7 @@ export default function PantryScreen() {
   const saveChanges = useCallback(
     async (nextStatus?: "active" | "paused") => {
       if (!editingProduct) return;
+      Keyboard.dismiss();
       const cadenceDays = Number(cadence);
       const defaultQuantity = quantity.trim() ? Number(quantity) : null;
       if (
@@ -238,6 +250,7 @@ export default function PantryScreen() {
   const setTrackingStatus = useCallback(
     async (status: "active" | "paused") => {
       if (!editingProduct) return;
+      Keyboard.dismiss();
       setIsSaving(true);
       setFormError(null);
       try {
@@ -287,7 +300,10 @@ export default function PantryScreen() {
   }, [editingProduct, setTrackingStatus]);
 
   return (
-    <View className="flex-1 bg-background-light">
+    <View
+      className="flex-1 bg-background-light"
+      onStartShouldSetResponderCapture={dismissKeyboardForOutsideTouch}
+    >
       {products === undefined ? (
         <View
           className="flex-1"
@@ -308,9 +324,8 @@ export default function PantryScreen() {
       ) : (
         <AnimatedFlashList
           {...keyboardDismissScrollProps}
-          data={productRows}
+          data={shelves}
           keyExtractor={(row) => row.key}
-          getItemType={(row) => row.type}
           contentContainerStyle={{
             paddingTop: insets.top,
             paddingBottom: tabBarHeight + 24,
@@ -330,55 +345,117 @@ export default function PantryScreen() {
                 scrollY={scrollY}
               />
               <View className="px-6">
-                <Text className="text-base leading-6 text-ink-secondary">
-                  {focus === "learning" && possibleRegularCount > 0
-                    ? "Review the regulars OurPantry noticed from your completed shops."
-                    : "Adjust when an item comes back for review, or pause anything you no longer want us to remember."}
-                </Text>
-                {learningProductCount > 0 ? (
-                  <View className="mt-5 flex-row rounded-2xl border border-yellow/30 bg-yellow/10 p-4">
+                <Input
+                  label="Search your pantry"
+                  placeholder="Find a product or shelf"
+                  value={search}
+                  onChangeText={setSearch}
+                  autoCorrect={false}
+                  clearButtonMode="while-editing"
+                  leadingAccessory={
+                    <Search
+                      size={20}
+                      color={themeColors.secondaryInk}
+                      style={{ marginLeft: 16 }}
+                    />
+                  }
+                />
+                <ScrollView
+                  horizontal
+                  {...keyboardDismissScrollProps}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingBottom: 16 }}
+                >
+                  {(["all", "learning", "paused"] as const).map((value) => (
+                    <Pressable
+                      key={value}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setFilter(value);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: filter === value }}
+                      className={cn(
+                        "min-h-12 items-center justify-center rounded-full px-4 py-2",
+                        filter === value ? "bg-ink" : "bg-warm-gray-100",
+                      )}
+                    >
+                      <Text
+                        className={cn(
+                          "text-sm font-semibold",
+                          filter === value
+                            ? "text-white"
+                            : "text-ink-secondary",
+                        )}
+                      >
+                        {value === "all"
+                          ? "All shelves"
+                          : value === "learning"
+                            ? `Learning · ${learningProductCount}`
+                            : "Paused"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                {learningProductCount > 0 && filter !== "paused" && (
+                  <View className="mb-5 flex-row rounded-2xl bg-yellow/10 p-4">
                     <Sparkles size={20} color={themeColors.warningInk} />
-                    <View className="ml-3 flex-1">
-                      <Text className="font-semibold text-ink">
-                        Learning stays separate
-                      </Text>
-                      <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-                        Completed purchases can appear here, but they only
-                        become reminders after you choose to track them.
-                      </Text>
-                    </View>
+                    <Text className="ml-3 flex-1 text-sm leading-5 text-ink-secondary">
+                      {focus === "learning" && possibleRegularCount > 0
+                        ? "Review the regulars noticed in your completed shops. Reminders start only when you choose to track them."
+                        : "Learning products only become reminders after you choose to track them."}
+                    </Text>
                   </View>
-                ) : null}
+                )}
               </View>
             </View>
           }
           ListEmptyComponent={
             <View className="px-6">
               <EmptyStateCard
-                title="Your pantry is ready to learn"
-                description="Choose the regular products your household wants OurPantry to remember."
-                artworkSource={groceryRhythmArtwork}
-                actionLabel="Choose products"
-                onAction={() => router.push("/restock-setup" as Href)}
-                className="mt-10"
+                variant="surface"
+                title={
+                  products.length === 0
+                    ? "Your pantry is ready to learn"
+                    : "No products here"
+                }
+                description={
+                  products.length === 0
+                    ? "Choose the regular products your household wants OurPantry to remember."
+                    : "Try another name, or show all your shelves."
+                }
+                artworkSource={
+                  products.length === 0 ? groceryRhythmArtwork : undefined
+                }
+                actionLabel={
+                  products.length === 0 ? "Choose products" : "Show all shelves"
+                }
+                onAction={() => {
+                  Keyboard.dismiss();
+                  if (products.length === 0)
+                    router.push("/restock-setup" as Href);
+                  else {
+                    setSearch("");
+                    setFilter("all");
+                  }
+                }}
+                className="mt-4"
               />
             </View>
           }
-          renderItem={({ item: row }) => {
-            if (row.type === "section") {
-              return (
-                <Text className="mx-6 mb-2 mt-7 text-base font-semibold text-ink">
-                  {row.title}
+          ListFooterComponent={
+            products.length > 0 ? (
+              <View className="px-6">
+                <Text className="mt-5 text-center text-xs leading-5 text-ink-secondary">
+                  Completed shops help your pantry learn. This is a memory of
+                  what you buy, not a count of what's left.
                 </Text>
-              );
-            }
-
-            return (
-              <View className="mx-6">
-                <TrackedProductListItem row={row} onPress={openEditor} />
               </View>
-            );
-          }}
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <PantryShelf shelf={item} onPress={openEditor} />
+          )}
         />
       )}
 
@@ -397,248 +474,170 @@ export default function PantryScreen() {
         }
       />
 
-      <GlassBottomSheet
-        ref={editorSheetRef}
-        snapPoints={["88%"]}
-        dismissible={!isSaving}
-        onDismiss={handleEditorClosed}
+      <PantryShopAction
+        product={editingProduct}
+        listId={review?.activeList?._id}
+        householdId={household?._id}
+        disabled={isSaving}
       >
-        <GlassBottomSheetScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
-        >
-          <GlassSheetHeader
-            title={editingProduct?.displayName ?? "Edit product"}
-            description={
-              editingProduct?.status === "learning"
-                ? "OurPantry noticed this in completed shops. Confirm it before it joins your restock reminders."
-                : "Adjust reminder timing and defaults. This rhythm is a reminder, not a claim that the product has run out."
-            }
-            icon={
-              <SlidersHorizontal
-                size={21}
-                color={themeColors.coral}
-                strokeWidth={2}
-              />
-            }
-            onClose={closeEditor}
-            closeDisabled={isSaving}
-            closeAccessibilityLabel="Close product editor"
-          />
-
-          <View className="mt-6">
-            <Input
-              label="Usually needed every (days)"
-              value={cadence}
-              onChangeText={setCadence}
-              keyboardType="number-pad"
-              placeholder="e.g. 7"
-            />
-            <Input
-              label="Usual quantity (optional)"
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="decimal-pad"
-              placeholder="e.g. 2"
-            />
-            <Input
-              label="Unit (optional)"
-              value={unit}
-              onChangeText={setUnit}
-              placeholder="e.g. litres"
-              autoCapitalize="none"
-            />
-            <Input
-              label="Category (optional)"
-              value={category}
-              onChangeText={setCategory}
-              placeholder="e.g. Dairy"
-              containerClassName="mb-0"
-            />
-          </View>
-
-          {editingProduct && (
-            <Text className="mt-3 text-sm leading-5 text-ink-secondary">
-              {editingProduct.status === "learning"
-                ? getLearningProductCopy(
-                    editingProduct.purchaseObservationCount,
-                  ).detail
-                : editingProduct.purchaseObservationCount === 0
-                  ? "No completed-shop history yet. Your chosen timing is the starting point."
-                  : `${editingProduct.purchaseObservationCount} completed ${
-                      editingProduct.purchaseObservationCount === 1
-                        ? "shop supports"
-                        : "shops support"
-                    } this rhythm.`}
-            </Text>
-          )}
-
-          {formError && (
-            <Text
-              className="mt-4 text-sm leading-5 text-red-700"
-              accessibilityRole="alert"
-            >
-              {formError}
-            </Text>
-          )}
-
-          {editingProduct?.status === "learning" ? (
-            <>
-              <Button
-                onPress={() => void saveChanges("active")}
-                loading={isSaving}
-                disabled={isSaving}
-                className="mt-6 w-full"
-                accessibilityLabel={`Track ${editingProduct.displayName} as a regular product`}
-              >
-                Track this product
-              </Button>
-              <Button
-                variant="tonal"
-                onPress={() => void saveChanges("paused")}
-                disabled={isSaving}
-                className="mt-3 w-full"
-                accessibilityLabel={`Mark ${editingProduct.displayName} as not a regular product`}
-              >
-                Not a regular
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                onPress={() => void saveChanges()}
-                loading={isSaving}
-                disabled={isSaving}
-                className="mt-6 w-full"
-              >
-                Save changes
-              </Button>
-              <Button
-                variant={
-                  editingProduct?.status === "active" ? "tonal" : "secondary"
-                }
-                onPress={() => void toggleTracking()}
-                disabled={isSaving}
-                className="mt-3 w-full"
-                accessibilityLabel={
-                  editingProduct?.status === "active"
-                    ? "Pause product tracking"
-                    : "Resume product tracking"
-                }
-              >
-                {editingProduct?.status === "active" ? (
-                  <Pause size={18} color={themeColors.coral} />
-                ) : (
-                  <Play size={18} color={themeColors.surface} />
-                )}
-                <Text
-                  className={`ml-2 font-semibold ${
-                    editingProduct?.status === "active"
-                      ? "text-coral"
-                      : "text-white"
-                  }`}
-                >
-                  {editingProduct?.status === "active"
-                    ? "Pause tracking"
-                    : "Resume tracking"}
-                </Text>
-              </Button>
-            </>
-          )}
-        </GlassBottomSheetScrollView>
-      </GlassBottomSheet>
-    </View>
-  );
-}
-
-type TrackedProductItemRow = Extract<
-  TrackedProductRow<TrackedProduct>,
-  { type: "product" }
->;
-
-function TrackedProductListItem({
-  row,
-  onPress,
-}: {
-  row: TrackedProductItemRow;
-  onPress: (product: TrackedProduct) => void;
-}) {
-  const { firstInSection, lastInSection, paused, product } = row;
-  const learningCopy =
-    product.status === "learning"
-      ? getLearningProductCopy(product.purchaseObservationCount)
-      : null;
-
-  return (
-    <Pressable
-      onPress={() => onPress(product)}
-      className={cn(
-        "min-h-20 flex-row items-center border-x border-t border-separator bg-surface px-4 py-3 active:bg-warm-gray-50",
-        firstInSection && "rounded-t-2xl",
-        lastInSection && "rounded-b-2xl border-b",
-      )}
-      accessibilityRole="button"
-      accessibilityLabel={`Edit ${product.displayName}, every ${product.cadenceDays} days${
-        paused ? ", tracking paused" : ""
-      }${learningCopy ? `, ${learningCopy.detail}` : ""}`}
-    >
-      <View
-        className={cn(
-          "h-11 w-11 items-center justify-center rounded-xl",
-          paused
-            ? "bg-warm-gray-100"
-            : learningCopy
-              ? "bg-yellow/15"
-              : "bg-teal-soft",
-        )}
-      >
-        {learningCopy ? (
-          <Sparkles size={21} color={themeColors.warningInk} />
-        ) : (
-          <PackageCheck
-            size={21}
-            color={paused ? themeColors.secondaryInk : themeColors.teal}
-          />
-        )}
-      </View>
-      <View className="ml-3 min-w-0 flex-1 pr-2">
-        <Text
-          className={cn(
-            "text-base font-semibold",
-            paused ? "text-ink-secondary" : "text-ink",
-          )}
-          numberOfLines={2}
-        >
-          {product.displayName}
-        </Text>
-        <Text
-          className="mt-0.5 text-sm leading-5 text-ink-secondary"
-          numberOfLines={2}
-        >
-          {learningCopy
-            ? learningCopy.detail
-            : `Every ${product.cadenceDays} days · ${productAmount(product)}`}
-        </Text>
-      </View>
-      {paused || learningCopy ? (
-        <View
-          className={cn(
-            "min-h-6 shrink-0 items-center justify-center rounded-full px-2",
-            learningCopy ? "bg-yellow/15" : "bg-warm-gray-100",
-          )}
-        >
-          <Text
-            className={cn(
-              "text-xs font-semibold leading-4",
-              learningCopy ? "text-yellow-800" : "text-ink-secondary",
-            )}
+        {(shopAction) => (
+          <GlassBottomSheet
+            ref={editorSheetRef}
+            snapPoints={["88%"]}
+            dismissible={!isSaving}
+            onDismiss={handleEditorClosed}
           >
-            {learningCopy?.badge ?? "Paused"}
-          </Text>
-        </View>
-      ) : null}
-      <View className="ml-2 items-center justify-center">
-        <ChevronRight size={20} color={themeColors.secondaryInk} />
-      </View>
-    </Pressable>
+            <GlassBottomSheetScrollView
+              contentContainerStyle={{
+                paddingHorizontal: 24,
+                paddingBottom: 40,
+              }}
+            >
+              <GlassSheetHeader
+                title={editingProduct?.displayName ?? "Edit product"}
+                description={
+                  editingProduct?.status === "learning"
+                    ? "OurPantry noticed this in completed shops. Confirm it before it joins your restock reminders."
+                    : "Adjust reminder timing and defaults. This rhythm is a reminder, not a claim that the product has run out."
+                }
+                icon={
+                  <SlidersHorizontal
+                    size={21}
+                    color={themeColors.coral}
+                    strokeWidth={2}
+                  />
+                }
+                onClose={closeEditor}
+                closeDisabled={isSaving}
+                closeAccessibilityLabel="Close product editor"
+              />
+
+              {shopAction}
+              <View className="mt-6">
+                <Input
+                  label="Usually needed every (days)"
+                  value={cadence}
+                  onChangeText={setCadence}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 7"
+                />
+                <Input
+                  label="Usual quantity (optional)"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 2"
+                />
+                <Input
+                  label="Unit (optional)"
+                  value={unit}
+                  onChangeText={setUnit}
+                  placeholder="e.g. litres"
+                  autoCapitalize="none"
+                />
+                <Input
+                  label="Category (optional)"
+                  value={category}
+                  onChangeText={setCategory}
+                  placeholder="e.g. Dairy"
+                  containerClassName="mb-0"
+                />
+              </View>
+
+              {editingProduct && (
+                <Text className="mt-3 text-sm leading-5 text-ink-secondary">
+                  {editingProduct.status === "learning"
+                    ? getLearningProductCopy(
+                        editingProduct.purchaseObservationCount,
+                      ).detail
+                    : editingProduct.purchaseObservationCount === 0
+                      ? "No completed-shop history yet. Your chosen timing is the starting point."
+                      : `${editingProduct.purchaseObservationCount} completed ${
+                          editingProduct.purchaseObservationCount === 1
+                            ? "shop supports"
+                            : "shops support"
+                        } this rhythm.`}
+                </Text>
+              )}
+
+              {formError && (
+                <Text
+                  className="mt-4 text-sm leading-5 text-red-700"
+                  accessibilityRole="alert"
+                >
+                  {formError}
+                </Text>
+              )}
+
+              {editingProduct?.status === "learning" ? (
+                <>
+                  <Button
+                    onPress={() => void saveChanges("active")}
+                    loading={isSaving}
+                    disabled={isSaving}
+                    className="mt-6 w-full"
+                    accessibilityLabel={`Track ${editingProduct.displayName} as a regular product`}
+                  >
+                    Track this product
+                  </Button>
+                  <Button
+                    variant="tonal"
+                    onPress={() => void saveChanges("paused")}
+                    disabled={isSaving}
+                    className="mt-3 w-full"
+                    accessibilityLabel={`Mark ${editingProduct.displayName} as not a regular product`}
+                  >
+                    Not a regular
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onPress={() => void saveChanges()}
+                    loading={isSaving}
+                    disabled={isSaving}
+                    className="mt-6 w-full"
+                  >
+                    Save changes
+                  </Button>
+                  <Button
+                    variant={
+                      editingProduct?.status === "active"
+                        ? "tonal"
+                        : "secondary"
+                    }
+                    onPress={() => void toggleTracking()}
+                    disabled={isSaving}
+                    className="mt-3 w-full"
+                    accessibilityLabel={
+                      editingProduct?.status === "active"
+                        ? "Pause product tracking"
+                        : "Resume product tracking"
+                    }
+                  >
+                    {editingProduct?.status === "active" ? (
+                      <Pause size={18} color={themeColors.coral} />
+                    ) : (
+                      <Play size={18} color={themeColors.surface} />
+                    )}
+                    <Text
+                      className={`ml-2 font-semibold ${
+                        editingProduct?.status === "active"
+                          ? "text-coral"
+                          : "text-white"
+                      }`}
+                    >
+                      {editingProduct?.status === "active"
+                        ? "Pause tracking"
+                        : "Resume tracking"}
+                    </Text>
+                  </Button>
+                </>
+              )}
+            </GlassBottomSheetScrollView>
+          </GlassBottomSheet>
+        )}
+      </PantryShopAction>
+    </View>
   );
 }

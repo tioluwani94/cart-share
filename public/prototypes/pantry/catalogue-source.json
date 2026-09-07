@@ -1,0 +1,145 @@
+{
+  "generation": "Built-in image_gen; 7 September 2026",
+  "basePrompt": "Use case: product-mockup. Asset type: one isolated grocery catalogue cutout for a premium mobile pantry shelf. Style: realistic studio product photography with restrained gently softened forms, not cartoon or clay. Natural accurate product colours, soft upper-left studio light, quiet shadows confined to object, consistent front three-quarter view slightly above eye-level, 70mm lens. Square transparent alpha canvas. Subject entirely visible and centered, approximately 70% of canvas on its longest dimension, generous empty margins, bottom aligned near 85% canvas height. One coherent grocery unit, no scene or decorative props. No floor, background, shelf, arch, lettering, brand marks, watermark or price tag. Crisp simple silhouette at 140pt. Actual transparent background, not a checkerboard. Subject: ",
+  "images": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "category": "Breakfast",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-42a9600a-a5ce-463e-867e-2ba80eb7504c.png"
+    },
+    {
+      "id": "eggs",
+      "name": "Eggs",
+      "category": "Breakfast",
+      "subject": "one open small unbranded moulded-pulp half-dozen egg carton holding six brown eggs. No loose eggs",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-cd548e7f-07fd-4524-a9cf-1d53ca825115.png"
+    },
+    {
+      "id": "bread",
+      "name": "Bread",
+      "category": "Breakfast",
+      "subject": "one small golden-brown sliced bread loaf with two end slices still resting against the loaf, no plate or bag",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-3e83bba9-a489-4e1f-870a-f1e165c58ff5.png"
+    },
+    {
+      "id": "oat-milk",
+      "name": "Oat milk",
+      "category": "Breakfast",
+      "subject": "one upright ivory oat-drink carton with a simple muted sage colour band and a tiny oat-stalk illustration on the front, plain white cap. No words or letters",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-01217b8d-5755-4ecb-9da3-74e817168520.png"
+    },
+    {
+      "id": "rice",
+      "name": "Rice",
+      "category": "Cupboard",
+      "subject": "one upright simple kraft paper rice pouch with a clear small window showing white long-grain rice, no writing",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-d7ca1ae6-0ab8-4a1a-b069-b7ee49a70bbc.png"
+    },
+    {
+      "id": "pasta",
+      "name": "Pasta",
+      "category": "Cupboard",
+      "subject": "one upright clear pouch containing golden dried penne pasta, simple ivory sealed top, no writing",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-370c6562-5307-47d6-9a53-ecf3e3fc501c.png"
+    },
+    {
+      "id": "oil",
+      "name": "Cooking oil",
+      "category": "Cupboard",
+      "subject": "one simple upright clear glass bottle of golden cooking oil with a plain ivory screw cap, no label",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-ee6f1be5-dda9-4bba-91b2-2be3fca8fae9.png"
+    },
+    {
+      "id": "egusi",
+      "name": "Egusi",
+      "category": "Cupboard",
+      "subject": "one small low round plain ivory ceramic bowl filled with shelled pale cream egusi melon seeds, clearly flat oval seeds not rice, no loose scattered seeds",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-28a17df0-b155-4996-881e-c0ee10a3ecfd.png"
+    },
+    {
+      "id": "chicken",
+      "name": "Chicken",
+      "category": "Fresh favourites",
+      "subject": "two uncooked skinless pink chicken breast fillets together on one small plain cream food tray, no wrapping or labels",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-955b5a86-4d7c-4e86-8aea-630de9743c74.png"
+    },
+    {
+      "id": "salmon",
+      "name": "Salmon",
+      "category": "Fresh favourites",
+      "subject": "one fresh uncooked salmon fillet with subtle pale fat lines on one small plain cream food tray, no garnish",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-7fce29f7-dae3-48be-ad27-dbb9004344ea.png"
+    },
+    {
+      "id": "apple",
+      "name": "Apples",
+      "category": "Fruit & veg",
+      "subject": "one fresh red apple with a short brown stem, no loose leaves",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-f58fcf7f-e54b-43a9-ad35-4b4e05038f0c.png"
+    },
+    {
+      "id": "banana",
+      "name": "Bananas",
+      "category": "Fruit & veg",
+      "subject": "one small connected bunch of three ripe yellow bananas, natural slight green at the crown",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-d07d41a9-da2a-4ad6-8c4a-05a2d52eecd5.png"
+    },
+    {
+      "id": "orange",
+      "name": "Oranges",
+      "category": "Fruit & veg",
+      "subject": "one whole ripe orange with natural subtly dimpled skin, no cut segments or loose leaves",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-cd7848b6-db03-4bab-b191-8858b781562b.png"
+    },
+    {
+      "id": "grapes",
+      "name": "Grapes",
+      "category": "Fruit & veg",
+      "subject": "one compact natural bunch of purple grapes with a short stem, no leaves or bowl",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-b8720193-c9e4-46e3-b804-c668392d7f88.png"
+    },
+    {
+      "id": "tomato",
+      "name": "Tomatoes",
+      "category": "Fruit & veg",
+      "subject": "one ripe red tomato with its small attached green calyx, no other props",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-b15987c2-5ba9-4dce-b219-6a1080492095.png"
+    },
+    {
+      "id": "carrot",
+      "name": "Carrots",
+      "category": "Fruit & veg",
+      "subject": "two fresh orange carrots resting together with short trimmed green tops, no soil",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-55669c47-2ab5-4e59-9f34-a7cb3f300bed.png"
+    },
+    {
+      "id": "broccoli",
+      "name": "Broccoli",
+      "category": "Fruit & veg",
+      "subject": "one small fresh green broccoli crown with a short pale green stalk, upright balanced pose",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-9c1dec7a-8e68-45d6-91b5-09144a5b1862.png"
+    },
+    {
+      "id": "pepper",
+      "name": "Peppers",
+      "category": "Fruit & veg",
+      "subject": "one whole fresh red bell pepper with a small curved green stem",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-20366771-8611-437e-a141-875f23caeb9c.png"
+    },
+    {
+      "id": "onion",
+      "name": "Onions",
+      "category": "Fruit & veg",
+      "subject": "one whole brown onion with dry papery golden skin and a short dried tip, no slices",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-b9047637-dc85-4e94-9714-a0d22a0b7e27.png"
+    },
+    {
+      "id": "fallback",
+      "name": "Unmatched product",
+      "category": "Your extras",
+      "subject": "one simple closed matte ivory pantry storage canister with a rounded rectangular body and a fitted warm beige lid. Opaque, unbranded, no contents visible, no food symbols, no lettering; a dignified neutral fallback for any unknown grocery",
+      "path": "/Users/tioluwanikolawole/.codex/generated_images/01a05488-caa0-7db3-a5e9-7c139351ed76/exec-ffed542b-1c9e-476d-a801-c92d84363867.png"
+    }
+  ]
+}

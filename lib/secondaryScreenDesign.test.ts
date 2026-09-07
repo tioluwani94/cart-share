@@ -5,6 +5,13 @@ function readSource(path: string) {
 }
 
 describe("secondary screen design system", () => {
+  it("keeps Pantry data controllers outside the sheet portal and has no redundant Shop CTA", () => {
+    const pantry = readSource("app/(tabs)/pantry.tsx");
+    expect(pantry.indexOf("<PantryShopAction")).toBeLessThan(pantry.indexOf("<GlassBottomSheet\n"));
+    expect(pantry).not.toContain("Shop for something new");
+    expect(pantry).toContain('variant="surface"');
+    expect(pantry).toContain("useQuery(api.restocks.listProducts)");
+  });
   it("uses the shared progressive page header on secondary routes", () => {
     const receipt = readSource("app/receipt-confirm.tsx");
     const restockReview = readSource("app/restock-review.tsx");
@@ -132,15 +139,12 @@ describe("secondary screen design system", () => {
     expect(listCard).not.toContain("index * 100");
   });
 
-  it("centers tracked-product status chips within their rows", () => {
-    const pantry = readSource("app/(tabs)/pantry.tsx");
-
-    expect(pantry).toContain(
-      '"min-h-6 shrink-0 items-center justify-center rounded-full px-2"',
-    );
-    expect(pantry).toContain(
-      '<View className="ml-2 items-center justify-center">',
-    );
-    expect(pantry).not.toContain('className="flex-row items-start"');
+  it("centers status chips below the bounded pantry shelf artwork", () => {
+    const shelf = readSource("components/pantry/PantryShelf.tsx");
+    expect(shelf).toContain("min-h-6 items-center justify-center");
+    expect(shelf).toContain("overflow-hidden rounded-t-[70px]");
+    expect(shelf).toContain('contentFit="contain"');
+    expect(shelf).toContain("useReducedMotion");
+    expect(shelf).not.toContain("entering=");
   });
 });

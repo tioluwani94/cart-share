@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { themeColors } from "@/lib/theme";
 import { Image } from "expo-image";
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
@@ -55,6 +56,11 @@ export function EmptyStateCard({
     <Animated.View
       entering={reduceMotion ? REDUCED_ENTER : ENTER}
       testID="empty-state-card"
+      style={
+        variant === "surface"
+          ? { backgroundColor: themeColors.surface }
+          : undefined
+      }
       className={cn(
         "items-center",
         variant === "surface" &&

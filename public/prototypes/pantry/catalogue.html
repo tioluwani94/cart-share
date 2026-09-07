@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>OurPantry · Catalogue sample</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./catalogue.css" />
+</head>
+<body>
+  <div class="catalogue-page">
+    <header class="catalogue-header">
+      <a href="./aisle.html">← Aisle design</a>
+      <h1>Our pantry, pictured.</h1>
+      <p>A broader image sample for your review. These are generic product illustrations, not exact packaging or quantities.</p>
+      <div class="catalogue-modes" aria-label="Preview layout">
+        <button data-layout="shelves" aria-pressed="true">On the shelves</button>
+        <button data-layout="grid" aria-pressed="false">All images</button>
+      </div>
+    </header>
+    <main id="catalogue-stage" class="variant aisle"></main>
+    <section class="matching-demo">
+      <h2>Anything else?</h2>
+      <p>Try “oat milk”, “apples”, or your own product name. Known names reuse an image; anything unmatched gets the same neutral container.</p>
+      <form id="matching-form">
+        <label for="product-name">Product name</label>
+        <div class="matching-field"><input id="product-name" maxlength="100" placeholder="e.g. Party bits" enterkeyhint="done" /><button type="submit">Preview</button></div>
+      </form>
+      <div id="matching-result" aria-live="polite"></div>
+      <p class="sample-note">Local design sample only. No live AI requests, account data, or changes to your real pantry.</p>
+    </section>
+  </div>
+  <script type="module" src="./catalogue.js"></script>
+</body>
+</html>
