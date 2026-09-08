@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; auth-enabled iPhone-only build 9 uploaded and processing at Apple; approved store assets uploaded and preview playback verified; production reviewer sign-in and demo onboarding verified locally; Apple processing, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; auth-enabled iPhone-only build 9 processed by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; reviewer setup complete; external beta review and final device/privacy/distribution verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -208,8 +208,8 @@ document does not authorize any further production deployment. Repository checkp
   since the inspected build 8, and bundle ID, Apple team, iOS 17 target and
   iPhone-only device family were rechecked. Do not treat Doctor as fully green
   or run a destructive prebuild to hide this manually maintained project warning.
-- Remaining reviewer-distribution steps: verify Apple processing and tester assignment, and
-  have the owner privately enter reviewer credentials in App Store Connect.
+- Reviewer setup and internal distribution are complete; external Beta App Review
+  and physical-device UAT remain outstanding.
   No external review or public release is authorized by this status record.
   Physical-device beta and the privacy/distribution checks below remain open.
 - EAS production build `97c8df75-bcfe-40f4-849e-cbde6817ecd9` completed as
@@ -231,13 +231,16 @@ document does not authorize any further production deployment. Repository checkp
 - TestFlight upload completed successfully as submission
   `f9bc7583-8353-4fbb-bebd-738b3df3c7ba`, targeting the existing `Team (Expo)`
   internal group, at 23:25 UTC on 8 September (00:25 BST on 9 September).
-  App Store Connect shows build 9 as **Processing**; availability to testers
-  is not yet confirmed. An earlier scheduling attempt was rejected before submission
+  App Store Connect now shows the upload as **Complete** and build 9 as
+  **Ready to Submit**, assigned to `Team (Expo)` with one internal tester.
+  Installation on the tester's device has not yet been confirmed.
+  An earlier scheduling attempt was rejected before submission
   because EAS automatic test notes require Enterprise; the same build was
-  scheduled successfully without that optional flag. Add build 9 test notes in
-  App Store Connect directly. Apple acceptance and group assignment are not yet
-  verified. Reviewer login instructions are staged in Test Information, awaiting
-  the owner's private password entry and Save; do not claim them saved yet.
+  scheduled successfully without that optional flag. Build 9 test notes were
+  saved directly in App Store Connect and verified after leaving and reopening
+  its detail page. The owner confirmed privately entering the reviewer password
+  and saving Test Information; the credential form was not reopened or captured.
+  No external Beta App Review submission has been made.
 
 ### Existing MVP implementation
 
