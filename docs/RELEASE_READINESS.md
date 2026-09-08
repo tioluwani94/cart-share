@@ -83,6 +83,13 @@ document does not authorize any further production deployment. Repository checkp
   an iPhone-only replacement before selecting a build for review. Confirm the
   resulting archive declares `UIDeviceFamily = [1]` and check App Store Connect's
   device/screenshot requirements after processing. No iPad screenshots are planned.
+- Local follow-up validation for `ef88dd3`: Release simulator build completed
+  successfully, and the compiled `OurPantry.app/Info.plist` declares
+  `UIDeviceFamily = [1]` and bundle ID `app.ourpantry`. Identity, native-permission
+  and privacy-manifest checks passed (8 tests across 3 suites). Native dependency
+  warnings remain; this was not a warning-free build. No replacement EAS build
+  or Apple submission was started. The production archive must still be checked
+  independently after the owner approves the replacement build.
 
 ### Existing MVP implementation
 
