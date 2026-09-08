@@ -171,10 +171,10 @@ document does not authorize any further production deployment. Repository checkp
   Clerk settings were saved and checked after a reload: email sign-in on,
   email signup off, Add password to account on, Sign-up with password off.
   The development Password panel reports Device Trust enabled and compromised
-  password rejection on. Production configuration is not yet completed: the
-  browser connection returned `Debugger unattached`, and native controls then
-  stopped progressing at the environment picker. No reviewer account or password
-  has been created. Password generation, entry and submission must be completed
+  password rejection on. A fresh Chrome tab allowed production setup to advance.
+  Reviewer-access validation remains incomplete; new-device sign-in must be
+  tested before Apple review. Account-specific provisioning details are not
+  recorded in the repository. Password generation, entry and submission must be completed
   privately by the owner using a password manager, never chat or repository files.
   Final Convex/app deployments remain on hold until reviewer access is verified.
 
