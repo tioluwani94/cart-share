@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; build 7 processed; iPhone assets generated; replacement iPhone-only binary, external beta review, asset upload and final device verification remain pending**
+Status: **Core MVP and production services deployed; replacement iPhone-only build 8 in progress with automatic submission scheduled; external beta review, asset upload and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -87,9 +87,17 @@ document does not authorize any further production deployment. Repository checkp
   successfully, and the compiled `OurPantry.app/Info.plist` declares
   `UIDeviceFamily = [1]` and bundle ID `app.ourpantry`. Identity, native-permission
   and privacy-manifest checks passed (8 tests across 3 suites). Native dependency
-  warnings remain; this was not a warning-free build. No replacement EAS build
-  or Apple submission was started. The production archive must still be checked
-  independently after the owner approves the replacement build.
+  warnings remain; this was not a warning-free build. The production archive
+  must still be checked independently; simulator validation is not production
+  archive validation.
+- With the owner's subsequent confirmation, started production iOS build
+  `d134766f-e9aa-47d7-a2df-2e7a909c5f79`, version `1.0.0 (8)`, from commit
+  `ab1fa426462f5844fdc9cf4005f57cc63dff4636`. EAS reports `IN_PROGRESS` as of
+  8 September 2026 at 17:37 UTC. The production environment and existing remote
+  distribution credentials were used. Automatic submission
+  `cb81ddab-0d23-4e8a-a40a-7339e2a09fa2` is scheduled for the existing App Store
+  Connect app `6809059306` after successful build completion. This is not evidence
+  of a finished archive, successful upload, Apple processing or tester availability.
 
 ### Existing MVP implementation
 
