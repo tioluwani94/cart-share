@@ -73,6 +73,18 @@ answers: the store answers must cover the app and every third-party partner.
 The release archive's privacy report is therefore the final verification
 artifact, not a substitute for this implementation review.
 
+## Build 8 artifact verification — 8 September 2026
+
+Inspected the production IPA from EAS build
+`d134766f-e9aa-47d7-a2df-2e7a909c5f79` (`1.0.0 (8)`). The compiled app-level
+`PrivacyInfo.xcprivacy` contains the nine data categories above, all linked to
+the user and not used for tracking; `NSPrivacyTracking` is false and the tracking
+domain list is empty. The compiled Info.plist includes the receipt camera
+purpose string and no microphone, photo-library, location or contacts usage
+description. This verifies the packaged declarations, not the absence of all
+provider-side collection. The aggregate SDK privacy report and production
+provider settings still require review before final App Store answers.
+
 ## Public release URLs
 
 - Privacy Policy: https://ourpantry.app/privacy

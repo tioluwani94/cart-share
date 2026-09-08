@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; replacement iPhone-only build 8 in progress with automatic submission scheduled; external beta review, asset upload and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 completed and IPA verified, automatic submission queued; external beta review, asset upload and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -92,12 +92,29 @@ document does not authorize any further production deployment. Repository checkp
   archive validation.
 - With the owner's subsequent confirmation, started production iOS build
   `d134766f-e9aa-47d7-a2df-2e7a909c5f79`, version `1.0.0 (8)`, from commit
-  `ab1fa426462f5844fdc9cf4005f57cc63dff4636`. EAS reports `IN_PROGRESS` as of
-  8 September 2026 at 17:37 UTC. The production environment and existing remote
+  `ab1fa426462f5844fdc9cf4005f57cc63dff4636`. EAS reports `FINISHED`, completed
+  `2026-09-08T17:43:55.751Z`. The production environment and existing remote
   distribution credentials were used. Automatic submission
   `cb81ddab-0d23-4e8a-a40a-7339e2a09fa2` is scheduled for the existing App Store
-  Connect app `6809059306` after successful build completion. This is not evidence
-  of a finished archive, successful upload, Apple processing or tester availability.
+  Connect app `6809059306`; its latest read remains `IN_QUEUE` with no error.
+  App Store Connect's build list still ends at build 7. Successful upload,
+  Apple processing and build 8 tester availability are not yet verified.
+- Downloaded build 8's actual EAS IPA and inspected its compiled application
+  `Info.plist`: `CFBundleVersion = 8`, version `1.0.0`, display name `OurPantry`,
+  bundle ID `app.ourpantry`, and **`UIDeviceFamily = [1]`**. No iPad orientation
+  entry is present. Asset-catalog-generated iPad icon metadata remains, but does
+  not change the declared device family. IPA SHA-256:
+  `6475ad7c3bc9a6b7a154cd987d7b3328159277f30fdb046245c2fe01eb99ead1`.
+  The compiled app-level privacy manifest contains the expected nine data
+  categories, all linked and not used for tracking, with tracking disabled.
+  This artifact check does not close the provider-configuration/privacy-report
+  gate or physical-device UAT. TypeScript passed again after verification.
+- Owner requested a reviewer-access proposal. Proposed a dedicated production
+  demo household and normal Clerk email/password sign-in alongside OAuth;
+  implementation is **not approved**. Clerk Device Trust can require emailed
+  verification on new devices, so password-only reviewer access is not yet
+  proven. Do not disable security globally, add a bypass, or submit external
+  review before the owner approves the approach and fresh-install access passes.
 
 ### Existing MVP implementation
 
