@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; build 7 uploaded successfully; Apple processing, external beta review, store assets and final device verification remain pending**
+Status: **Core MVP and production services deployed; build 7 processed and assigned to internal testing; external beta review, store assets and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -39,7 +39,10 @@ document does not authorize any further production deployment. Repository checkp
   targeting existing internal group `Team (Expo)`. EAS rejected the initial
   attempt's Enterprise-only `--what-to-test` option before scheduling; the
   retry omitted that option, reused the same binary, and scheduled successfully.
-  Build-specific notes must be entered in App Store Connect after processing.
+  App Store Connect now shows upload `Complete`, build `Ready to Submit`,
+  internal group `Team (Expo)` and one invitation. This is not external-review
+  approval. Build-specific Quick Check, Pantry, budget and regression test notes
+  were entered and the page confirmed `Saved`.
 - Verified the owner's internal tester has build 6 installed on iPhone 13.
   Created private external group `Family closed beta` and added the supplied
   spouse email. Apple confirms one tester, currently `No Builds Available`;
@@ -58,7 +61,7 @@ document does not authorize any further production deployment. Repository checkp
   Clerk profile to Alex Parker and removing the personal photo remains pending:
   the accessible Clerk dashboard is CartStart, not the OurPantry development
   instance. Goldie configuration and seven navigation-only flows are prepared;
-  All seven flows passed on the development simulator; the final Pantry preview
+  Goldie's doctor passes every check. All seven flows passed on the development simulator; the final Pantry preview
   segment reported a small-region idle warning that still needs visual review.
   Capture must wait for verified anonymization and retained demo authentication.
   No assets

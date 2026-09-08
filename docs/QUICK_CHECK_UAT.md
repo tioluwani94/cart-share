@@ -6,7 +6,9 @@ Release follow-up: commit `59734c1` was pushed on 8 September. The approved
 Quick Check backend, including Undo, is now deployed to production
 `tangible-mink-681` and to `savory-woodpecker-17`, which is shared by EAS
 development and preview. Build `1.0.0 (7)` compiled and uploaded successfully
-on 8 September; Apple processing and availability still need verification.
+on 8 September. Apple processing is complete, the internal Team (Expo) group
+is assigned with one invitation, and build-specific test notes are saved.
+Installation/UAT of build 7 and external review remain pending.
 Earlier "no production deployment" entries below record
 the state of those individual local-UAT sessions, not the current deployment.
 The remaining physical-device interaction checks are not inferred complete

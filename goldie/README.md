@@ -63,7 +63,8 @@ checks output format; it does not guarantee Apple acceptance or ASO performance.
 
 ## Validation — 8 September 2026
 
-All seven navigation flows passed on the iPhone 17 Pro Max development simulator.
+Goldie's doctor passes every check. All seven navigation flows passed on the
+iPhone 17 Pro Max development simulator.
 The final Pantry preview segment reported a small-region idle warning despite
 the expected product being present; inspect the recorded result before accepting
 it. No images or video have been rendered, verified or uploaded yet.
