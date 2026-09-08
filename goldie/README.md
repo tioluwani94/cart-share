@@ -82,8 +82,9 @@ The owner approved all four screenshots and the final preview on 8 September
 2026. All five assets are uploaded to App Store Connect's English (U.S.) 6.9-inch
 slot; the 6.5-inch slot inherits them. Reloading Media Manager confirmed four
 screenshots in Shop → Quick Check → Pantry → Spending order and one preview.
-The preview still shows a cloud placeholder, so Apple processing/playback is
-not yet verified. Nothing has been submitted for public review or release.
+Apple processing completed: the App Store Connect player was verified advancing
+and reaching the end at 17.066666 seconds without a media error. Nothing has been
+submitted for public review or release.
 View the local assets at
 **http://localhost:4322** (4321 is occupied by the landing page).
 

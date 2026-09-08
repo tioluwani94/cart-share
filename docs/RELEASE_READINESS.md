@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded, preview processing, auth UAT, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; auth UAT, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -133,8 +133,9 @@ document does not authorize any further production deployment. Repository checkp
   Shop, Quick Check, Pantry, Spending order plus one preview. The owner's saved
   Classic Pantry adjustment is now in the source config, re-rendered, replaced,
   and visually verified in Apple; other asset hashes stayed unchanged. The
-  preview's tooltip explicitly confirms it is uploaded and processing; playback
-  remains unverified.
+  preview has completed Apple processing. Its App Store Connect player was
+  verified advancing and reaching `ended = true` at 17.066666 seconds with no
+  media error. The processing/upload gate for these assets is complete.
   No public review or release was submitted.
 - Latest local validation: TypeScript passed and all 462 tests across 98 suites
   passed. Jest still used `--forceExit`; open-handle cleanup is not verified.
