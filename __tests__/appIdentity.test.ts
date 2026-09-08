@@ -62,6 +62,21 @@ describe("OurPantry application identity", () => {
     expect(iosInfo).toContain("<string>exp+ourpantry</string>");
   });
 
+  it("targets iPhone only in Expo and every native build configuration", () => {
+    expect(appConfig.expo.ios.supportsTablet).toBe(false);
+    const deviceFamilies = Array.from(
+      read("ios/CartShare.xcodeproj/project.pbxproj").matchAll(
+        /TARGETED_DEVICE_FAMILY\s*=\s*([^;]+);/g,
+      ),
+      (match) => match[1].replaceAll('"', "").trim(),
+    );
+    expect(deviceFamilies.length).toBeGreaterThanOrEqual(2);
+    expect(deviceFamilies.every((family) => family === "1")).toBe(true);
+    expect(read("ios/CartShare/Info.plist")).not.toContain(
+      "UISupportedInterfaceOrientations~ipad",
+    );
+  });
+
   it("configures Clerk Core 3 without an unused native Apple entitlement", () => {
     const clerkPlugin = appConfig.expo.plugins.find(
       (plugin) => Array.isArray(plugin) && plugin[0] === "@clerk/expo",

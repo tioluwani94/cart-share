@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; build 7 processed and assigned to internal testing; external beta review, store assets and final device verification remain pending**
+Status: **Core MVP and production services deployed; build 7 processed; iPhone assets generated; replacement iPhone-only binary, external beta review, asset upload and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -62,22 +62,27 @@ document does not authorize any further production deployment. Repository checkp
   zero errors and the existing Hermes script warning. Screenshots must use an
   explicitly confirmed demo account, not personal household data. The owner
   approved a fictional development-only The Parkers household, which has been
-  populated with sample shopping, pantry and spending data. Anonymizing its
-  Clerk profile to Alex Parker and removing the personal photo remains pending.
+  populated with sample shopping, pantry and spending data. The owner completed
+  the development Clerk profile update; Settings now visibly shows Alex Parker
+  with a generic avatar and no personal photo.
   The earlier assumption that CartStart was a different Clerk application was
   incorrect: it was the old application name. With owner approval, Application
   Settings was renamed to exactly OurPantry and confirmed Saved; Development
   also displays OurPantry. No application IDs, credentials or user login emails
   were changed. A newly delivered notification email has not yet been checked.
-  The development simulator still shows Tioluwani Kolawole in The Parkers
-  household; unreliable Clerk browser controls currently block the approved
-  profile anonymization. Goldie configuration and seven navigation-only flows are prepared;
-  Goldie's doctor passes every check. All seven flows passed on the development simulator; the final Pantry preview
-  segment reported a small-region idle warning that still needs visual review.
-  Capture must wait for verified anonymization and retained demo authentication.
-  No assets
-  have been captured or uploaded yet. The app also supports iPad; its required
-  screenshot coverage must be supplied separately from Goldie's iPhone target.
+  Goldie's doctor and capture passed with retained demo authentication. Four
+  framed iPhone screenshots and three real-screen preview segments were captured
+  and visually inspected. The final 17-second preview removes startup/recorder
+  idle frames. Goldie verifies all screenshot dimensions and preview format,
+  codec, duration, audio and file size. Assets are in `goldie/out/`, with the
+  local review studio on port 4322. Nothing has been uploaded to Apple yet.
+- The owner clarified that OurPantry is **iPhone-only**. Set Expo
+  `ios.supportsTablet` to false, native Debug/Release `TARGETED_DEVICE_FAMILY`
+  to 1, and removed the iPad-only orientation declaration. Regression coverage
+  prevents configuration drift. Build 7 is still universal; create and verify
+  an iPhone-only replacement before selecting a build for review. Confirm the
+  resulting archive declares `UIDeviceFamily = [1]` and check App Store Connect's
+  device/screenshot requirements after processing. No iPad screenshots are planned.
 
 ### Existing MVP implementation
 

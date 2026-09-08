@@ -52,7 +52,8 @@ Terms: https://ourpantry.app/terms
 
 ## Still required
 
-- Anonymized, verified iPhone and iPad screenshots; optional verified preview.
+- Owner review and upload of the generated, anonymized iPhone screenshots and optional preview (see `goldie/README.md`).
+- Replacement iPhone-only binary: build 7 predates the decision to remove native iPad support. Confirm its successor declares `UIDeviceFamily = [1]` before selecting it for review. iPad captures are no longer planned.
 - Final archived-build privacy review and App Store privacy declarations.
 - Owner review of age-rating answers and content-rights information.
 - Digital Services Act trader-status determination where applicable.
