@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; auth UI UAT accepted; reviewer provisioning, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; auth UI UAT accepted; local production-connected auth build verified; reviewer-access testing, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -115,18 +115,13 @@ document does not authorize any further production deployment. Repository checkp
   This artifact check does not close the provider-configuration/privacy-report
   gate or physical-device UAT. TypeScript passed again after verification.
 - Owner approved a dedicated production demo household and normal Clerk
-  email/password sign-in alongside OAuth on 8 September. The sign-in, verification,
-  and password-reset UI is implemented locally, pending owner simulator UAT.
-  Live production Clerk inspection confirmed Device Trust is already disabled
-  and compromised-password rejection is enabled; email/password sign-in settings
-  have not been enabled or saved. No security controls were weakened or bypassed.
-  Production review-account setup and fresh-install access validation remain
-  required before external review. New cloud builds are paused for local UI UAT.
-  Local ad-hoc-signed Release simulator build succeeded and launched on the
-  iPhone 17 Pro Max simulator. TypeScript and 44 targeted authentication tests
-  passed. Simulator click automation reports `noWindowsAvailable`, so the owner
-  must sign out of the development demo account to review the new auth screens;
-  those screens have not yet been visually accepted or tested against live Clerk.
+  email/password sign-in alongside OAuth on 8 September. The initial local
+  sign-in, verification and password-reset implementation passed TypeScript
+  and 44 targeted authentication tests and launched in an ad-hoc-signed Release
+  simulator build. The later auth UAT and setup entries below supersede this
+  initial checkpoint. Do not infer the effective new-device challenge policy
+  from the Password panel while password sign-in was disabled; working
+  fresh-device reviewer access remains required before external review.
 - Owner approved the four Goldie iPhone screenshots and the 17-second preview
   video on 8 September. Uploaded all five to the English (U.S.) 6.9-inch media
   slot; the 6.5-inch slot inherits them. Reload verified four screenshots in
@@ -177,6 +172,19 @@ document does not authorize any further production deployment. Repository checkp
   recorded in the repository. Password generation, entry and submission must be completed
   privately by the owner using a password manager, never chat or repository files.
   Final Convex/app deployments remain on hold until reviewer access is verified.
+- Local production-connected verification (8 September): an ad-hoc-signed
+  Release build succeeded and was installed and launched on the iPhone 17 Pro
+  Max simulator. The bundled JavaScript was checked against the production
+  Clerk publishable key and Convex URL loaded from the EAS production
+  environment; local dotenv loading was disabled. No environment files were
+  changed, no cloud build was requested, and no backend was deployed.
+  TypeScript and all seven email-sign-in tests passed; the tests exercise
+  Device Trust handling but do not prove live reviewer access. The simulator
+  is handed to the owner for private sign-in. Before proceeding, verify whether
+  a new device requires an inbox challenge, resolve unattended reviewer access
+  without an unapproved security bypass, and prepare the fictional demo
+  household. Do not record credentials or account-specific provisioning
+  metadata in the repository.
 
 ### Existing MVP implementation
 
