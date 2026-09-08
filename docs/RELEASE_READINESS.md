@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; auth UI UAT accepted; local production-connected auth build verified; reviewer-access testing, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; production reviewer sign-in and demo onboarding verified locally; auth-enabled TestFlight build, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -185,6 +185,34 @@ document does not authorize any further production deployment. Repository checkp
   without an unapproved security bypass, and prepare the fictional demo
   household. Do not record credentials or account-specific provisioning
   metadata in the repository.
+
+### 9 September 2026 release continuation
+
+- The owner confirmed a fresh production email/password sign-in reached household
+  activation without an inbox code after the explicitly approved authentication
+  configuration change. Simulator verification then completed the fictional
+  demo onboarding and confirmed access to Shop and Pantry with sample groceries.
+  Optional analytics and notifications were left off. Credentials and
+  account-specific provisioning metadata remain outside this repository.
+- Final backend validation and deployment completed with TypeScript enabled:
+  development `savory-woodpecker-17` (also used by EAS preview) and production
+  `tangible-mink-681`. The production dry run and applied push reported no index
+  deletions. This supersedes the earlier deployment hold for reviewer setup.
+- Full Jest validation passed: 468 tests across 98 suites. TypeScript passed.
+  Fixed the auth artwork's lint error using the existing typed PNG import;
+  focused email-sign-in tests passed again. Lint now has zero errors and 18
+  pre-existing test warnings. Jest still uses `--forceExit`.
+- Online Expo dependency validation passed. Expo Doctor passed 17 of 18 checks;
+  the remaining check flags that checked-in native projects are not automatically
+  synchronized from app.json. Neither native configuration nor app.json changed
+  since the inspected build 8, and bundle ID, Apple team, iOS 17 target and
+  iPhone-only device family were rechecked. Do not treat Doctor as fully green
+  or run a destructive prebuild to hide this manually maintained project warning.
+- Remaining reviewer-distribution steps: create and inspect the auth-enabled
+  signed TestFlight build, verify Apple processing and tester assignment, and
+  have the owner privately enter reviewer credentials in App Store Connect.
+  No external review or public release is authorized by this status record.
+  Physical-device beta and the privacy/distribution checks below remain open.
 
 ### Existing MVP implementation
 

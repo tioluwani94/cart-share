@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { Keyboard, Text, View } from "react-native";
+import artwork from "@/assets/onboarding/household/create-household.png";
 import { OnboardingFormScreen } from "@/components/onboarding/OnboardingFormScreen";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,7 +15,6 @@ import {
   type EmailSignInStep,
 } from "@/lib/emailSignIn";
 
-const artwork = require("@/assets/onboarding/household/create-household.png");
 const COPY: Record<
   EmailSignInStep,
   { title: string; description: string; action: string }
