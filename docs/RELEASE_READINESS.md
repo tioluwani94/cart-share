@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; auth UAT, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; auth UI UAT accepted; reviewer provisioning, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -158,14 +158,25 @@ document does not authorize any further production deployment. Repository checkp
 - Follow-up validation: TypeScript passed and all **468 tests across 98 suites**
   passed. Jest still required `--forceExit`; open-handle cleanup is not verified.
   Local Release build installed and launched successfully, with no EAS build or
-  production change. Owner acceptance of the final auth tweaks is pending.
+  production change. The owner accepted the final auth UI tweaks on 8 September.
 - Goldie verification was rerun successfully against the approved existing four
   screenshots and 17-second preview. No asset was regenerated or replaced.
-  The app remains email **sign-in only**; adding explicit email signup with email
-  verification was recommended and is awaiting owner approval. Do not silently
+  The app remains email **sign-in only**; the owner explicitly parked email signup
+  and retained Apple and Google as the main sign-in methods. Do not silently
   create accounts after arbitrary login failures. Reviewer account provisioning,
   private password entry, and a successful production sign-in are still required
   before an auth-enabled TestFlight build and external Beta App Review.
+- Reviewer provisioning follow-up (8 September): the owner approved
+  `ourpantrysupport@gmail.com` for the production reviewer login. Development
+  Clerk settings were saved and checked after a reload: email sign-in on,
+  email signup off, Add password to account on, Sign-up with password off.
+  The development Password panel reports Device Trust enabled and compromised
+  password rejection on. Production configuration is not yet completed: the
+  browser connection returned `Debugger unattached`, and native controls then
+  stopped progressing at the environment picker. No reviewer account or password
+  has been created. Password generation, entry and submission must be completed
+  privately by the owner using a password manager, never chat or repository files.
+  Final Convex/app deployments remain on hold until reviewer access is verified.
 
 ### Existing MVP implementation
 
