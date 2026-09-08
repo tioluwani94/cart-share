@@ -6,6 +6,7 @@ import {
 } from "@/components/analytics";
 import { AnalyticsEmptyState } from "@/components/analytics/EmptyState";
 import { TotalDisplay } from "@/components/analytics/TotalDisplay";
+import { MonthlyBudgetPrompt } from "@/components/analytics/MonthlyBudgetPrompt";
 import {
   CollapsibleTabHeader,
   TabLargeTitle,
@@ -153,6 +154,11 @@ export default function AnalyticsScreen() {
           title="Spending"
           subtitle="Your grocery budget at a glance"
           scrollY={scrollY}
+        />
+
+        <MonthlyBudgetPrompt
+          monthlyBudgetPence={monthlyData.monthlyBudgetPence}
+          onSetup={() => router.push({ pathname: "/settings", params: { edit: "budget" } })}
         />
 
         {hasSpendingData || hasBudget ? (

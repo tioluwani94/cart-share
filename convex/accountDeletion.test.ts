@@ -11,6 +11,7 @@ type TableName =
   | "receiptUploads"
   | "householdProducts"
   | "productPurchaseObservations"
+  | "restockUndoRecords"
   | "userPreferences"
   | "pushTokens"
   | "notificationReminders"
@@ -20,6 +21,8 @@ type Row = { _id: string; [key: string]: unknown };
 type Tables = Record<TableName, Row[]>;
 
 const indexFields: Record<string, string[]> = {
+  "restockUndoRecords.by_user": ["userId"],
+  "restockUndoRecords.by_household": ["householdId"],
   "users.by_clerk_id": ["clerkId"],
   "accountDeletionTombstones.by_clerk_id_digest": ["clerkIdDigest"],
   "householdMembers.by_user": ["userId"],
@@ -53,6 +56,7 @@ function createContext(seed: Partial<Tables>) {
     receiptUploads: [],
     householdProducts: [],
     productPurchaseObservations: [],
+    restockUndoRecords: [],
     userPreferences: [],
     pushTokens: [],
     notificationReminders: [],
@@ -233,6 +237,7 @@ describe("account deletion", () => {
         { _id: "product_1", householdId, createdBy: userId, status: "active" },
       ],
       userPreferences: [{ _id: "preference_1", userId }],
+      restockUndoRecords: [{ _id: "undo_1", userId, householdId }],
       pushTokens: [{ _id: "push_1", userId }],
       notificationReminders: [{ _id: "reminder_1", userId, householdId }],
       shoppingSessions: [
@@ -261,6 +266,7 @@ describe("account deletion", () => {
     expect(tables.shoppingSessions[0].paidBy).toBeUndefined();
     expect(tables.shoppingSessions[0].paidByFormerMember).toBe(true);
     expect(tables.userPreferences).toHaveLength(0);
+    expect(tables.restockUndoRecords).toHaveLength(0);
     expect(tables.pushTokens).toHaveLength(0);
     expect(tables.notificationReminders).toHaveLength(0);
     expect(storageDelete).not.toHaveBeenCalled();

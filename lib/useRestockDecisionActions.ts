@@ -12,6 +12,13 @@ export type RestockDecision =
   | "not_this_time"
   | "stop_tracking";
 
+export type RestockDecisionOutcome = {
+  saved: boolean;
+  queued?: boolean;
+  undoId?: Id<"restockUndoRecords">;
+  undoExpiresAt?: number;
+};
+
 const ACTIVE_LIST_CONFLICT_MESSAGE =
   "Your Next shop changed before that item was added. Review it again.";
 
@@ -33,6 +40,7 @@ export function useRestockDecisionActions({
   marketCountryCode,
   source,
   userId,
+  enableUndo = false,
 }: {
   activeListId?: Id<"lists">;
   candidateProductIds?: readonly Id<"householdProducts">[];
@@ -40,23 +48,17 @@ export function useRestockDecisionActions({
   marketCountryCode?: string;
   source: "plan" | "notification";
   userId?: string | null;
+  enableUndo?: boolean;
 }) {
   const analytics = useAnalytics();
   const queueScope = useMemo<OfflineScope | null>(
-    () =>
-      userId && householdId
-        ? { clerkUserId: userId, householdId }
-        : null,
+    () => (userId && householdId ? { clerkUserId: userId, householdId } : null),
     [householdId, userId],
   );
-  const {
-    addToQueue,
-    conflicts,
-    dismissConflict,
-    isOnline,
-    queue,
-  } = useScopedOfflineQueue(queueScope);
+  const { addToQueue, conflicts, dismissConflict, isOnline, queue } =
+    useScopedOfflineQueue(queueScope);
   const decide = useMutation(api.restocks.decide);
+  const undoMutation = useMutation(api.restocks.undoDecision);
   const recalculate = useMutation(api.notifications.recalculateForHousehold);
   const [pendingProductIds, setPendingProductIds] = useState(
     new Set<Id<"householdProducts">>(),
@@ -107,22 +109,23 @@ export function useRestockDecisionActions({
     async (
       householdProductId: Id<"householdProducts">,
       decision: RestockDecision,
-    ) => {
+    ): Promise<RestockDecisionOutcome> => {
       if (decision === "add" && !activeListId) {
         setError("Choose a Next shop before adding restocks.");
-        return;
+        return { saved: false };
       }
       activeListConflicts
         .filter(
-          (conflict) =>
-            conflict.householdProductId === householdProductId,
+          (conflict) => conflict.householdProductId === householdProductId,
         )
         .forEach((conflict) => dismissConflict(conflict.id));
-      if (pendingProductIdsRef.current.has(householdProductId)) return;
+      if (pendingProductIdsRef.current.has(householdProductId))
+        return { saved: false };
       pendingProductIdsRef.current.add(householdProductId);
       setPendingProductIds(new Set(pendingProductIdsRef.current));
       setError(null);
       let decisionSaved = false;
+      let outcome: RestockDecisionOutcome = { saved: false };
       try {
         const operationId = createOfflineId("restock");
         const args =
@@ -135,16 +138,28 @@ export function useRestockDecisionActions({
               }
             : { householdProductId, decision, operationId };
         if (isOnline) {
-          const result = await decide(args);
+          const result = await decide({
+            ...args,
+            ...(enableUndo ? { enableUndo: true } : {}),
+          });
           if (hasActiveListConflict(result)) {
             setError(ACTIVE_LIST_CONFLICT_MESSAGE);
-            return;
+            return { saved: false };
           }
+          outcome = {
+            saved: true,
+            undoId: result && "undoId" in result ? result.undoId : undefined,
+            undoExpiresAt:
+              result && "undoExpiresAt" in result
+                ? result.undoExpiresAt
+                : undefined,
+          };
         } else {
           addToQueue({
             type: "restocks.decide",
             args,
           });
+          outcome = { saved: true, queued: true };
         }
         decisionSaved = true;
         setResolvedProductIds((current) =>
@@ -158,12 +173,15 @@ export function useRestockDecisionActions({
         setPendingProductIds(new Set(pendingProductIdsRef.current));
       }
 
-      if (!decisionSaved) return;
+      if (!decisionSaved) return { saved: false };
       if (isOnline) {
         try {
           await recalculate({});
         } catch (recalculationError) {
-          console.error("Couldn't refresh reminder timing:", recalculationError);
+          console.error(
+            "Couldn't refresh reminder timing:",
+            recalculationError,
+          );
         }
       }
       try {
@@ -175,11 +193,14 @@ export function useRestockDecisionActions({
       } catch (analyticsError) {
         console.error("Couldn't record restock analytics:", analyticsError);
       }
-    }, [
+      return outcome;
+    },
+    [
       addToQueue,
       activeListConflicts,
       activeListId,
       analytics,
+      enableUndo,
       decide,
       dismissConflict,
       isOnline,
@@ -189,14 +210,50 @@ export function useRestockDecisionActions({
     ],
   );
 
+  const undoDecision = useCallback(
+    async (undoId: Id<"restockUndoRecords">) => {
+      if (!isOnline) {
+        setError("Reconnect to undo this change safely.");
+        return false;
+      }
+      setError(null);
+      try {
+        const result = await undoMutation({ undoId });
+        if (!result.undone) {
+          setError(
+            result.reason === "changed"
+              ? "This product or shop has changed since your choice. Nothing was undone."
+              : "This choice can no longer be undone.",
+          );
+          return false;
+        }
+        setResolvedProductIds((current) => {
+          const next = new Set(current);
+          next.delete(result.productId);
+          return next;
+        });
+        try {
+          await recalculate({});
+        } catch (error) {
+          console.error("Couldn't refresh reminder timing after Undo:", error);
+        }
+        return true;
+      } catch (error) {
+        console.error("Couldn't undo restock decision:", error);
+        setError("Undo wasn't saved. Please try again.");
+        return false;
+      }
+    },
+    [isOnline, recalculate, undoMutation],
+  );
+
   return {
     error:
       error ??
-      (activeListConflicts.length > 0
-        ? ACTIVE_LIST_CONFLICT_MESSAGE
-        : null),
+      (activeListConflicts.length > 0 ? ACTIVE_LIST_CONFLICT_MESSAGE : null),
     hiddenProductIds,
     makeDecision,
     pendingProductIds,
+    undoDecision,
   };
 }

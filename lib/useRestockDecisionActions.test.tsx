@@ -66,9 +66,7 @@ describe("useRestockDecisionActions", () => {
   }) {
     actions = useRestockDecisionActions({
       candidateProductIds,
-      activeListId: hasActiveList
-        ? ("list_1" as Id<"lists">)
-        : undefined,
+      activeListId: hasActiveList ? ("list_1" as Id<"lists">) : undefined,
       householdId: "household_1" as Id<"households">,
       marketCountryCode: "GB",
       source: "plan",
@@ -170,9 +168,7 @@ describe("useRestockDecisionActions", () => {
 
     expect(mockAddToQueue).not.toHaveBeenCalled();
     expect(mockDecide).not.toHaveBeenCalled();
-    expect(actions.error).toBe(
-      "Choose a Next shop before adding restocks.",
-    );
+    expect(actions.error).toBe("Choose a Next shop before adding restocks.");
   });
 
   it("keeps a committed decision successful when reminder refresh fails", async () => {
@@ -253,7 +249,11 @@ describe("useRestockDecisionActions", () => {
     let resolveFirst!: () => void;
     let resolveSecond!: () => void;
     mockDecide.mockImplementation(
-      ({ householdProductId: currentProductId }: { householdProductId: string }) =>
+      ({
+        householdProductId: currentProductId,
+      }: {
+        householdProductId: string;
+      }) =>
         new Promise<void>((resolve) => {
           if (currentProductId === householdProductId) resolveFirst = resolve;
           else resolveSecond = resolve;
@@ -263,8 +263,8 @@ describe("useRestockDecisionActions", () => {
       TestRenderer.create(<Harness />);
     });
 
-    let firstDecision!: Promise<void>;
-    let secondDecision!: Promise<void>;
+    let firstDecision!: ReturnType<typeof actions.makeDecision>;
+    let secondDecision!: ReturnType<typeof actions.makeDecision>;
     act(() => {
       firstDecision = actions.makeDecision(householdProductId, "add");
       secondDecision = actions.makeDecision(secondProductId, "not_this_time");

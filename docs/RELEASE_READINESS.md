@@ -9,6 +9,28 @@ document does not authorize any further production deployment. Repository checkp
 
 ## Completed locally
 
+### 8 September 2026 release preparation
+
+- Quick Check now uses a visible, swipeable card stack and the compact Next
+  shop scheduler, with authenticated five-minute, conflict-safe Undo. Pantry
+  filters/search, secondary-list actions, tab geometry and budget setup received
+  the device-UAT follow-ups documented in `docs/QUICK_CHECK_UAT.md`.
+- Local validation: TypeScript passed; all 443 tests across 96 suites passed;
+  ESLint has zero errors and 18 test-mock warnings. Jest required `--forceExit`
+  after the completed run because of lingering test handles; this is not a
+  claim that handle cleanup is verified.
+- Expo dependency alignment passed. Expo Doctor passed 17/18 checks; the
+  remaining warning concerns checked-in native projects not automatically
+  inheriting app-config changes. Native configuration must be checked for the
+  final archive.
+- The owner approved deployment to production, development and preview
+  environments and a new TestFlight build. Deployment/build IDs and Apple
+  processing status will be recorded after verification, not inferred from
+  approval.
+- Goldie is installed for Apple App Store assets. Screenshots, tester
+  invitations and outstanding device/provider checks below remain incomplete
+  until their results are recorded.
+
 - Plan / Shop / Pantry / Spending navigation and hidden Settings route.
 - Required four-step household activation with people served, cadence,
   shopping mode, recurring products, and a Next shop.

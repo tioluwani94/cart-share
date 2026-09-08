@@ -35,6 +35,7 @@ import Animated, {
 import {
   getTabBarDockHeight,
   getTabBarIconTranslateY,
+  getTabBarSegmentGeometry,
   TAB_BAR_COMPACT_EXTRA_INSET,
   TAB_BAR_COMPACT_HEIGHT,
   TAB_BAR_EXPANDED_HEIGHT,
@@ -110,19 +111,16 @@ function TabButton({
   onPress,
   width,
 }: TabButtonProps) {
-  const edgeDirection = index === 0 ? 1 : index === TAB_COUNT - 1 ? -1 : 0;
-  const horizontalShift =
-    (edgeDirection * (TAB_BAR_COMPACT_EXTRA_INSET * 2)) / TAB_COUNT;
-
   const contentStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateX: interpolate(
-          compactProgress.get(),
-          [0, 1],
-          [0, horizontalShift],
-          Extrapolation.CLAMP,
-        ),
+        translateX:
+          getTabBarSegmentGeometry(
+            width * TAB_COUNT + TAB_BAR_OUTER_MARGIN * 2,
+            compactProgress.get(),
+            index,
+          ).center -
+          (TAB_BAR_OUTER_MARGIN + (index + 0.5) * width),
       },
     ],
   }));
@@ -256,26 +254,20 @@ export function OurPantryTabBar({
     ],
   }));
   const indicatorStyle = useAnimatedStyle(() => {
-    const compact = compactProgress.get();
-    const visualWidth =
-      expandedWidth - TAB_BAR_COMPACT_EXTRA_INSET * 2 * compact;
-    const visualLeft =
-      TAB_BAR_OUTER_MARGIN + TAB_BAR_COMPACT_EXTRA_INSET * compact;
-    const segmentWidth = Math.max(0, visualWidth - 8) / TAB_COUNT;
-
+    const segment = getTabBarSegmentGeometry(
+      viewportWidth,
+      compactProgress.get(),
+      selectedIndex.get(),
+    );
     return {
-      height:
-        TAB_BAR_EXPANDED_HEIGHT -
-        8 -
-        (TAB_BAR_EXPANDED_HEIGHT - TAB_BAR_COMPACT_HEIGHT) * compact,
-      top:
-        4 + ((TAB_BAR_EXPANDED_HEIGHT - TAB_BAR_COMPACT_HEIGHT) / 2) * compact,
+      height: segment.height,
+      top: segment.top,
       transform: [
         {
-          translateX: visualLeft + 4 + selectedIndex.get() * segmentWidth,
+          translateX: segment.left,
         },
       ],
-      width: segmentWidth,
+      width: segment.width,
     };
   });
 
@@ -496,6 +488,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: "700",
+    fontFamily: "Nunito_800ExtraBold",
   },
 });

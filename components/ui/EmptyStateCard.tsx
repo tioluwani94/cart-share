@@ -117,6 +117,9 @@ export function EmptyStateCard({
 
       {actionLabel && onAction ? (
         <Button
+          // Persistent content actions must survive list detach/reattach.
+          // Native glass can return transparent after a filter hides this card.
+          forceSolid
           onPress={onAction}
           className="mt-6 w-full"
           accessibilityLabel={actionAccessibilityLabel ?? actionLabel}

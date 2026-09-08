@@ -31,11 +31,7 @@ export default defineSchema({
     shoppingCadenceDays: v.optional(v.number()),
     peopleServed: v.optional(v.number()),
     preferredShoppingMode: v.optional(
-      v.union(
-        v.literal("in_store"),
-        v.literal("online"),
-        v.literal("both"),
-      ),
+      v.union(v.literal("in_store"), v.literal("online"), v.literal("both")),
     ),
     marketCountryCode: v.optional(v.string()),
     currencyCode: v.optional(v.string()),
@@ -141,6 +137,25 @@ export default defineSchema({
       "householdId",
       "normalizedName",
     ]),
+
+  // Server-owned, five-minute receipts for conflict-safe restock Undo.
+  restockUndoRecords: defineTable({
+    householdId: v.id("households"),
+    userId: v.id("users"),
+    productId: v.id("householdProducts"),
+    operationId: v.string(),
+    listId: v.optional(v.id("lists")),
+    createdItemId: v.optional(v.id("items")),
+    expectedItem: v.optional(v.string()),
+    expectedProduct: v.string(),
+    previousCadenceDays: v.number(),
+    previousReviewAfter: v.optional(v.number()),
+    expiresAt: v.number(),
+    undoneAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_household", ["householdId"])
+    .index("by_product_and_operation", ["productId", "operationId"]),
 
   // One product contributes at most one piece of evidence per completed shop.
   productPurchaseObservations: defineTable({

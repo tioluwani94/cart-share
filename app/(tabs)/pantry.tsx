@@ -20,22 +20,27 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
 import { PantryShelf } from "@/components/pantry/PantryShelf";
+import { PantrySearchInput, type PantrySearchInputRef } from "@/components/pantry/PantrySearchInput";
 import { PantryShopAction } from "@/components/pantry/PantryShopAction";
-import { buildPantryShelves, type PantryFilter } from "@/lib/pantryCatalogue";
+import {
+  buildPantryShelves,
+  type PantryFilter,
+  type PantryShelf as PantryShelfData,
+} from "@/lib/pantryCatalogue";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
+import { usePantryScrollReset } from "@/lib/usePantryScrollReset";
 import {
   dismissKeyboardForOutsideTouch,
   keyboardDismissScrollProps,
 } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
 import { getLearningProductCopy } from "@/lib/trackedProducts";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useUser } from "@clerk/expo";
 import { useMutation, useQuery } from "convex/react";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
-  Search,
   Pause,
   Play,
   SlidersHorizontal,
@@ -98,6 +103,11 @@ export default function PantryScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<PantrySearchInputRef>(null);
+  const pantryListRef =
+    useRef<FlashListRef<PantryShelfData<TrackedProduct>>>(null);
+  const { resetScroll, onCommitLayoutEffect } =
+    usePantryScrollReset(pantryListRef);
   const [filter, setFilter] = useState<PantryFilter>(
     focus === "learning" ? "learning" : "all",
   );
@@ -121,6 +131,11 @@ export default function PantryScreen() {
           product.status === "learning" &&
           product.purchaseObservationCount >= 2,
       ).length ?? 0,
+    [products],
+  );
+  const pausedProductCount = useMemo(
+    () =>
+      products?.filter((product) => product.status === "paused").length ?? 0,
     [products],
   );
 
@@ -324,6 +339,9 @@ export default function PantryScreen() {
       ) : (
         <AnimatedFlashList
           {...keyboardDismissScrollProps}
+          ref={pantryListRef}
+          maintainVisibleContentPosition={{ disabled: true }}
+          onCommitLayoutEffect={onCommitLayoutEffect}
           data={shelves}
           keyExtractor={(row) => row.key}
           contentContainerStyle={{
@@ -345,20 +363,10 @@ export default function PantryScreen() {
                 scrollY={scrollY}
               />
               <View className="px-6">
-                <Input
-                  label="Search your pantry"
-                  placeholder="Find a product or shelf"
-                  value={search}
+                <PantrySearchInput
+                  ref={searchInputRef}
                   onChangeText={setSearch}
-                  autoCorrect={false}
-                  clearButtonMode="while-editing"
-                  leadingAccessory={
-                    <Search
-                      size={20}
-                      color={themeColors.secondaryInk}
-                      style={{ marginLeft: 16 }}
-                    />
-                  }
+                  onClear={resetScroll}
                 />
                 <ScrollView
                   horizontal
@@ -371,6 +379,7 @@ export default function PantryScreen() {
                       key={value}
                       onPress={() => {
                         Keyboard.dismiss();
+                        resetScroll();
                         setFilter(value);
                       }}
                       accessibilityRole="button"
@@ -392,7 +401,7 @@ export default function PantryScreen() {
                           ? "All shelves"
                           : value === "learning"
                             ? `Learning · ${learningProductCount}`
-                            : "Paused"}
+                            : `Paused · ${pausedProductCount}`}
                       </Text>
                     </Pressable>
                   ))}
@@ -435,7 +444,8 @@ export default function PantryScreen() {
                   if (products.length === 0)
                     router.push("/restock-setup" as Href);
                   else {
-                    setSearch("");
+                    resetScroll();
+                    searchInputRef.current?.clear();
                     setFilter("all");
                   }
                 }}

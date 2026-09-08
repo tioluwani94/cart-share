@@ -38,7 +38,7 @@ import { themeColors } from "@/lib/theme";
 import { isClerkAPIResponseError, useAuth, useUser } from "@clerk/expo";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Archive,
   BarChart3,
@@ -104,6 +104,8 @@ function SettingsLoadingState({ onBack }: { onBack: () => void }) {
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const budgetEntryHandled = useRef(false);
   const pageHeaderHeight = usePageHeaderHeight();
   const { showToast } = useToast();
   const [archivedExpanded, setArchivedExpanded] = useState(false);
@@ -236,6 +238,18 @@ export default function SettingsScreen() {
     setBudgetError("");
     budgetSheetRef.current?.present();
   }, [household?.monthlyBudgetPence]);
+
+  useEffect(() => {
+    if (edit !== "budget") {
+      budgetEntryHandled.current = false;
+      return;
+    }
+    if (!household || budgetEntryHandled.current) return;
+    budgetEntryHandled.current = true;
+    openBudgetEditor();
+    // Consume the entry request so live household updates never reopen it.
+    router.setParams({ edit: undefined });
+  }, [edit, household, openBudgetEditor, router]);
 
   const handleSaveBudget = useCallback(async () => {
     const budgetPence = monthlyBudget.trim()

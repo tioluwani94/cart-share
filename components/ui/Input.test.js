@@ -1,3 +1,4 @@
+/* eslint-env jest */
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { StyleSheet, Text, TextInput } from "react-native";
@@ -6,6 +7,7 @@ import { themeColors } from "@/lib/theme";
 import { Input } from "./Input";
 
 jest.mock("react-native-reanimated", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- Jest factory is hoisted.
   const { View } = require("react-native");
 
   return {
@@ -30,6 +32,24 @@ jest.mock("react-native-reanimated", () => {
 });
 
 describe("Input", () => {
+  it("renders a trailing control beside a flexible input without requiring a leading icon", () => {
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <Input label="Search" trailingAccessory={<Text>Clear</Text>} />,
+      );
+    });
+    expect(renderer.root.findByType(TextInput).props.className).toContain(
+      "flex-1",
+    );
+    expect(
+      renderer.root
+        .findAllByType(Text)
+        .some((node) => node.props.children === "Clear"),
+    ).toBe(true);
+    act(() => renderer.unmount());
+  });
+
   it("uses a comfortable iOS field size and keeps placeholder hierarchy clear", () => {
     let renderer;
 

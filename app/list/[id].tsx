@@ -4,7 +4,6 @@ import {
   ArchiveConfirmDialog,
   CompletionCelebration,
   EditItemSheet,
-  HeaderMenu,
   ListItem,
   type ListItemEditPayload,
   PartnerActivityToast,
@@ -32,12 +31,14 @@ import {
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
+import { themeColors } from "@/lib/theme";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/expo";
 import { router, useLocalSearchParams } from "expo-router";
 import {
+  Archive,
   ChevronDown,
   CloudOff,
   PoundSterling,
@@ -46,6 +47,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
   RefreshControl,
   Text,
@@ -81,10 +83,12 @@ export default function ListDetailScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(true);
-  const [editingItem, setEditingItem] =
-    useState<ListItemEditPayload | null>(null);
-  const [openSwipeItemId, setOpenSwipeItemId] =
-    useState<Id<"items"> | null>(null);
+  const [editingItem, setEditingItem] = useState<ListItemEditPayload | null>(
+    null,
+  );
+  const [openSwipeItemId, setOpenSwipeItemId] = useState<Id<"items"> | null>(
+    null,
+  );
   const [showCelebration, setShowCelebration] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -273,6 +277,7 @@ export default function ListDetailScreen() {
   }, []);
 
   const handleArchivePress = useCallback(() => {
+    Keyboard.dismiss();
     setShowArchiveDialog(true);
   }, []);
 
@@ -394,7 +399,23 @@ export default function ListDetailScreen() {
       <PageHeader
         title={list.name}
         onBack={() => router.back()}
-        trailing={<HeaderMenu onArchive={handleArchivePress} />}
+        trailing={
+          <Button
+            onPress={handleArchivePress}
+            variant="ghost"
+            size="sm"
+            iconOnly
+            className="border border-separator bg-surface"
+            accessibilityLabel="Archive list"
+            accessibilityHint="Opens a confirmation before archiving this list"
+          >
+            <Archive
+              size={22}
+              color={themeColors.secondaryInk}
+              strokeWidth={2}
+            />
+          </Button>
+        }
       />
 
       <View
@@ -593,9 +614,7 @@ export default function ListDetailScreen() {
           <GlassSheetHeader
             title="Trip budget"
             description="Set a calm spending guide for this shop. Leave it empty to remove the budget."
-            icon={
-              <PoundSterling size={21} color="#C94A4A" strokeWidth={2} />
-            }
+            icon={<PoundSterling size={21} color="#C94A4A" strokeWidth={2} />}
             onClose={() => budgetSheetRef.current?.dismiss()}
             closeAccessibilityLabel="Close trip budget"
             closeDisabled={isSavingTripBudget}

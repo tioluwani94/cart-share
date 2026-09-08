@@ -17,6 +17,8 @@ const mockMarkCleanupRequired = jest.fn();
 const mockCancelCleanupRequired = jest.fn();
 const mockAnalyticsReset = jest.fn();
 const mockRouterReplace = jest.fn();
+let mockRouteParams = {};
+const mockSetParams = jest.fn((params) => { mockRouteParams = { ...mockRouteParams, ...params }; });
 const mockShowToast = jest.fn();
 let mockPreferences;
 let mockHousehold;
@@ -89,7 +91,8 @@ jest.mock("@/lib/pushNotifications", () => ({
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ back: jest.fn(), replace: mockRouterReplace }),
+  useRouter: () => ({ back: jest.fn(), replace: mockRouterReplace, setParams: mockSetParams }),
+  useLocalSearchParams: () => mockRouteParams,
 }));
 
 jest.mock("@/lib/storage", () => ({
@@ -207,6 +210,7 @@ jest.mock("react-native-reanimated", () => {
 describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteParams = {};
     mockIsConvexAuthenticated = true;
     mockPreferences = {
       analyticsConsent: "denied",
@@ -374,6 +378,23 @@ describe("SettingsScreen", () => {
     expect(mockUpdatePreferences).not.toHaveBeenCalledWith({
       restockNotificationsEnabled: true,
     });
+  });
+
+  it("opens the budget editor once from Spending after household data loads", async () => {
+    mockRouteParams = { edit: "budget" };
+    const loadedHousehold = mockHousehold;
+    mockHousehold = undefined;
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<SettingsScreen />); });
+    expect(mockPresentSignOutSheet).not.toHaveBeenCalled();
+    mockHousehold = loadedHousehold;
+    await act(async () => { renderer.update(<SettingsScreen />); });
+    expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
+    expect(mockSetParams).toHaveBeenCalledWith({ edit: undefined });
+    mockHousehold = { ...loadedHousehold, monthlyBudgetPence: 50000 };
+    await act(async () => { renderer.update(<SettingsScreen />); });
+    expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
+    act(() => renderer.unmount());
   });
 
   it("presents sign-out confirmation as a bottom sheet", async () => {

@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { restockSnapshot } from "../lib/restockUndo";
 import {
   applyRestockDecision,
   calculateRestockReview,
@@ -451,6 +453,7 @@ export const getReview = query({
         };
       }),
       trackedProductCount: products.length + pausedProducts.length,
+      activeProductCount: products.length,
       learningProductCount: learningProducts.length,
       possibleRegularCount: learningProducts.filter(
         (product) => product.purchaseObservationCount >= 2,
@@ -807,6 +810,7 @@ export const decide = mutation({
       v.literal("stop_tracking"),
     ),
     operationId: v.string(),
+    enableUndo: v.optional(v.boolean()),
     expectedActiveListId: v.optional(v.id("lists")),
   },
   handler: async (ctx, args) => {
@@ -845,9 +849,25 @@ export const decide = mutation({
         args.decision === "add"
           ? await findLinkedItem(args.expectedActiveListId ?? activeList?._id)
           : null;
+      const receipt = args.enableUndo
+        ? await ctx.db
+            .query("restockUndoRecords")
+            .withIndex("by_product_and_operation", (q) =>
+              q
+                .eq("productId", product._id)
+                .eq("operationId", args.operationId),
+            )
+            .unique()
+        : null;
       return {
         applied: false as const,
         itemId: existingItem?._id,
+        ...(receipt &&
+        receipt.undoneAt === undefined &&
+        receipt.userId === user._id &&
+        receipt.expiresAt > Date.now()
+          ? { undoId: receipt._id, undoExpiresAt: receipt.expiresAt }
+          : {}),
       };
     }
 
@@ -879,6 +899,7 @@ export const decide = mutation({
     });
 
     let itemId: Id<"items"> | undefined;
+    let createdItemId: Id<"items"> | undefined;
     if (result.addToShop) {
       if (!activeList) {
         throw new Error("Choose a Next shop before adding restocks");
@@ -906,6 +927,7 @@ export const decide = mutation({
           createdAt: Date.now(),
           updatedAt: Date.now(),
         }));
+      if (!existingItem) createdItemId = itemId;
     }
 
     await ctx.db.patch(product._id, {
@@ -914,6 +936,95 @@ export const decide = mutation({
       updatedAt: Date.now(),
     });
 
-    return { applied: true as const, itemId };
+    let undoId: Id<"restockUndoRecords"> | undefined;
+    let undoExpiresAt: number | undefined;
+    if (args.enableUndo && args.decision !== "stop_tracking") {
+      const updatedProduct = await ctx.db.get(product._id);
+      const createdItem = createdItemId
+        ? await ctx.db.get(createdItemId)
+        : null;
+      undoExpiresAt = Date.now() + 5 * 60 * 1000;
+      undoId = await ctx.db.insert("restockUndoRecords", {
+        householdId: household._id,
+        userId: user._id,
+        productId: product._id,
+        operationId: args.operationId,
+        listId: result.addToShop ? activeList?._id : undefined,
+        createdItemId,
+        expectedItem: createdItem ? restockSnapshot(createdItem) : undefined,
+        expectedProduct: restockSnapshot(updatedProduct!),
+        previousCadenceDays: product.cadenceDays,
+        previousReviewAfter: product.reviewAfter,
+        expiresAt: undoExpiresAt,
+      });
+      await ctx.scheduler.runAfter(
+        5 * 60 * 1000,
+        internal.restocks.expireUndo,
+        { undoId },
+      );
+    }
+    return {
+      applied: true as const,
+      itemId,
+      ...(undoId ? { undoId, undoExpiresAt } : {}),
+    };
+  },
+});
+
+export const expireUndo = internalMutation({
+  args: { undoId: v.id("restockUndoRecords") },
+  handler: async (ctx, { undoId }) => {
+    const record = await ctx.db.get(undoId);
+    if (record && record.expiresAt <= Date.now()) await ctx.db.delete(undoId);
+  },
+});
+
+export const undoDecision = mutation({
+  args: { undoId: v.id("restockUndoRecords") },
+  handler: async (ctx, { undoId }) => {
+    const user = await requireCurrentUser(ctx);
+    const record = await ctx.db.get(undoId);
+    // Missing/expired receipts cannot change data; successful retries are acknowledged below.
+    if (!record)
+      return { undone: false as const, reason: "unavailable" as const };
+    await requireMembership(ctx, record.householdId, user._id);
+    if (record.userId !== user._id)
+      throw new Error("You cannot undo another member's decision");
+    if (record.expiresAt <= Date.now())
+      return { undone: false as const, reason: "expired" as const };
+    if (record.undoneAt !== undefined)
+      return { undone: true as const, productId: record.productId };
+    const product = await ctx.db.get(record.productId);
+    const household = await ctx.db.get(record.householdId);
+    if (
+      !product ||
+      !household ||
+      restockSnapshot(product) !== record.expectedProduct
+    )
+      return { undone: false as const, reason: "changed" as const };
+    if (record.listId) {
+      const list = await ctx.db.get(record.listId);
+      if (!list || list.isArchived || household.activeListId !== list._id)
+        return { undone: false as const, reason: "changed" as const };
+    }
+    if (record.createdItemId) {
+      const item = await ctx.db.get(record.createdItemId);
+      if (
+        !item ||
+        item.isCompleted ||
+        restockSnapshot(item) !== record.expectedItem
+      )
+        return { undone: false as const, reason: "changed" as const };
+      await ctx.db.delete(item._id);
+    }
+    await ctx.db.patch(product._id, {
+      cadenceDays: record.previousCadenceDays,
+      reviewAfter: record.previousReviewAfter,
+      updatedAt: Date.now(),
+    });
+    // Keep the original operation ID so a delayed duplicate cannot reapply it.
+    // Preserve a short-lived acknowledgement for a retry after a lost response.
+    await ctx.db.patch(undoId, { undoneAt: Date.now() });
+    return { undone: true as const, productId: product._id };
   },
 });

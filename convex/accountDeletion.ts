@@ -67,7 +67,11 @@ async function scheduleContinuation(ctx: MutationCtx, deletingClerkId: string) {
 
 async function deleteUserOwnedRows(
   ctx: MutationCtx,
-  table: "userPreferences" | "pushTokens" | "notificationReminders",
+  table:
+    | "userPreferences"
+    | "pushTokens"
+    | "notificationReminders"
+    | "restockUndoRecords",
   userId: Id<"users">,
 ) {
   const rows = await ctx.db
@@ -81,6 +85,8 @@ async function deleteUserOwnedRows(
 }
 
 async function deletePersonalData(ctx: MutationCtx, userId: Id<"users">) {
+  if (!(await deleteUserOwnedRows(ctx, "restockUndoRecords", userId)))
+    return false;
   if (!(await deleteUserOwnedRows(ctx, "userPreferences", userId))) {
     return false;
   }
@@ -221,6 +227,16 @@ async function deleteFinalHousehold(
     await ctx.db.delete(receipt._id);
   }
   if (receipts.length > DELETION_BATCH_SIZE) return false;
+
+  const undoRecords = await ctx.db
+    .query("restockUndoRecords")
+    .withIndex("by_household", (query) =>
+      query.eq("householdId", household._id),
+    )
+    .take(DELETION_PAGE_SIZE);
+  for (const record of undoRecords.slice(0, DELETION_BATCH_SIZE))
+    await ctx.db.delete(record._id);
+  if (undoRecords.length > DELETION_BATCH_SIZE) return false;
 
   const purchaseObservations = await ctx.db
     .query("productPurchaseObservations")

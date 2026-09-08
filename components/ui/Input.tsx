@@ -1,12 +1,6 @@
 import { cn } from "@/lib/cn";
 import { themeColors } from "@/lib/theme";
-import {
-  forwardRef,
-  useEffect,
-  useId,
-  useState,
-  type ReactNode,
-} from "react";
+import { forwardRef, useEffect, useId, useState, type ReactNode } from "react";
 import {
   InputAccessoryView,
   Keyboard,
@@ -54,6 +48,7 @@ export interface InputProps extends Omit<TextInputProps, "className"> {
   containerClassName?: string;
   frameClassName?: string;
   leadingAccessory?: ReactNode;
+  trailingAccessory?: ReactNode;
 }
 
 type AccessibleTextInputProps = TextInputProps & {
@@ -70,6 +65,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     containerClassName,
     frameClassName,
     leadingAccessory,
+    trailingAccessory,
     onFocus,
     onBlur,
     onSubmitEditing,
@@ -126,11 +122,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       [0, 1, 2],
       [themeColors.separator, themeColors.coral, themeColors.error],
     ),
-    shadowOpacity: interpolate(
-      visualState.get(),
-      [0, 1, 2],
-      [0, 0.12, 0.08],
-    ),
+    shadowOpacity: interpolate(visualState.get(), [0, 1, 2], [0, 0.12, 0.08]),
     shadowRadius: interpolate(visualState.get(), [0, 1, 2], [0, 6, 4]),
   }));
 
@@ -138,7 +130,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     ...props,
     className: cn(
       "rounded-2xl px-4 py-4 text-ink",
-      leadingAccessory && "flex-1",
+      (leadingAccessory || trailingAccessory) && "min-w-0 flex-1",
       !editable && "text-ink-secondary",
       className,
     ),
@@ -191,13 +183,18 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         )}
         style={[styles.fieldFrame, frameStyle]}
       >
-        <View className={cn(leadingAccessory && "flex-row items-center")}>
+        <View
+          className={cn(
+            (leadingAccessory || trailingAccessory) && "flex-row items-center",
+          )}
+        >
           {leadingAccessory}
           {SheetTextInput ? (
             <SheetTextInput ref={ref} {...inputProps} />
           ) : (
             <TextInput ref={ref} {...inputProps} />
           )}
+          {trailingAccessory}
         </View>
       </Animated.View>
       {error && (
