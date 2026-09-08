@@ -63,9 +63,15 @@ document does not authorize any further production deployment. Repository checkp
   explicitly confirmed demo account, not personal household data. The owner
   approved a fictional development-only The Parkers household, which has been
   populated with sample shopping, pantry and spending data. Anonymizing its
-  Clerk profile to Alex Parker and removing the personal photo remains pending:
-  the accessible Clerk dashboard is CartStart, not the OurPantry development
-  instance. Goldie configuration and seven navigation-only flows are prepared;
+  Clerk profile to Alex Parker and removing the personal photo remains pending.
+  The earlier assumption that CartStart was a different Clerk application was
+  incorrect: it was the old application name. With owner approval, Application
+  Settings was renamed to exactly OurPantry and confirmed Saved; Development
+  also displays OurPantry. No application IDs, credentials or user login emails
+  were changed. A newly delivered notification email has not yet been checked.
+  The development simulator still shows Tioluwani Kolawole in The Parkers
+  household; unreliable Clerk browser controls currently block the approved
+  profile anonymization. Goldie configuration and seven navigation-only flows are prepared;
   Goldie's doctor passes every check. All seven flows passed on the development simulator; the final Pantry preview
   segment reported a small-region idle warning that still needs visual review.
   Capture must wait for verified anonymization and retained demo authentication.

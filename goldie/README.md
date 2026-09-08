@@ -11,8 +11,11 @@ Do not publish or upload captures until all of these are verified:
 - It is signed into the owner-approved demo account, with the fictional
   **The Parkers** household and sample groceries/spending.
 - Both Clerk and the app show **Alex Parker**, with no personal profile photo.
-  This change is currently waiting for access to OurPantry's development Clerk
-  instance. Do not modify CartStart or a production account.
+  This change is currently waiting for reliable access to OurPantry's development
+  Clerk user controls. CartStart was the old name of this application, not a
+  separate application; the owner-approved rename to OurPantry is saved.
+  Identify the Development instance and exact demo user before editing. Do not
+  change any production user, login email or authentication credentials.
 - Reinstalling the app retains the intended login, or the owner signs back into
   the demo account. Goldie reinstalls the app: an already signed-in simulator is
   not proof that automated capture will stay signed in. Never add an auth bypass.
@@ -65,6 +68,8 @@ checks output format; it does not guarantee Apple acceptance or ASO performance.
 
 Goldie's doctor passes every check. All seven navigation flows passed on the
 iPhone 17 Pro Max development simulator.
+The subsequent profile check still shows Tioluwani Kolawole in The Parkers
+household; the Alex Parker/no-personal-photo capture gate is not yet cleared.
 The final Pantry preview segment reported a small-region idle warning despite
 the expected product being present; inspect the recorded result before accepting
 it. No images or video have been rendered, verified or uploaded yet.
