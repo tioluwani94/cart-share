@@ -1,8 +1,11 @@
 import { cn } from "@/lib/cn";
 import { themeColors } from "@/lib/theme";
-import { forwardRef, useEffect, useId, useState, type ReactNode } from "react";
+import { registerInputAccessory } from "@/lib/keyboard";
+import { Eye, EyeOff } from "lucide-react-native";
+import { forwardRef, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   InputAccessoryView,
+  findNodeHandle,
   Keyboard,
   Platform,
   Pressable,
@@ -49,6 +52,8 @@ export interface InputProps extends Omit<TextInputProps, "className"> {
   frameClassName?: string;
   leadingAccessory?: ReactNode;
   trailingAccessory?: ReactNode;
+  /** Offer a visibility control while keeping passwords masked by default. */
+  passwordToggle?: boolean;
 }
 
 type AccessibleTextInputProps = TextInputProps & {
@@ -66,6 +71,8 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     frameClassName,
     leadingAccessory,
     trailingAccessory,
+    passwordToggle = false,
+    secureTextEntry,
     onFocus,
     onBlur,
     onSubmitEditing,
@@ -85,6 +92,36 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   ref,
 ) {
   const [isFocused, setIsFocused] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const inputRef = useRef<TextInput | null>(null);
+  const toggleRef = useRef<View | null>(null);
+  const setInputRef = useCallback((input: TextInput | null) => {
+    inputRef.current = input;
+    if (typeof ref === "function") ref(input);
+    else if (ref) ref.current = input;
+  }, [ref]);
+  const showsPasswordToggle = passwordToggle && secureTextEntry;
+  useEffect(() => {
+    if (!showsPasswordToggle) return;
+    const target = findNodeHandle(toggleRef.current);
+    if (target != null) return registerInputAccessory(target, () => inputRef.current);
+  }, [showsPasswordToggle]);
+  const PasswordIcon = passwordVisible ? EyeOff : Eye;
+  const resolvedTrailingAccessory = showsPasswordToggle ? (
+    <Pressable
+      ref={toggleRef}
+      onPress={() => setPasswordVisible((visible) => !visible)}
+      disabled={!editable}
+      accessibilityRole="button"
+      accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+      accessibilityState={{ disabled: !editable }}
+      className="mr-2 min-h-11 min-w-11 items-center justify-center rounded-xl active:bg-warm-gray-100"
+    >
+      <View pointerEvents="none" accessible={false}>
+        <PasswordIcon size={22} color={themeColors.secondaryInk} accessible={false} />
+      </View>
+    </Pressable>
+  ) : trailingAccessory;
   const SheetTextInput = useSheetTextInput();
   const requestSheetInputFocus = useSheetInputFocusRequester();
   const reduceMotion = useReducedMotion();
@@ -128,9 +165,10 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 
   const inputProps: AccessibleTextInputProps = {
     ...props,
+    secureTextEntry: showsPasswordToggle ? !passwordVisible : secureTextEntry,
     className: cn(
       "rounded-2xl px-4 py-4 text-ink",
-      (leadingAccessory || trailingAccessory) && "min-w-0 flex-1",
+      (leadingAccessory || resolvedTrailingAccessory) && "min-w-0 flex-1",
       !editable && "text-ink-secondary",
       className,
     ),
@@ -160,6 +198,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     },
     onBlur: (event) => {
       setIsFocused(false);
+      setPasswordVisible(false);
       onBlur?.(event);
     },
     onSubmitEditing: (event) => {
@@ -185,16 +224,16 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       >
         <View
           className={cn(
-            (leadingAccessory || trailingAccessory) && "flex-row items-center",
+            (leadingAccessory || resolvedTrailingAccessory) && "flex-row items-center",
           )}
         >
           {leadingAccessory}
           {SheetTextInput ? (
-            <SheetTextInput ref={ref} {...inputProps} />
+            <SheetTextInput ref={setInputRef} {...inputProps} />
           ) : (
-            <TextInput ref={ref} {...inputProps} />
+            <TextInput ref={setInputRef} {...inputProps} />
           )}
-          {trailingAccessory}
+          {resolvedTrailingAccessory}
         </View>
       </Animated.View>
       {error && (

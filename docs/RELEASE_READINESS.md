@@ -141,6 +141,31 @@ document does not authorize any further production deployment. Repository checkp
   passed. Jest still used `--forceExit`; open-handle cleanup is not verified.
   Auth implementation and approved asset configuration were committed and
   pushed as `a29874e`; the working tree was verified clean afterwards.
+- Auth UAT follow-up: replaced the key artwork with the existing 3D house and
+  added an opt-in visibility control to the shared Input for sign-in and password
+  reset. Simulator testing found the global outside-tap handler dismissed the
+  keyboard on the eye button. A narrowly scoped native-target registration now
+  treats only the focused field's own accessory as part of editing; all other
+  taps and scrolling retain keyboard dismissal. Verified reveal, hide, continued
+  typing, retained text, and Done dismissal in the local signed Release simulator
+  app using disposable text; no authentication request was submitted.
+- Corrected auth error parsing to read Clerk's nested API error codes as well as
+  direct codes. Unknown-account and wrong-password messages remain identical;
+  password recovery also handles wrapped unknown-account errors without revealing
+  account existence. The owner's generic-error screenshot does not establish the
+  underlying server failure. The fresh browser settings check timed out; live
+  email/password authentication still needs verification with a configured account.
+- Follow-up validation: TypeScript passed and all **468 tests across 98 suites**
+  passed. Jest still required `--forceExit`; open-handle cleanup is not verified.
+  Local Release build installed and launched successfully, with no EAS build or
+  production change. Owner acceptance of the final auth tweaks is pending.
+- Goldie verification was rerun successfully against the approved existing four
+  screenshots and 17-second preview. No asset was regenerated or replaced.
+  The app remains email **sign-in only**; adding explicit email signup with email
+  verification was recommended and is awaiting owner approval. Do not silently
+  create accounts after arbitrary login failures. Reviewer account provisioning,
+  private password entry, and a successful production sign-in are still required
+  before an auth-enabled TestFlight build and external Beta App Review.
 
 ### Existing MVP implementation
 
@@ -482,8 +507,7 @@ Verified product-owner inputs as of 3 September 2026:
 
 Remaining external completion is limited to entering and verifying the privacy
 answers in App Store Connect against the final archived build, selecting the age
-rating, completing content-rights/DSA declarations as applicable, supplying App
-Store screenshots, and
+rating, completing content-rights/DSA declarations as applicable, and
 providing a working review account/household. Re-run the privacy review if the
 production Clerk, Convex, Google Vision, Expo Push, or PostHog configuration
 differs from the documented MVP data flows.

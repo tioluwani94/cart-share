@@ -1,6 +1,7 @@
 import {
   continueEmailSignIn,
   emailSignInError,
+  emailSignInErrorCode,
   requireClerkSuccess,
 } from "./emailSignIn";
 
@@ -69,4 +70,18 @@ it("never displays raw account data from provider errors", () => {
   expect(emailSignInError({ code: "form_identifier_not_found" })).toBe(
     emailSignInError({ code: "form_password_incorrect" }),
   );
+});
+
+it("reads actionable codes inside Clerk response envelopes without exposing messages", () => {
+  const failure = {
+    code: "api_response_error",
+    errors: [{ code: "form_identifier_not_found", message: "private@example.com" }],
+  };
+  expect(emailSignInErrorCode(failure)).toBe("form_identifier_not_found");
+  expect(emailSignInError(failure)).toBe(
+    emailSignInError({ code: "form_password_incorrect" }),
+  );
+  expect(emailSignInError(failure)).not.toContain("private@example.com");
+  expect(emailSignInErrorCode({ errors: [null] })).toBeUndefined();
+  expect(emailSignInErrorCode(null)).toBeUndefined();
 });

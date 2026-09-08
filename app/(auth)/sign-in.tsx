@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/Input";
 import {
   continueEmailSignIn,
   emailSignInError,
+  emailSignInErrorCode,
   requireClerkSuccess,
   type EmailSignInStep,
 } from "@/lib/emailSignIn";
 
-const artwork = require("@/assets/onboarding/household/join-household.png");
+const artwork = require("@/assets/onboarding/household/create-household.png");
 const COPY: Record<
   EmailSignInStep,
   { title: string; description: string; action: string }
@@ -132,10 +133,7 @@ export default function EmailSignInScreen() {
       await requireClerkSuccess(signIn.resetPasswordEmailCode.sendCode());
     } catch (failure) {
       // Do not reveal whether an arbitrary email has an account/password.
-      const failureCode =
-        failure && typeof failure === "object" && "code" in failure
-          ? failure.code
-          : undefined;
+      const failureCode = emailSignInErrorCode(failure);
       if (
         !["form_identifier_not_found", "strategy_for_user_invalid"].includes(
           String(failureCode),
@@ -234,6 +232,7 @@ export default function EmailSignInScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            passwordToggle
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete={

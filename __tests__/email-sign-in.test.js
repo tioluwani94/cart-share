@@ -85,6 +85,7 @@ it("keeps submission disabled until email and password are provided", async () =
   await change("Password", "not-a-real-credential");
   expect(action("Sign in").props.disabled).toBe(false);
   expect(field("Password").props.secureTextEntry).toBe(true);
+  expect(field("Password").props.passwordToggle).toBe(true);
 });
 
 it("finalizes a real completed sign-in without choosing a household route", async () => {
@@ -158,8 +159,21 @@ it("performs reset verification before accepting a new password", async () => {
     },
   );
   await change("New password", "not-a-real-new-credential");
+  expect(field("New password").props.passwordToggle).toBe(true);
   await press("Save password and sign in");
   expect(mockSignIn.finalize).toHaveBeenCalledTimes(1);
+});
+
+it("keeps password recovery neutral for wrapped unknown-account errors", async () => {
+  mockSignIn.create.mockResolvedValue({ error: {
+    code: "api_response_error",
+    errors: [{ code: "form_identifier_not_found" }],
+  } });
+  await press("Forgot password?");
+  await change("Email address", "review@example.com");
+  await press("Send reset code");
+  expect(field("Verification code")).toBeDefined();
+  expect(mockSignIn.finalize).not.toHaveBeenCalled();
 });
 
 it("shows Device Trust verification instead of bypassing it", async () => {

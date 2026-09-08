@@ -14,12 +14,19 @@ export type EmailSignInResource = Pick<
   "status" | "supportedSecondFactors" | "finalize" | "mfa"
 >;
 
+/** Clerk API responses wrap their actionable code; never read/log their messages. */
+export function emailSignInErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  if ("errors" in error && Array.isArray(error.errors)) {
+    const first = error.errors[0];
+    if (first && typeof first.code === "string") return first.code;
+  }
+  return "code" in error && typeof error.code === "string" ? error.code : undefined;
+}
+
 /** Never render provider errors verbatim: they can contain account identifiers. */
 export function emailSignInError(error: unknown): string {
-  const code =
-    error && typeof error === "object" && "code" in error
-      ? error.code
-      : undefined;
+  const code = emailSignInErrorCode(error);
   switch (code) {
     case "form_password_incorrect":
     case "form_identifier_not_found":

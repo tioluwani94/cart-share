@@ -1,7 +1,7 @@
 /* eslint-env jest */
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { StyleSheet, Text, TextInput } from "react-native";
+import { Keyboard, StyleSheet, Text, TextInput } from "react-native";
 
 import { themeColors } from "@/lib/theme";
 import { Input } from "./Input";
@@ -32,6 +32,64 @@ jest.mock("react-native-reanimated", () => {
 });
 
 describe("Input", () => {
+  it("toggles a password in place without changing its value or dismissing the keyboard", () => {
+    let renderer;
+    const onChangeText = jest.fn();
+    const dismiss = jest.spyOn(Keyboard, "dismiss");
+    act(() => {
+      renderer = TestRenderer.create(
+        <Input label="Password" secureTextEntry passwordToggle
+          value="sample-password" onChangeText={onChangeText} />,
+      );
+    });
+    const input = renderer.root.findByType(TextInput);
+    const toggle = () => renderer.root.findAll((node) =>
+      node.props.accessibilityRole === "button" && typeof node.props.onPress === "function",
+    )[0];
+    expect(input.props.secureTextEntry).toBe(true);
+    expect(toggle().props.accessibilityLabel).toBe("Show password");
+    expect(toggle().props.className).toContain("min-h-11 min-w-11");
+    act(() => toggle().props.onPress());
+    expect(renderer.root.findByType(TextInput)).toBe(input);
+    expect(input.props.secureTextEntry).toBe(false);
+    expect(input.props.value).toBe("sample-password");
+    expect(toggle().props.accessibilityLabel).toBe("Hide password");
+    expect(onChangeText).not.toHaveBeenCalled();
+    expect(dismiss).not.toHaveBeenCalled();
+    act(() => toggle().props.onPress());
+    expect(input.props.secureTextEntry).toBe(true);
+    act(() => toggle().props.onPress());
+    act(() => input.props.onBlur({ nativeEvent: {} }));
+    expect(input.props.secureTextEntry).toBe(true);
+    act(() => renderer.unmount());
+    dismiss.mockRestore();
+  });
+
+  it("disables password visibility while the field is disabled", () => {
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <Input label="Password" secureTextEntry passwordToggle editable={false} />,
+      );
+    });
+    const toggle = renderer.root.findByProps({ accessibilityLabel: "Show password" });
+    expect(toggle.props.disabled).toBe(true);
+    expect(toggle.props.accessibilityState).toEqual({ disabled: true });
+    act(() => renderer.unmount());
+  });
+
+  it("does not add visibility controls to ordinary or non-opted-in fields", () => {
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(<Input label="Name" passwordToggle />);
+    });
+    expect(renderer.root.findAllByProps({ accessibilityLabel: "Show password" })).toHaveLength(0);
+    act(() => renderer.update(<Input label="Password" secureTextEntry />));
+    expect(renderer.root.findAllByProps({ accessibilityLabel: "Show password" })).toHaveLength(0);
+    expect(renderer.root.findByType(TextInput).props.secureTextEntry).toBe(true);
+    act(() => renderer.unmount());
+  });
+
   it("renders a trailing control beside a flexible input without requiring a leading icon", () => {
     let renderer;
     act(() => {
