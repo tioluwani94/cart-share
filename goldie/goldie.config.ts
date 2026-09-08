@@ -54,11 +54,13 @@ export default {
     },
     {
       kind: 'screenshot', id: 'quick-check', flow: 'store-02-quick-check',
+      layout: 'classic',
       headline: { 'en-US': 'Remember your regulars' },
       subhead: { 'en-US': 'A quick kitchen check before your next shop.' },
     },
     {
       kind: 'screenshot', id: 'pantry', flow: 'store-03-pantry',
+      layout: 'classic',
       headline: { 'en-US': 'Your household’s pantry' },
       subhead: { 'en-US': 'Keep everyday favourites easy to find.' },
     },

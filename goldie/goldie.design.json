@@ -1,0 +1,10 @@
+{
+  "background": "linear-gradient(155deg, #FFF5EE 0%, #FAF8F3 55%, #F0F7F5 100%)",
+  "frame": "17-pro-silver",
+  "fontFamily": "\"DM Sans\", system-ui, sans-serif",
+  "layout": "classic",
+  "screenOnly": false,
+  "sceneLayouts": {
+    "pantry": "classic"
+  }
+}

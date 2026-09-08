@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useSSO } from "@clerk/expo";
+import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 
@@ -10,6 +11,7 @@ import type { WelcomeActionId } from "@/lib/welcomeActions";
 WebBrowser.maybeCompleteAuthSession();
 
 export default function WelcomeScreen() {
+  const router = useRouter();
   const [loadingActionId, setLoadingActionId] =
     useState<WelcomeActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,13 +48,17 @@ export default function WelcomeScreen() {
 
   const handleWelcomeAction = useCallback(
     (actionId: WelcomeActionId) => {
+      if (actionId === "ourpantry.sign-in-email") {
+        router.push("/(auth)/sign-in");
+        return;
+      }
       const strategy =
         actionId === "ourpantry.continue-google"
           ? "oauth_google"
           : "oauth_apple";
       void completeOAuth(actionId, strategy);
     },
-    [completeOAuth],
+    [completeOAuth, router],
   );
 
   const openLegalPage = useCallback(async (url: string) => {

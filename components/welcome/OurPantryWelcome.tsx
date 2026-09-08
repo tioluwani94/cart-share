@@ -34,6 +34,7 @@ import {
 import { WELCOME_TIMELINE } from "@/lib/welcomeTimeline";
 import { ProviderLogo, type WelcomeProvider } from "./ProviderLogo";
 import { ReferenceCanvas } from "./ReferenceCanvas";
+import { Button } from "@/components/ui/Button";
 
 export const WELCOME_IMAGE_ASSETS = [
   splashMark,
@@ -153,7 +154,13 @@ function LaunchArtwork() {
       <Image
         source={splashMark}
         contentFit="contain"
-        style={{ position: "absolute", left: 178, top: 454, width: 284, height: 284 }}
+        style={{
+          position: "absolute",
+          left: 178,
+          top: 454,
+          width: 284,
+          height: 284,
+        }}
       />
       <Text
         accessibilityRole="header"
@@ -239,7 +246,13 @@ function WelcomeShell({
       <Image
         source={pantryMark}
         contentFit="contain"
-        style={{ position: "absolute", left: 149, top: 166, width: 342, height: 430 }}
+        style={{
+          position: "absolute",
+          left: 149,
+          top: 166,
+          width: 342,
+          height: 430,
+        }}
       />
       <View
         style={{
@@ -311,13 +324,13 @@ function WelcomeShell({
               style={
                 isGoogle
                   ? {
-                      marginTop: index === 0 ? 76 : 21,
+                      marginTop: index === 0 ? 40 : 21,
                       backgroundColor: "#FFFFFF",
                       borderWidth: 2,
                       borderColor: "#D8D4CE",
                     }
                   : {
-                      marginTop: index === 0 ? 76 : 21,
+                      marginTop: index === 0 ? 40 : 21,
                       backgroundColor: "#000000",
                     }
               }
@@ -325,6 +338,25 @@ function WelcomeShell({
             />
           );
         })}
+        <View className="mt-3 self-center">
+          <Button
+            variant="ghost"
+            className="min-h-[76px] min-w-[300px]"
+            textClassName="text-[24px]"
+            disabled={!interactive || isBusy}
+            accessibilityLabel="Sign in with email"
+            onPress={
+              interactive
+                ? resolveWelcomeActionPress(
+                    "ourpantry.sign-in-email",
+                    onActionPress,
+                  )
+                : undefined
+            }
+          >
+            Sign in with email
+          </Button>
+        </View>
         {error ? (
           <Text
             accessibilityRole="alert"
@@ -342,7 +374,7 @@ function WelcomeShell({
         ) : null}
         <View
           style={{
-            marginTop: error ? 17 : 51,
+            marginTop: error ? 12 : 16,
             flexDirection: "row",
             flexWrap: "wrap",
             alignItems: "center",
@@ -491,7 +523,10 @@ function StaticFinalArtwork({
   | "error"
 >) {
   return (
-    <View testID="ourpantry-welcome-final" style={{ position: "absolute", inset: 0 }}>
+    <View
+      testID="ourpantry-welcome-final"
+      style={{ position: "absolute", inset: 0 }}
+    >
       <WelcomeShell
         interactive
         onActionPress={onActionPress}
@@ -515,7 +550,11 @@ function StaticFinalArtwork({
             transform: [{ rotate: `${asset.rotate}deg` }],
           }}
         >
-          <Image source={asset.source} contentFit="contain" style={{ width: "100%", height: "100%" }} />
+          <Image
+            source={asset.source}
+            contentFit="contain"
+            style={{ width: "100%", height: "100%" }}
+          />
         </View>
       ))}
     </View>
@@ -566,8 +605,7 @@ export function OurPantryWelcome({
         WELCOME_TIMELINE.crossfadeStartMs,
         withTiming(1, {
           duration:
-            WELCOME_TIMELINE.crossfadeEndMs -
-            WELCOME_TIMELINE.crossfadeStartMs,
+            WELCOME_TIMELINE.crossfadeEndMs - WELCOME_TIMELINE.crossfadeStartMs,
           easing: CROSSFADE_EASING,
         }),
       ),
@@ -665,10 +703,14 @@ export function OurPantryWelcome({
             importantForAccessibility="no-hide-descendants"
             style={{ position: "absolute", inset: 0 }}
           >
-            <Animated.View style={[{ position: "absolute", inset: 0 }, launchStyle]}>
+            <Animated.View
+              style={[{ position: "absolute", inset: 0 }, launchStyle]}
+            >
               <LaunchArtwork />
             </Animated.View>
-            <Animated.View style={[{ position: "absolute", inset: 0 }, shellStyle]}>
+            <Animated.View
+              style={[{ position: "absolute", inset: 0 }, shellStyle]}
+            >
               <WelcomeShell interactive={false} />
             </Animated.View>
             {ASSETS.map((asset, index) => (

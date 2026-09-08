@@ -1,4 +1,5 @@
 export type WelcomeActionId =
+  | "ourpantry.sign-in-email"
   | "ourpantry.continue-google"
   | "ourpantry.continue-apple";
 

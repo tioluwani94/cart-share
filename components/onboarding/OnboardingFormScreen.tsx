@@ -22,6 +22,7 @@ interface OnboardingFormScreenProps {
   children: ReactNode;
   footer: ReactNode;
   onBack?: () => void;
+  backAccessibilityHint?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export function OnboardingFormScreen({
   children,
   footer,
   onBack,
+  backAccessibilityHint = "Returns to the previous household setup screen",
 }: OnboardingFormScreenProps) {
   const insets = useSafeAreaInsets();
 
@@ -56,7 +58,7 @@ export function OnboardingFormScreen({
               onPress={onBack}
               className="-ml-3"
               accessibilityLabel="Go back"
-              accessibilityHint="Returns to the previous household setup screen"
+              accessibilityHint={backAccessibilityHint}
             >
               <ChevronLeft size={29} strokeWidth={2.25} color="#1A1917" />
             </Button>

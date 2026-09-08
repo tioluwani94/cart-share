@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 completed and IPA verified, automatic submission queued; external beta review, asset upload and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 completed and IPA verified, latest submission read queued; approved store assets uploaded, preview processing, auth UAT, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -109,12 +109,29 @@ document does not authorize any further production deployment. Repository checkp
   categories, all linked and not used for tracking, with tracking disabled.
   This artifact check does not close the provider-configuration/privacy-report
   gate or physical-device UAT. TypeScript passed again after verification.
-- Owner requested a reviewer-access proposal. Proposed a dedicated production
-  demo household and normal Clerk email/password sign-in alongside OAuth;
-  implementation is **not approved**. Clerk Device Trust can require emailed
-  verification on new devices, so password-only reviewer access is not yet
-  proven. Do not disable security globally, add a bypass, or submit external
-  review before the owner approves the approach and fresh-install access passes.
+- Owner approved a dedicated production demo household and normal Clerk
+  email/password sign-in alongside OAuth on 8 September. The sign-in, verification,
+  and password-reset UI is implemented locally, pending owner simulator UAT.
+  Live production Clerk inspection confirmed Device Trust is already disabled
+  and compromised-password rejection is enabled; email/password sign-in settings
+  have not been enabled or saved. No security controls were weakened or bypassed.
+  Production review-account setup and fresh-install access validation remain
+  required before external review. New cloud builds are paused for local UI UAT.
+  Local ad-hoc-signed Release simulator build succeeded and launched on the
+  iPhone 17 Pro Max simulator. TypeScript and 44 targeted authentication tests
+  passed. Simulator click automation reports `noWindowsAvailable`, so the owner
+  must sign out of the development demo account to review the new auth screens;
+  those screens have not yet been visually accepted or tested against live Clerk.
+- Owner approved the four Goldie iPhone screenshots and the 17-second preview
+  video on 8 September. Uploaded all five to the English (U.S.) 6.9-inch media
+  slot; the 6.5-inch slot inherits them. Reload verified four screenshots in
+  Shop, Quick Check, Pantry, Spending order plus one preview. The owner's saved
+  Classic Pantry adjustment is now in the source config, re-rendered, replaced,
+  and visually verified in Apple; other asset hashes stayed unchanged. The
+  preview's cloud placeholder means processing/playback remains unverified.
+  No public review or release was submitted.
+- Latest local validation: TypeScript passed and all 462 tests across 98 suites
+  passed. Jest still used `--forceExit`; open-handle cleanup is not verified.
 
 ### Existing MVP implementation
 

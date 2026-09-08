@@ -78,8 +78,21 @@ Four framed 1320×2868 PNGs were rendered and visually checked. Goldie's initial
 idle frames. The final 17-second edit removes those portions without adding
 simulated UI, framing or captions. Goldie verifies H.264, 886×1920, 30 fps,
 AAC at 48 kHz, and the permitted duration/file size. Raw recordings remain intact.
-No assets have been uploaded to Apple yet. Review the assets in the studio at
+The owner approved all four screenshots and the final preview on 8 September
+2026. All five assets are uploaded to App Store Connect's English (U.S.) 6.9-inch
+slot; the 6.5-inch slot inherits them. Reloading Media Manager confirmed four
+screenshots in Shop → Quick Check → Pantry → Spending order and one preview.
+The preview still shows a cloud placeholder, so Apple processing/playback is
+not yet verified. Nothing has been submitted for public review or release.
+View the local assets at
 **http://localhost:4322** (4321 is occupied by the landing page).
+
+The owner's saved Studio adjustment was `sceneLayouts.pantry = classic`;
+the existing PNG predated that adjustment. Quick Check and Pantry now explicitly
+use `layout: 'classic'` in `goldie.config.ts`, so the choice survives re-renders
+and does not depend on a Studio-only override. Re-rendered and replaced only the
+Pantry upload; its centered layout and final position were verified after reload.
+SHA-256 for the other three screenshots and the preview remained unchanged.
 
 For this capture only, the final edit uses the following real-recording ranges:
 `preview-check.mp4` 5.5–10.5 s, `preview-shop.mp4` 1.5–7 s, and

@@ -7,6 +7,17 @@ import { OurPantryWelcome } from "./OurPantryWelcome";
 const mockReducedMotion = { current: false };
 const originalPlatformOS = Platform.OS;
 
+jest.mock("@/components/ui/Button", () => {
+  const { Pressable, Text } = require("react-native");
+  return {
+    Button: ({ children, ...props }) => (
+      <Pressable {...props} accessibilityRole="button">
+        <Text>{children}</Text>
+      </Pressable>
+    ),
+  };
+});
+
 function setPlatformOS(os) {
   Object.defineProperty(Platform, "OS", {
     configurable: true,
@@ -84,6 +95,7 @@ describe("OurPantryWelcome", () => {
     expect(providerLabels).toEqual([
       "Continue with Apple",
       "Continue with Google",
+      "Sign in with email",
     ]);
   });
 
@@ -108,6 +120,7 @@ describe("OurPantryWelcome", () => {
     expect(providerLabels).toEqual([
       "Continue with Google",
       "Continue with Apple",
+      "Sign in with email",
     ]);
   });
 
@@ -126,9 +139,9 @@ describe("OurPantryWelcome", () => {
     const style = StyleSheet.flatten(headline.props.style);
 
     expect(style.lineHeight).toBeGreaterThanOrEqual(70);
-    expect((style.paddingTop ?? 0) + (style.paddingBottom ?? 0)).toBeGreaterThanOrEqual(
-      8,
-    );
+    expect(
+      (style.paddingTop ?? 0) + (style.paddingBottom ?? 0),
+    ).toBeGreaterThanOrEqual(8);
   });
 
   it("shows the final state immediately without autoplay and emits semantic actions", () => {
@@ -150,8 +163,12 @@ describe("OurPantryWelcome", () => {
 
     expect(google).toBeDefined();
     expect(apple).toBeDefined();
-    expect(renderer.root.findByProps({ testID: "google-brand-mark" })).toBeDefined();
-    expect(renderer.root.findByProps({ testID: "apple-brand-mark" })).toBeDefined();
+    expect(
+      renderer.root.findByProps({ testID: "google-brand-mark" }),
+    ).toBeDefined();
+    expect(
+      renderer.root.findByProps({ testID: "apple-brand-mark" }),
+    ).toBeDefined();
     expect(
       renderer.root
         .findAllByProps({ accessibilityLabel: "Continue with Google" })

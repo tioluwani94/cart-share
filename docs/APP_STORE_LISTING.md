@@ -52,7 +52,7 @@ Terms: https://ourpantry.app/terms
 
 ## Still required
 
-- Owner review and upload of the generated, anonymized iPhone screenshots and optional preview (see `goldie/README.md`).
+- Confirm Apple finishes processing the uploaded preview. The four anonymized iPhone screenshots and preview were owner-approved and uploaded on 8 September 2026 (see `goldie/README.md`); the requested Classic Pantry replacement and screenshot order are saved and verified.
 - Replacement iPhone-only binary: build 7 predates the decision to remove native iPad support. Confirm its successor declares `UIDeviceFamily = [1]` before selecting it for review. iPad captures are no longer planned.
 - Final archived-build privacy review and App Store privacy declarations.
 - Owner review of age-rating answers and content-rights information.

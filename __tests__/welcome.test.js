@@ -5,6 +5,9 @@ import WelcomeScreen from "@/app/(auth)/welcome";
 
 const mockSSOFlow = jest.fn();
 const mockOpenURL = jest.fn();
+const mockPush = jest.fn();
+
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock("@clerk/expo", () => ({
   useSSO: () => ({ startSSOFlow: mockSSOFlow }),
@@ -53,7 +56,14 @@ jest.mock("@/components/welcome/OurPantryWelcome", () => {
           accessibilityLabel="Continue with Apple"
           onPress={() => onActionPress("ourpantry.continue-apple")}
         />
-        <Pressable accessibilityLabel="Open Terms of Use" onPress={onTermsPress} />
+        <Pressable
+          accessibilityLabel="Sign in with email"
+          onPress={() => onActionPress("ourpantry.sign-in-email")}
+        />
+        <Pressable
+          accessibilityLabel="Open Terms of Use"
+          onPress={onTermsPress}
+        />
         <Pressable
           accessibilityLabel="Open Privacy Policy"
           onPress={onPrivacyPress}
@@ -85,6 +95,20 @@ describe("welcome authentication", () => {
       setActive: null,
     });
     mockOpenURL.mockResolvedValue(undefined);
+  });
+
+  it("opens email sign-in without launching OAuth", async () => {
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<WelcomeScreen />);
+    });
+    await act(async () => {
+      renderer.root
+        .findByProps({ accessibilityLabel: "Sign in with email" })
+        .props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(auth)/sign-in");
+    expect(mockSSOFlow).not.toHaveBeenCalled();
   });
 
   it("starts each provider directly from the welcome screen", async () => {
