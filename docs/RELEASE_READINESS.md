@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; production reviewer sign-in and demo onboarding verified locally; auth-enabled TestFlight build, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; auth-enabled iPhone-only build 9 uploaded and processing at Apple; approved store assets uploaded and preview playback verified; production reviewer sign-in and demo onboarding verified locally; Apple processing, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -208,11 +208,36 @@ document does not authorize any further production deployment. Repository checkp
   since the inspected build 8, and bundle ID, Apple team, iOS 17 target and
   iPhone-only device family were rechecked. Do not treat Doctor as fully green
   or run a destructive prebuild to hide this manually maintained project warning.
-- Remaining reviewer-distribution steps: create and inspect the auth-enabled
-  signed TestFlight build, verify Apple processing and tester assignment, and
+- Remaining reviewer-distribution steps: verify Apple processing and tester assignment, and
   have the owner privately enter reviewer credentials in App Store Connect.
   No external review or public release is authorized by this status record.
   Physical-device beta and the privacy/distribution checks below remain open.
+- EAS production build `97c8df75-bcfe-40f4-849e-cbde6817ecd9` completed as
+  **1.0.0 (9)** from `9b68ec7aaac8374fe155de3f819be03eebe37fb1`.
+  Downloaded IPA SHA-256:
+  `6646763accbaec9804ad1e83b36f7d46f58c6e77f8dfb562fe8b4b30f65b1aa3`.
+  Verified bundle/display identity, iPhone-only device family, production APNs,
+  distribution team, disabled debugging and TestFlight reporting entitlement.
+  macOS signature verification passed with certificate-trust access. The
+  packaged icon PNG is opaque; native assets are unchanged from accepted build 8.
+  The bundle includes email sign-in and the exact production Clerk, Convex and
+  PostHog values used by app code, with no development Convex endpoint.
+  `EXPO_PUBLIC_CONVEX_SITE_URL` is unused by app code and is not bundled.
+- Native Apple sign-in entitlement is intentionally absent: the app uses Clerk
+  `useSSO` with `oauth_apple`, and `appleSignIn: false` matches that browser-based
+  flow. This is not evidence of successful physical-device Apple OAuth; keep
+  that UAT check open. App-level privacy declarations still contain nine
+  categories and tracking disabled; SDK/provider reconciliation remains open.
+- TestFlight upload completed successfully as submission
+  `f9bc7583-8353-4fbb-bebd-738b3df3c7ba`, targeting the existing `Team (Expo)`
+  internal group, at 23:25 UTC on 8 September (00:25 BST on 9 September).
+  App Store Connect shows build 9 as **Processing**; availability to testers
+  is not yet confirmed. An earlier scheduling attempt was rejected before submission
+  because EAS automatic test notes require Enterprise; the same build was
+  scheduled successfully without that optional flag. Add build 9 test notes in
+  App Store Connect directly. Apple acceptance and group assignment are not yet
+  verified. Reviewer login instructions are staged in Test Information, awaiting
+  the owner's private password entry and Save; do not claim them saved yet.
 
 ### Existing MVP implementation
 
