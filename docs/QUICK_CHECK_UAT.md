@@ -2,6 +2,16 @@
 
 Implemented 8 September 2026. No new navigation or prototype-only household banner.
 
+Release follow-up: commit `59734c1` was pushed on 8 September. The approved
+Quick Check backend, including Undo, is now deployed to production
+`tangible-mink-681` and to `savory-woodpecker-17`, which is shared by EAS
+development and preview. Build `1.0.0 (7)` compiled and uploaded successfully
+on 8 September; Apple processing and availability still need verification.
+Earlier "no production deployment" entries below record
+the state of those individual local-UAT sessions, not the current deployment.
+The remaining physical-device interaction checks are not inferred complete
+from deployment or automated tests.
+
 ## Behaviour
 
 - View list → Shop tab; Choose a few regulars → Pantry tab.

@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP, legal foundation, and production services complete; TestFlight build 6 installed for internal UAT, with external beta review/verification pending**
+Status: **Core MVP and production services deployed; build 7 uploaded successfully; Apple processing, external beta review, store assets and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -23,13 +23,49 @@ document does not authorize any further production deployment. Repository checkp
   remaining warning concerns checked-in native projects not automatically
   inheriting app-config changes. Native configuration must be checked for the
   final archive.
-- The owner approved deployment to production, development and preview
-  environments and a new TestFlight build. Deployment/build IDs and Apple
-  processing status will be recorded after verification, not inferred from
-  approval.
-- Goldie is installed for Apple App Store assets. Screenshots, tester
-  invitations and outstanding device/provider checks below remain incomplete
-  until their results are recorded.
+- Committed and pushed the implementation as `59734c1` on `main`.
+- With explicit owner approval, deployed the reviewed schema/functions to
+  production `tangible-mink-681` and development `savory-woodpecker-17`.
+  EAS preview uses the same `savory-woodpecker-17` backend, so this deployment
+  covers development and preview; there is no separate preview backend today.
+  Verified `restocks:decide`, `restocks:getReview`, `restocks:undoDecision`
+  and internal `restocks:expireUndo` in both remote function specifications.
+  The production dry run showed the three approved Undo indexes being added
+  and no indexes removed. No production household data was seeded or edited.
+- Production EAS build `08f9038c-6f35-4e2c-821c-c897d944e6ae` completed:
+  version `1.0.0 (7)`, commit `59734c1`. Submission
+  `b8438f61-85f0-456a-a1fd-d08a80ab901d` finished successfully at
+  `2026-09-08T14:42:44.128Z`, uploading to App Store Connect and
+  targeting existing internal group `Team (Expo)`. EAS rejected the initial
+  attempt's Enterprise-only `--what-to-test` option before scheduling; the
+  retry omitted that option, reused the same binary, and scheduled successfully.
+  Build-specific notes must be entered in App Store Connect after processing.
+- Verified the owner's internal tester has build 6 installed on iPhone 13.
+  Created private external group `Family closed beta` and added the supplied
+  spouse email. Apple confirms one tester, currently `No Builds Available`;
+  an accepted build and any required Beta App Review are still needed. No
+  public invitation link or App Store Connect account access was created.
+- Verified beta description, public website/privacy URLs and review notes;
+  contact phone and support email are present. A working reviewer sign-in
+  method is still required before external review. Do not submit with the
+  current unchecked sign-in-required field: the app does require authentication.
+- Goldie 0.3.1 and its bundled Argent driver are installed for Apple App Store
+  assets. A local Release build installed/launched on iPhone 17 Pro Max with
+  zero errors and the existing Hermes script warning. Screenshots must use an
+  explicitly confirmed demo account, not personal household data. The owner
+  approved a fictional development-only The Parkers household, which has been
+  populated with sample shopping, pantry and spending data. Anonymizing its
+  Clerk profile to Alex Parker and removing the personal photo remains pending:
+  the accessible Clerk dashboard is CartStart, not the OurPantry development
+  instance. Goldie configuration and seven navigation-only flows are prepared;
+  All seven flows passed on the development simulator; the final Pantry preview
+  segment reported a small-region idle warning that still needs visual review.
+  Capture must wait for verified anonymization and retained demo authentication.
+  No assets
+  have been captured or uploaded yet. The app also supports iPad; its required
+  screenshot coverage must be supplied separately from Goldie's iPhone target.
+
+### Existing MVP implementation
 
 - Plan / Shop / Pantry / Spending navigation and hidden Settings route.
 - Required four-step household activation with people served, cadence,

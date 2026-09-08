@@ -1,0 +1,8 @@
+steps:
+  - launch: app.ourpantry
+  - await: { visible: { text: Open settings } }
+  - echo: Spending tab centre observed on the expanded iPhone 6.9-inch tab bar.
+  - tap: { x: 0.835, y: 0.946 }
+  - await: { visible: { text: Six-month view } }
+  - await: { visible: { text: "£62.35" } }
+  - await: { idle: true }

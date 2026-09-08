@@ -1,0 +1,8 @@
+steps:
+  - launch: app.ourpantry
+  - await: { visible: { text: Open settings } }
+  - echo: Plan tab; preview only navigates and does not consume demo restock decisions.
+  - tap: { x: 0.167, y: 0.946 }
+  - await: { visible: { text: Do you need bread? } }
+  - await: { idle: true }
+  - wait: 4000

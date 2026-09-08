@@ -1,0 +1,8 @@
+executionPrerequisite: App is on the shared Shop list after store-preview-02-shop.
+steps:
+  - echo: Pantry tab centre on the expanded iPhone 6.9-inch tab bar.
+  - tap: { x: 0.611, y: 0.946 }
+  - await: { visible: { text: Search your pantry } }
+  - await: { visible: { text: "Bread, Every 7 days" } }
+  - await: { idle: true }
+  - wait: 4000

@@ -1,0 +1,7 @@
+executionPrerequisite: App is on the Plan Quick Check screen after store-preview-01-check.
+steps:
+  - echo: Shop tab centre on the expanded iPhone 6.9-inch tab bar.
+  - tap: { x: 0.389, y: 0.946 }
+  - await: { visible: { text: "2 of 8 picked up" } }
+  - await: { idle: true }
+  - wait: 4000

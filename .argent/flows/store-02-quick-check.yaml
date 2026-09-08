@@ -1,0 +1,8 @@
+steps:
+  - launch: app.ourpantry
+  - await: { visible: { text: Open settings } }
+  - echo: Plan tab centre observed on the expanded iPhone 6.9-inch tab bar.
+  - tap: { x: 0.167, y: 0.946 }
+  - await: { visible: { text: A quick kitchen check. } }
+  - await: { visible: { text: Do you need bread? } }
+  - await: { idle: true }

@@ -1,0 +1,8 @@
+steps:
+  - launch: app.ourpantry
+  - await: { visible: { text: Open settings } }
+  - echo: Shop tab centre observed on the expanded iPhone 6.9-inch tab bar.
+  - tap: { x: 0.389, y: 0.946 }
+  - await: { visible: { text: Weekly groceries } }
+  - await: { visible: { text: "2 of 8 picked up" } }
+  - await: { idle: true }
