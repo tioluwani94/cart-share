@@ -53,7 +53,7 @@ Terms: https://ourpantry.app/terms
 ## Still required
 
 - Confirm Apple finishes processing the uploaded preview. The four anonymized iPhone screenshots and preview were owner-approved and uploaded on 8 September 2026 (see `goldie/README.md`); the requested Classic Pantry replacement and screenshot order are saved and verified.
-- Replacement iPhone-only binary: build 7 predates the decision to remove native iPad support. Confirm its successor declares `UIDeviceFamily = [1]` before selecting it for review. iPad captures are no longer planned.
+- Select the final reviewed iPhone-only binary. Build 8's IPA declares `UIDeviceFamily = [1]` and Apple accepted it for internal TestFlight, but it predates the new email/password reviewer flow. A successor awaits auth UAT and Clerk configuration. iPad captures are no longer planned.
 - Final archived-build privacy review and App Store privacy declarations.
 - Owner review of age-rating answers and content-rights information.
 - Digital Services Act trader-status determination where applicable.

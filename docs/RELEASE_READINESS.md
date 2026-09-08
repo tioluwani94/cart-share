@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; iPhone-only build 8 completed and IPA verified, latest submission read queued; approved store assets uploaded, preview processing, auth UAT, external beta review and final device verification remain pending**
+Status: **Core MVP and production services deployed; iPhone-only build 8 accepted by Apple and assigned to internal testers; approved store assets uploaded, preview processing, auth UAT, external beta review and final device verification remain pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -95,10 +95,15 @@ document does not authorize any further production deployment. Repository checkp
   `ab1fa426462f5844fdc9cf4005f57cc63dff4636`. EAS reports `FINISHED`, completed
   `2026-09-08T17:43:55.751Z`. The production environment and existing remote
   distribution credentials were used. Automatic submission
-  `cb81ddab-0d23-4e8a-a40a-7339e2a09fa2` is scheduled for the existing App Store
-  Connect app `6809059306`; its latest read remains `IN_QUEUE` with no error.
-  App Store Connect's build list still ends at build 7. Successful upload,
-  Apple processing and build 8 tester availability are not yet verified.
+  `cb81ddab-0d23-4e8a-a40a-7339e2a09fa2` targeted the existing App Store
+  Connect app `6809059306`. App Store Connect now confirms build 8 upload
+  `Complete`, created 8 September at 8:26 PM, with build status `Ready to Submit`.
+  Its internal `Team (Expo)` group has one tester/invitation; no installation is
+  recorded yet. Saved build-specific UAT notes covering iPhone-only launch,
+  Quick Check/Undo, scheduling, Pantry, budgets, sharing and regressions. The
+  notes explicitly state that build 8 does not contain the new email/password
+  screens. This closes upload/processing verification, not physical-device UAT
+  or external Beta App Review.
 - Downloaded build 8's actual EAS IPA and inspected its compiled application
   `Info.plist`: `CFBundleVersion = 8`, version `1.0.0`, display name `OurPantry`,
   bundle ID `app.ourpantry`, and **`UIDeviceFamily = [1]`**. No iPad orientation
@@ -128,10 +133,13 @@ document does not authorize any further production deployment. Repository checkp
   Shop, Quick Check, Pantry, Spending order plus one preview. The owner's saved
   Classic Pantry adjustment is now in the source config, re-rendered, replaced,
   and visually verified in Apple; other asset hashes stayed unchanged. The
-  preview's cloud placeholder means processing/playback remains unverified.
+  preview's tooltip explicitly confirms it is uploaded and processing; playback
+  remains unverified.
   No public review or release was submitted.
 - Latest local validation: TypeScript passed and all 462 tests across 98 suites
   passed. Jest still used `--forceExit`; open-handle cleanup is not verified.
+  Auth implementation and approved asset configuration were committed and
+  pushed as `a29874e`; the working tree was verified clean afterwards.
 
 ### Existing MVP implementation
 
