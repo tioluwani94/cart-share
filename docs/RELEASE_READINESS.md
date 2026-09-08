@@ -52,6 +52,11 @@ document does not authorize any further production deployment. Repository checkp
   contact phone and support email are present. A working reviewer sign-in
   method is still required before external review. Do not submit with the
   current unchecked sign-in-required field: the app does require authentication.
+- Saved the distribution subtitle, Shopping category, description, 81-byte
+  keyword list, support/marketing URLs and copyright. The exact copy is in
+  `docs/APP_STORE_LISTING.md`. No public review/release was submitted. Age
+  ratings, content rights and DSA setup are still visibly incomplete; privacy
+  declarations also remain a separate archived-build verification gate.
 - Goldie 0.3.1 and its bundled Argent driver are installed for Apple App Store
   assets. A local Release build installed/launched on iPhone 17 Pro Max with
   zero errors and the existing Hermes script warning. Screenshots must use an
@@ -408,7 +413,8 @@ Verified product-owner inputs as of 3 September 2026:
 
 Remaining external completion is limited to entering and verifying the privacy
 answers in App Store Connect against the final archived build, selecting the age
-rating, supplying App Store screenshots, description, and keywords, and
+rating, completing content-rights/DSA declarations as applicable, supplying App
+Store screenshots, and
 providing a working review account/household. Re-run the privacy review if the
 production Clerk, Convex, Google Vision, Expo Push, or PostHog configuration
 differs from the documented MVP data flows.
