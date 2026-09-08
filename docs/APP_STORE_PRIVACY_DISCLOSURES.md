@@ -85,6 +85,30 @@ description. This verifies the packaged declarations, not the absence of all
 provider-side collection. The aggregate SDK privacy report and production
 provider settings still require review before final App Store answers.
 
+### SDK reconciliation still required
+
+The same IPA contains 21 privacy manifests. The bundled Google Sign-In manifest
+adds Phone Number, Coarse Location, Other Data Types and Other Usage Data beyond
+our app-level table; its eight declared categories are linked and not used for
+tracking. The other SDK manifests examined contain no collected-data entries.
+Do not interpret the app-level nine-category match as full SDK disclosure
+approval or blindly copy every SDK capability into the app's store answers.
+
+The current welcome screen calls Clerk `useSSO`; the installed Clerk 3.7.8
+implementation invokes `expo-web-browser.openAuthSessionAsync`, not the native
+Google Sign-In bridge. The separately bundled `ClerkGoogleSignInModule` requires
+explicit configuration before native sign-in. This source evidence explains a
+possible unused-capability discrepancy, but does not prove every provider's
+runtime collection is absent. Google documents that its native SDK may collect
+user identifiers and IP-derived general location for fraud prevention:
+[Google's disclosure guidance](https://developers.google.com/identity/sign-in/ios/app-privacy).
+
+Before final privacy answers, reconcile the aggregate archive report with the
+actual OAuth flow and production Clerk/Google settings. If ambiguity remains,
+obtain provider clarification or propose excluding the unused native module
+for owner approval; do not silently change authentication/dependencies or strip
+the vendor's privacy manifest. Public privacy submission remains an open gate.
+
 ## Public release URLs
 
 - Privacy Policy: https://ourpantry.app/privacy
