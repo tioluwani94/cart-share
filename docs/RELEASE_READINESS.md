@@ -27,6 +27,11 @@ document does not authorize any further production deployment. Repository checkp
   URLs, or missing authorization state. It never
   prints provider state, tokens, or complete response bodies. Use the target
   Clerk Frontend API origin when checking another environment.
+- The preflight reads the instance type from Clerk's environment endpoint.
+  Development accepts either its instance callback (custom credentials) or
+  Clerk's exact shared callback `https://clerk.shared.lcl.dev/v1/oauth_callback`.
+  Production still requires its own instance callback. Missing or unknown
+  environment metadata fails the check instead of assuming development.
 - The app and preflight share the callback path; a regression test uses the
   installed Expo URL builder with standalone configuration to check the exact
   callback, including its three slashes. Keep this URL allowlisted while older
