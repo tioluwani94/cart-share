@@ -16,9 +16,9 @@ describe("OurPantry welcome timeline", () => {
     });
   });
 
-  it("gates actions until the hard final-state swap", () => {
-    expect(isWelcomeInteractive(1732)).toBe(false);
-    expect(isWelcomeInteractive(1733)).toBe(true);
+  it("enables visible actions while the artwork continues", () => {
+    expect(isWelcomeInteractive(799)).toBe(false);
+    expect(isWelcomeInteractive(800)).toBe(true);
   });
 
   it("shows the static final state immediately when autoplay is disabled", () => {

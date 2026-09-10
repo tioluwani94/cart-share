@@ -1,3 +1,5 @@
+import { ShoppingListSummary } from "@/components/lists/ShoppingListSummary";
+import { FinishShopSheet } from "@/components/lists/FinishShopSheet";
 import emptyBasketArtwork from "@/assets/empty-states/empty-basket.png";
 import {
   AddItemInput,
@@ -14,25 +16,19 @@ import { useTabBarChrome } from "@/components/navigation/TabBarChromeContext";
 import {
   Button,
   EmptyStateCard,
-  GlassBottomSheet,
-  GlassBottomSheetView,
-  GlassSheetHeader,
   ProgressBar,
+  useToast,
   type GlassBottomSheetRef,
 } from "@/components/ui";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { getItemCountBucket } from "@/lib/analytics";
-import { formatCurrencyFromPence, formatDateWithWeekday } from "@/lib/formatters";
+import { formatDateWithWeekday } from "@/lib/formatters";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import {
   getTabBarDockHeight,
   TAB_BAR_SHOP_COMPOSER_HEIGHT,
 } from "@/lib/tabBarChrome";
-import {
-  getManualReceiptEntryRoute,
-  getReceiptCaptureRoute,
-} from "@/lib/receiptFlow";
 import {
   buildShoppingListHandoff,
   canFinishShoppingList,
@@ -48,23 +44,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { FlashList } from "@shopify/flash-list";
 import * as Clipboard from "expo-clipboard";
 import { type Href, useFocusEffect, useRouter } from "expo-router";
-import {
-  Camera,
-  Check,
-  CloudOff,
-  Copy,
-  PoundSterling,
-  Receipt,
-  Share2,
-} from "lucide-react-native";
+import { Check, CloudOff, Copy, Share2 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  Share,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Share, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import {
   SafeAreaView,
@@ -114,6 +96,7 @@ export default function ShopScreen() {
 
   return (
     <ActiveShop
+      key={review.activeList._id}
       householdId={household._id}
       list={review.activeList}
       locale={review.household.locale}
@@ -146,6 +129,8 @@ function ActiveShop({
 }: ActiveShopProps) {
   const router = useRouter();
   const analytics = useAnalytics();
+  const { showToast } = useToast();
+  const finishingRef = useRef(false);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const footerDockHeight = getTabBarDockHeight(
@@ -177,17 +162,17 @@ function ActiveShop({
   const finishSheetRef = useRef<GlassBottomSheetRef>(null);
   const editSheetRef = useRef<GlassBottomSheetRef>(null);
   const [isFinishing, setIsFinishing] = useState(false);
-  const [completionQueued, setCompletionQueued] = useState(
-    hasQueuedCompletion,
-  );
+  const [completionQueued, setCompletionQueued] = useState(hasQueuedCompletion);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [handoffStatus, setHandoffStatus] = useState<
     "idle" | "copied" | "error"
   >("idle");
-  const [editingItem, setEditingItem] =
-    useState<ListItemEditPayload | null>(null);
-  const [openSwipeItemId, setOpenSwipeItemId] =
-    useState<Id<"items"> | null>(null);
+  const [editingItem, setEditingItem] = useState<ListItemEditPayload | null>(
+    null,
+  );
+  const [openSwipeItemId, setOpenSwipeItemId] = useState<Id<"items"> | null>(
+    null,
+  );
 
   const canFinish = canFinishShoppingList({
     totalItems: totalCount,
@@ -196,16 +181,15 @@ function ActiveShop({
   });
   const canScanReceipt =
     canFinish && isOnline && queueLength === 0 && !hasQueuedCompletion;
-  const canAddSpend = canScanReceipt;
   const syncMessage = hasQueuedCompletion
     ? isOnline
       ? "Finishing this shop now that you're connected."
       : "This shop is saved on this device and will finish when you're back online."
     : !isOnline
       ? "Offline changes are saved on this device. You can finish now and sync later."
-    : queueLength > 0
-      ? `${queueLength} ${queueLength === 1 ? "change is" : "changes are"} syncing before you can finish.`
-      : "Showing saved items while the latest version loads.";
+      : queueLength > 0
+        ? `${queueLength} ${queueLength === 1 ? "change is" : "changes are"} syncing before you can finish.`
+        : "Showing saved items while the latest version loads.";
   const finishUnavailableMessage =
     totalCount === 0
       ? "Add at least one item before finishing this shop."
@@ -297,12 +281,7 @@ function ActiveShop({
       });
 
       return clearShopComposer;
-    }, [
-      handleDockAdd,
-      setFooterAccessory,
-      showDockedComposer,
-      tabBarHeight,
-    ]),
+    }, [handleDockAdd, setFooterAccessory, showDockedComposer, tabBarHeight]),
   );
 
   const shareHandoff = useCallback(async () => {
@@ -329,7 +308,8 @@ function ActiveShop({
   }, [handoffText]);
 
   const finishWithoutReceipt = useCallback(async () => {
-    if (!canFinish) return;
+    if (!canFinish || finishingRef.current) return;
+    finishingRef.current = true;
     setIsFinishing(true);
     setFinishError(null);
     try {
@@ -341,6 +321,8 @@ function ActiveShop({
         receipt_present: false,
       });
       if (result.mode === "immediate") {
+        finishSheetRef.current?.dismiss();
+        showToast({ message: "Shop saved", tone: "success" });
         router.replace("/(tabs)" as Href);
       } else {
         setCompletionQueued(true);
@@ -348,8 +330,11 @@ function ActiveShop({
       }
     } catch (error) {
       console.error("Couldn't finish shop:", error);
-      setFinishError("We couldn't save this shop. Your list is still available.");
+      setFinishError(
+        "We couldn't save this shop. Your list is still available.",
+      );
     } finally {
+      finishingRef.current = false;
       setIsFinishing(false);
     }
   }, [
@@ -360,6 +345,7 @@ function ActiveShop({
     items,
     router,
     totalCount,
+    showToast,
   ]);
 
   if (isLoading) {
@@ -368,10 +354,7 @@ function ActiveShop({
 
   if (completionQueued) {
     return (
-      <SafeAreaView
-        className="flex-1 bg-background-light px-6"
-        edges={["top"]}
-      >
+      <SafeAreaView className="flex-1 bg-background-light px-6" edges={["top"]}>
         <Text className="pt-4 text-4xl font-heading tracking-tight text-ink">
           Shop
         </Text>
@@ -400,10 +383,7 @@ function ActiveShop({
               {isOnline ? "Retry sync" : "Retry when online"}
             </Button>
           ) : isOnline ? (
-            <ActivityIndicator
-              className="mt-6"
-              color={themeColors.coral}
-            />
+            <ActivityIndicator className="mt-6" color={themeColors.coral} />
           ) : null}
         </View>
       </SafeAreaView>
@@ -412,51 +392,23 @@ function ActiveShop({
 
   const shopListHeader = (
     <>
-      <CollapsingLargeTitleRegion
-        scrollY={scrollY}
-        className="pb-4 pt-4"
-      >
-        <View className="pr-20">
-          <Text
-            accessibilityRole="header"
-            className="text-4xl font-heading tracking-tight text-ink"
-          >
-            Shop
-          </Text>
-          <Text className="mt-2 text-lg font-semibold text-ink">
-            {list.name}
-          </Text>
-          <Text className="mt-0.5 text-sm text-ink-secondary">
-            {list.plannedFor
+      <CollapsingLargeTitleRegion scrollY={scrollY} className="pb-4 pt-4">
+        <ShoppingListSummary
+          title="Shop"
+          subtitle={list.name}
+          description={
+            list.plannedFor
               ? formatDateWithWeekday(list.plannedFor, {
                   locale,
                   timeZone: planningTimeZone,
                 })
-              : "Your focused shopping list"}
-          </Text>
-        </View>
-
-        <View className="mt-5 flex-row">
-          <ProgressBar
-            value={completedCount}
-            max={totalCount}
-            size="compact"
-            accessibilityLabel="Shopping progress"
-            accessibilityText={`${completedCount} of ${totalCount} picked up`}
-          />
-        </View>
-        <View className="mt-2 flex-row items-center justify-between">
-          <Text className="text-sm font-medium text-ink-secondary">
-            {completedCount} of {totalCount} picked up
-          </Text>
-          <Text className="text-sm font-semibold text-ink-secondary">
-            {plannedTotalPence > 0
-              ? `${formatCurrencyFromPence(plannedTotalPence)} planned`
-              : list.tripBudgetPence !== undefined
-                ? `${formatCurrencyFromPence(list.tripBudgetPence)} budget`
-                : "Prices optional"}
-          </Text>
-        </View>
+              : "Your focused shopping list"
+          }
+          completedCount={completedCount}
+          totalCount={totalCount}
+          plannedTotalPence={plannedTotalPence}
+          tripBudgetPence={list.tripBudgetPence}
+        />
 
         {(isFromCache || !isOnline || queueLength > 0) && (
           <View className="mt-3 flex-row items-start rounded-xl border border-yellow/50 bg-yellow/20 px-3 py-2.5">
@@ -474,8 +426,8 @@ function ActiveShop({
             Ready to order online
           </Text>
           <Text className="mt-1 text-sm leading-5 text-ink-secondary">
-            Share or copy what is still needed, then paste it into your retailer's
-            app or website.
+            Share or copy what is still needed, then paste it into your
+            retailer's app or website.
           </Text>
           <View className="mt-4 flex-row gap-2">
             <Button
@@ -511,7 +463,8 @@ function ActiveShop({
           </View>
           {!handoffText && (
             <Text className="mt-3 text-sm text-ink-secondary">
-              Add an item, or untick something already picked up, to create a handoff.
+              Add an item, or untick something already picked up, to create a
+              handoff.
             </Text>
           )}
           {handoffStatus === "error" && (
@@ -627,11 +580,7 @@ function ActiveShop({
             accessibilityLabel="Finish shopping"
             accessibilityHint="Opens receipt and finish options"
           >
-            <Check
-              size={21}
-              color={themeColors.coral}
-              strokeWidth={2.5}
-            />
+            <Check size={21} color={themeColors.coral} strokeWidth={2.5} />
           </Button>
         }
       />
@@ -642,136 +591,19 @@ function ActiveShop({
         onUpdate={updateItem}
         onDelete={removeItem}
       />
-      <GlassBottomSheet
+      <FinishShopSheet
         ref={finishSheetRef}
-        snapPoints={["72%"]}
-        dismissible={!isFinishing}
-      >
-        <GlassBottomSheetView className="px-6 pb-10 pt-2">
-          <GlassSheetHeader
-            title="Finish this shop"
-            description={
-              canScanReceipt
-                ? "Add what you spent, or skip it for now. Your list stays available until the trip saves."
-                : "Adding spend needs a connection. You can finish without it and sync later."
-            }
-            icon={<Check size={21} color={themeColors.coral} strokeWidth={2.5} />}
-            onClose={() => finishSheetRef.current?.dismiss()}
-            closeDisabled={isFinishing}
-            closeAccessibilityLabel="Close finish shop options"
-          />
-
-          <View className="-mt-1 flex-row items-center">
-            <Text className="font-heading text-lg text-ink">
-              {completedCount}
-            </Text>
-            <Text className="ml-1 text-sm font-semibold text-ink-secondary">
-              purchased
-            </Text>
-            <View className="mx-3 h-1 w-1 rounded-full bg-warm-gray-400" />
-            <Text className="font-heading text-lg text-ink">
-              {Math.max(0, totalCount - completedCount)}
-            </Text>
-            <Text className="ml-1 text-sm font-semibold text-ink-secondary">
-              left
-            </Text>
-          </View>
-
-          <Pressable
-            onPress={() => {
-              finishSheetRef.current?.dismiss();
-              router.push(getReceiptCaptureRoute(list._id));
-            }}
-            disabled={!canScanReceipt}
-            pressRetentionOffset={12}
-            className="mt-5 min-h-20 flex-row items-center rounded-2xl border border-white/25 bg-coral p-4 active:opacity-90 disabled:opacity-50"
-            accessibilityLabel="Scan a receipt"
-            accessibilityRole="button"
-          >
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-white/20">
-              <Camera size={22} color={themeColors.surface} />
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-base font-bold text-white">
-                Scan receipt
-              </Text>
-              <Text className="mt-0.5 text-sm text-white/80">
-                Check the total before saving
-              </Text>
-            </View>
-          </Pressable>
-
-          <Text className="mb-2 mt-5 text-[15px] font-semibold leading-5 text-ink">
-            Other ways to finish
-          </Text>
-          <View className="overflow-hidden rounded-2xl border border-separator bg-surface">
-            <Pressable
-              onPress={() => {
-                finishSheetRef.current?.dismiss();
-                router.push(getManualReceiptEntryRoute(list._id));
-              }}
-              disabled={!canAddSpend}
-              pressRetentionOffset={12}
-              className="min-h-20 flex-row items-center px-4 py-3 active:bg-white/45 disabled:opacity-50"
-              accessibilityLabel="Enter shopping total"
-              accessibilityHint="Opens a form to add the total, store, and payment source"
-              accessibilityRole="button"
-            >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-teal-soft">
-                <PoundSterling size={22} color={themeColors.teal} />
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-semibold text-ink">
-                  Enter total
-                </Text>
-                <Text className="mt-0.5 text-sm text-ink-secondary">
-                  Add spend without taking a photo
-                </Text>
-              </View>
-            </Pressable>
-
-            <View className="mx-4 h-px bg-separator" />
-
-            <Pressable
-              onPress={() => void finishWithoutReceipt()}
-              disabled={!canFinish}
-              pressRetentionOffset={12}
-              className="min-h-20 flex-row items-center px-4 py-3 active:bg-white/45 disabled:opacity-50"
-              accessibilityLabel="Finish without a receipt"
-              accessibilityRole="button"
-            >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-warm-gray-100">
-                {isFinishing ? (
-                  <ActivityIndicator color={themeColors.secondaryInk} />
-                ) : (
-                  <Receipt size={22} color={themeColors.secondaryInk} />
-                )}
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-semibold text-ink">
-                  Skip for now
-                </Text>
-                <Text className="mt-0.5 text-sm text-ink-secondary">
-                  Save the trip without financial details
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-
-          <Text className="mt-5 text-sm leading-5 text-ink-secondary">
-            We'll use purchased recurring products to prepare the next shop.
-          </Text>
-
-          {finishUnavailableMessage && (
-            <Text className="mt-3 text-sm text-yellow-800">
-              {finishUnavailableMessage}
-            </Text>
-          )}
-          {finishError && (
-            <Text className="mt-3 text-sm text-red-600">{finishError}</Text>
-          )}
-        </GlassBottomSheetView>
-      </GlassBottomSheet>
+        listId={list._id}
+        completedCount={completedCount}
+        totalCount={totalCount}
+        canFinish={canFinish}
+        canScanReceipt={canScanReceipt}
+        isFinishing={isFinishing}
+        finishUnavailableMessage={finishUnavailableMessage}
+        finishError={finishError}
+        onClose={() => finishSheetRef.current?.dismiss()}
+        onFinishWithoutReceipt={finishWithoutReceipt}
+      />
     </View>
   );
 }

@@ -4,10 +4,14 @@ import { ProcessingReceipt } from "@/components/receipt-confirm/ProcessingReceip
 import { SavingSession } from "@/components/receipt-confirm/SavingSession";
 import { ScanningOverlay } from "@/components/receipt-confirm/ScanningOverlay";
 import { ScanSuccess } from "@/components/receipt-confirm/ScanSuccess";
-import { SessionSaved } from "@/components/receipt-confirm/SessionSaved";
 import { UploadError } from "@/components/receipt-confirm/UploadError";
 import { UploadingReceipt } from "@/components/receipt-confirm/UploadingReceipt";
-import { Button, PageHeader, usePageHeaderHeight } from "@/components/ui";
+import {
+  Button,
+  PageHeader,
+  usePageHeaderHeight,
+  useToast,
+} from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAnalytics } from "@/lib/AnalyticsContext";
@@ -40,7 +44,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
- * Receipt confirmation screen with upload, OCR processing, and celebratory UI.
+ * Receipt upload, OCR review, and trip saving.
  */
 export default function ReceiptConfirmScreen() {
   const { photoUri, listId, entry } = useLocalSearchParams<{
@@ -50,17 +54,28 @@ export default function ReceiptConfirmScreen() {
   }>();
 
   const analytics = useAnalytics();
+  const { showToast } = useToast();
+  const mounted = useRef(true);
+  const saving = useRef(false);
+  const saved = useRef(false);
+  const uploadStarted = useRef(false);
+  const uploadAbort = useRef<AbortController | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      uploadAbort.current?.abort();
+    };
+  }, []);
   const pageHeaderHeight = usePageHeaderHeight();
   const [screenState, setScreenState] = useState<ScreenState>(() =>
     getInitialReceiptScreenState(entry),
   );
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [receiptUploadId, setReceiptUploadId] =
     useState<Id<"receiptUploads"> | null>(null);
   const [extractedTotal, setExtractedTotal] = useState<number | null>(null); // In pence
   const [manualAmount, setManualAmount] = useState("");
-  const [monthlySessionCount, setMonthlySessionCount] = useState(0);
   const [paidBy, setPaidBy] = useState<"joint" | Id<"users">>("joint");
   const [storeName, setStoreName] = useState("");
   const originatingListId = listId ? (listId as Id<"lists">) : undefined;
@@ -72,10 +87,6 @@ export default function ReceiptConfirmScreen() {
   const deleteReceipt = useMutation(api.storage.deleteFile);
   const processReceipt = useAction(api.vision.processReceipt);
   const createSession = useMutation(api.sessions.create);
-  const monthlyCount = useQuery(
-    api.sessions.getMonthlySessionCount,
-    household?._id ? { householdId: household._id } : "skip",
-  );
   const sessionItems = useQuery(
     api.items.getByList,
     originatingListId ? { listId: originatingListId } : "skip",
@@ -93,6 +104,7 @@ export default function ReceiptConfirmScreen() {
           receiptUploadId: authorizedReceiptUploadId,
         });
 
+        if (!mounted.current) return;
         if (result.success && result.extractedTotal !== null) {
           // Success! Found the total
           setExtractedTotal(result.extractedTotal);
@@ -108,6 +120,7 @@ export default function ReceiptConfirmScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
       } catch (error) {
+        if (!mounted.current) return;
         console.error("OCR error:", error);
         setScreenState("ocr_error");
         setErrorMessage("Something went wrong while reading your receipt.");
@@ -119,32 +132,26 @@ export default function ReceiptConfirmScreen() {
 
   // Upload the receipt image
   const uploadReceipt = useCallback(async () => {
-    if (!photoUri || !household?._id) return;
+    if (!photoUri || !household?._id || uploadStarted.current) return;
+    uploadStarted.current = true;
+    const controller = new AbortController();
+    uploadAbort.current = controller;
 
     setScreenState("uploading");
-    setUploadProgress(0);
     setErrorMessage("");
 
     try {
-      // Step 1: Generate upload URL (10%)
-      setUploadProgress(10);
+      // Create an upload owned by this household.
       const upload = await generateUploadUrl({ householdId: household._id });
+      if (!mounted.current || controller.signal.aborted) {
+        await deleteReceipt({ receiptUploadId: upload.receiptUploadId });
+        return;
+      }
       setReceiptUploadId(upload.receiptUploadId);
 
-      // Step 2: Read the image file (20%)
-      setUploadProgress(20);
-      const response = await fetch(photoUri);
+      // Read the captured image.
+      const response = await fetch(photoUri, { signal: controller.signal });
       const blob = await response.blob();
-
-      // Step 3: Upload to Convex storage (20-85%)
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev < 85) {
-            return prev + Math.random() * 10;
-          }
-          return prev;
-        });
-      }, 200);
 
       const uploadResponse = await fetch(upload.uploadUrl, {
         method: "POST",
@@ -152,16 +159,14 @@ export default function ReceiptConfirmScreen() {
           "Content-Type": blob.type || "image/jpeg",
         },
         body: blob,
+        signal: controller.signal,
       });
-
-      clearInterval(progressInterval);
 
       if (!uploadResponse.ok) {
         throw new Error("Upload failed");
       }
 
-      // Step 4: Get storage ID (95%)
-      setUploadProgress(95);
+      // Attach the stored image before OCR.
       const { storageId: newStorageId } = await uploadResponse.json();
 
       await completeUpload({
@@ -169,15 +174,11 @@ export default function ReceiptConfirmScreen() {
         storageId: newStorageId,
       });
 
-      // Step 5: Complete (100%)
-      setUploadProgress(100);
-
-      // Brief pause then start OCR
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // Start OCR processing
-      runOCR(upload.receiptUploadId);
+      if (mounted.current && !controller.signal.aborted) {
+        await runOCR(upload.receiptUploadId);
+      }
     } catch (error) {
+      if (!mounted.current || controller.signal.aborted) return;
       console.error("Upload error:", error);
       setScreenState("upload_error");
       setErrorMessage(
@@ -189,6 +190,7 @@ export default function ReceiptConfirmScreen() {
     }
   }, [
     completeUpload,
+    deleteReceipt,
     generateUploadUrl,
     household?._id,
     photoUri,
@@ -198,10 +200,7 @@ export default function ReceiptConfirmScreen() {
   // Auto-start upload when screen loads
   useEffect(() => {
     if (photoUri && household?._id && screenState === "uploading") {
-      const timer = setTimeout(() => {
-        uploadReceipt();
-      }, 500);
-      return () => clearTimeout(timer);
+      void uploadReceipt();
     }
   }, [household?._id, photoUri, screenState, uploadReceipt]);
 
@@ -218,6 +217,7 @@ export default function ReceiptConfirmScreen() {
     storeForSession?: string;
     totalPence?: number;
   }) => {
+    if (saving.current) return;
     if (!originatingListId) {
       setErrorMessage(
         "We couldn't find the shopping list for this trip. Go back and try again.",
@@ -226,28 +226,35 @@ export default function ReceiptConfirmScreen() {
       return;
     }
     if (household === undefined || sessionItems === undefined) {
-      setErrorMessage("We're still loading this trip. Please try again in a moment.");
+      setErrorMessage(
+        "We're still loading this trip. Please try again in a moment.",
+      );
       setScreenState(fallbackState);
       return;
     }
     if (!household) {
-      setErrorMessage("We couldn't find your household. Your list is still available.");
+      setErrorMessage(
+        "We couldn't find your household. Your list is still available.",
+      );
       setScreenState(fallbackState);
       return;
     }
 
     setErrorMessage("");
+    saving.current = true;
     setScreenState("saving_session");
 
     try {
-      await createSession(buildReceiptSessionInput({
-        householdId: household._id,
-        totalPence,
-        listId: originatingListId,
-        receiptUploadId: receiptForSession,
-        paidBy: paymentSource,
-        storeName: storeForSession ?? "",
-      }));
+      await createSession(
+        buildReceiptSessionInput({
+          householdId: household._id,
+          totalPence,
+          listId: originatingListId,
+          receiptUploadId: receiptForSession,
+          paidBy: paymentSource,
+          storeName: storeForSession ?? "",
+        }),
+      );
 
       try {
         if (receiptForSession) {
@@ -266,23 +273,24 @@ export default function ReceiptConfirmScreen() {
         console.error("Couldn't record completion analytics:", analyticsError);
       }
 
-      setMonthlySessionCount((monthlyCount?.count ?? 0) + 1);
-      setExtractedTotal(totalPence ?? null);
-      setScreenState("session_saved");
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => router.replace("/(tabs)/analytics"), 2500);
+      saved.current = true;
+      if (!mounted.current) return;
+      showToast({ message: "Trip saved", tone: "success" });
+      router.replace("/(tabs)/analytics");
     } catch (error) {
+      if (!mounted.current) return;
       console.error("Error creating session:", error);
       setErrorMessage(
         "We couldn't save this trip. Your shopping list is still available.",
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setScreenState(fallbackState);
+    } finally {
+      saving.current = false;
     }
   };
 
-  // Handle confirm button - create session and show celebration
+  // Save the confirmed trip and open Spending.
   const handleConfirm = async () => {
     const totalPence = extractedTotal;
     if (!totalPence) return;
@@ -334,9 +342,7 @@ export default function ReceiptConfirmScreen() {
     setScreenState("manual_entry");
     // Pre-fill with extracted amount if available
     if (extractedTotal) {
-      setManualAmount(
-        formatCurrencyInput((extractedTotal / 100).toFixed(2)),
-      );
+      setManualAmount(formatCurrencyInput((extractedTotal / 100).toFixed(2)));
     }
     setTimeout(() => inputRef.current?.focus(), 300);
   };
@@ -350,12 +356,15 @@ export default function ReceiptConfirmScreen() {
       }
       setReceiptUploadId(null);
     }
+    uploadStarted.current = false;
     setScreenState("uploading");
-    setUploadProgress(0);
   };
 
   const handleCancel = useCallback(async () => {
-    if (receiptUploadId && screenState !== "session_saved") {
+    if (saving.current) return;
+    mounted.current = false;
+    uploadAbort.current?.abort();
+    if (receiptUploadId && !saved.current) {
       try {
         await deleteReceipt({ receiptUploadId });
       } catch (error) {
@@ -363,7 +372,7 @@ export default function ReceiptConfirmScreen() {
       }
     }
     router.back();
-  }, [deleteReceipt, receiptUploadId, screenState]);
+  }, [deleteReceipt, receiptUploadId]);
 
   const renderScanningOverlay = () => <ScanningOverlay />;
 
@@ -402,12 +411,7 @@ export default function ReceiptConfirmScreen() {
 
     switch (screenState) {
       case "uploading":
-        return (
-          <UploadingReceipt
-            photoUri={photoUri}
-            uploadProgress={uploadProgress}
-          />
-        );
+        return <UploadingReceipt photoUri={photoUri} />;
 
       case "processing":
         return (
@@ -480,14 +484,6 @@ export default function ReceiptConfirmScreen() {
       case "saving_session":
         return <SavingSession />;
 
-      case "session_saved":
-        return (
-          <SessionSaved
-            extractedTotal={extractedTotal}
-            monthlySessionCount={monthlySessionCount}
-          />
-        );
-
       default:
         return null;
     }
@@ -506,8 +502,6 @@ export default function ReceiptConfirmScreen() {
         return "Enter total";
       case "saving_session":
         return "Saving trip";
-      case "session_saved":
-        return "Trip saved";
       case "ocr_error":
       case "upload_error":
         return "Receipt help";
@@ -524,6 +518,7 @@ export default function ReceiptConfirmScreen() {
       <PageHeader
         title={getHeaderTitle()}
         onBack={handleCancel}
+        backDisabled={screenState === "saving_session"}
         backLabel="Back to shopping list"
       />
 

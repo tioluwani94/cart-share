@@ -49,8 +49,7 @@ export function CodeInput({
     }
 
     // Single character typed
-    const newValue =
-      value.slice(0, index) + cleanText + value.slice(index + 1);
+    const newValue = value.slice(0, index) + cleanText + value.slice(index + 1);
     onChange(newValue.slice(0, length));
 
     // Move to next input
@@ -61,7 +60,7 @@ export function CodeInput({
 
   const handleKeyPress = (
     e: NativeSyntheticEvent<TextInputKeyPressEventData>,
-    index: number
+    index: number,
   ) => {
     if (e.nativeEvent.key === "Backspace") {
       if (!value[index] && index > 0) {
@@ -108,7 +107,8 @@ export function CodeInput({
                 value={char}
                 onChangeText={(text) => handleChange(text, index)}
                 onKeyPress={(e) => handleKeyPress(e, index)}
-                maxLength={1}
+                // Allow the native paste payload through; handleChange caps the full code.
+                selectTextOnFocus
                 autoCapitalize="characters"
                 autoCorrect={false}
                 keyboardType="default"

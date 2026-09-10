@@ -4,6 +4,9 @@ import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 
 import { CreateListSheet } from "./CreateListSheet";
 
+const mockPush = jest.fn();
+const mockNavigate = jest.fn();
+const mockShowToast = jest.fn();
 const mockCreateList = jest.fn();
 const mockRecalculate = jest.fn();
 let mockIsOnline = true;
@@ -16,6 +19,10 @@ jest.mock("@/convex/_generated/api", () => ({
   },
 }));
 
+jest.mock("@/lib/AnalyticsContext", () => ({
+  useAnalytics: () => ({ track: jest.fn() }),
+}));
+
 jest.mock("convex/react", () => ({
   useQuery: () => ({ _id: "household_1" }),
   useMutation: (mutation: string) =>
@@ -23,13 +30,12 @@ jest.mock("convex/react", () => ({
 }));
 
 jest.mock("@/components/ui", () => {
-  const { Pressable, Text, TextInput, View } = jest.requireActual<
-    typeof import("react-native")
-  >("react-native");
-  const { formatCurrencyInput } = jest.requireActual<
-    typeof import("@/lib/formatters")
-  >("@/lib/formatters");
+  const { Pressable, Text, TextInput, View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  const { formatCurrencyInput } =
+    jest.requireActual<typeof import("@/lib/formatters")>("@/lib/formatters");
   return {
+    useToast: () => ({ showToast: mockShowToast }),
     Button: ({
       children,
       ...props
@@ -76,7 +82,7 @@ jest.mock("expo-haptics", () => ({
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush, navigate: mockNavigate }),
 }));
 
 jest.mock("@/lib/useNetworkStatus", () => ({
@@ -84,9 +90,8 @@ jest.mock("@/lib/useNetworkStatus", () => ({
 }));
 
 jest.mock("lucide-react-native", () => {
-  const { View } = jest.requireActual<typeof import("react-native")>(
-    "react-native",
-  );
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
   const Icon = () => <View />;
   return new Proxy({}, { get: () => Icon });
 });
@@ -94,10 +99,6 @@ jest.mock("lucide-react-native", () => {
 jest.mock("./CategoryChip", () => ({
   CATEGORIES: [],
   CategoryChip: () => null,
-}));
-
-jest.mock("./SuccessCelebration", () => ({
-  SuccessCelebration: () => null,
 }));
 
 describe("CreateListSheet", () => {
@@ -134,7 +135,6 @@ describe("CreateListSheet", () => {
         accessibilityLabel: "Create Next shop",
       });
       await (create.props as { onPress: () => Promise<void> }).onPress();
-      jest.runOnlyPendingTimers();
     });
 
     expect(mockCreateList).toHaveBeenCalledWith({
@@ -146,6 +146,8 @@ describe("CreateListSheet", () => {
       tripBudgetPence: undefined,
     });
     expect(mockRecalculate).toHaveBeenCalledWith({});
+    expect(mockNavigate).toHaveBeenCalledWith("/(tabs)/shop");
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("keeps list creation dismissible by refusing to start offline", () => {
@@ -201,8 +203,10 @@ describe("CreateListSheet", () => {
       expect.objectContaining({ tripBudgetPence: 123450 }),
     );
 
-    act(() => {
-      jest.runOnlyPendingTimers();
+    expect(mockPush).toHaveBeenCalledWith("/list/list_1");
+    expect(mockShowToast).toHaveBeenCalledWith({
+      message: "List created",
+      tone: "success",
     });
   });
 });

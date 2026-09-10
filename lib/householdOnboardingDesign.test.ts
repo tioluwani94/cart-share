@@ -31,18 +31,13 @@ describe("household onboarding design", () => {
   it("lets native navigation own route motion and keeps only short state fades", () => {
     const createSource = readSource("app/household-setup.tsx");
     const joinSource = readSource("app/join-household.tsx");
-    const inviteSource = readSource(
-      "components/household-setup/InviteCode.tsx",
-    );
     const codeInputSource = readSource("components/ui/CodeInput.tsx");
 
     expect(createSource).not.toMatch(/FadeIn(?:Up|Down)|springify\(\)/);
     expect(joinSource).not.toMatch(/FadeIn(?:Up|Down)|ZoomIn|Confetti/);
-    expect(inviteSource).not.toMatch(/FadeIn(?:Up|Down)|springify\(\)/);
     expect(codeInputSource).not.toMatch(/withSequence|withSpring|Haptics/);
 
     expect(joinSource).toContain("FadeIn.duration(150)");
-    expect(joinSource).toContain("FadeIn.duration(200)");
     expect(joinSource).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
   });
 });

@@ -504,63 +504,6 @@ function WelcomeButton({
   );
 }
 
-function StaticFinalArtwork({
-  onActionPress,
-  onPrimary,
-  onSecondary,
-  onTermsPress,
-  onPrivacyPress,
-  loadingActionId,
-  error,
-}: Pick<
-  OurPantryWelcomeProps,
-  | "onActionPress"
-  | "onPrimary"
-  | "onSecondary"
-  | "onTermsPress"
-  | "onPrivacyPress"
-  | "loadingActionId"
-  | "error"
->) {
-  return (
-    <View
-      testID="ourpantry-welcome-final"
-      style={{ position: "absolute", inset: 0 }}
-    >
-      <WelcomeShell
-        interactive
-        onActionPress={onActionPress}
-        onPrimary={onPrimary}
-        onSecondary={onSecondary}
-        onTermsPress={onTermsPress}
-        onPrivacyPress={onPrivacyPress}
-        loadingActionId={loadingActionId}
-        error={error}
-      />
-      {ASSETS.map((asset) => (
-        <View
-          key={`${asset.left}-${asset.top}`}
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            left: asset.left,
-            top: asset.top,
-            width: asset.width,
-            height: asset.height,
-            transform: [{ rotate: `${asset.rotate}deg` }],
-          }}
-        >
-          <Image
-            source={asset.source}
-            contentFit="contain"
-            style={{ width: "100%", height: "100%" }}
-          />
-        </View>
-      ))}
-    </View>
-  );
-}
-
 export function OurPantryWelcome({
   autoplay = true,
   replayKey = 0,
@@ -575,6 +518,7 @@ export function OurPantryWelcome({
   const reduceMotion = useReducedMotion();
   const shouldAnimate = autoplay && !reduceMotion;
   const [showFinalState, setShowFinalState] = useState(!shouldAnimate);
+  const [actionsReady, setActionsReady] = useState(!shouldAnimate);
   const reveal = useSharedValue(shouldAnimate ? 0 : 1);
   const assetOne = useSharedValue(shouldAnimate ? 0 : 1);
   const assetTwo = useSharedValue(shouldAnimate ? 0 : 1);
@@ -594,10 +538,12 @@ export function OurPantryWelcome({
       reveal.set(1);
       assetValues.forEach((value) => value.set(1));
       setShowFinalState(true);
+      setActionsReady(true);
       return;
     }
 
     setShowFinalState(false);
+    setActionsReady(false);
     reveal.set(0);
     assetValues.forEach((value) => value.set(0));
     reveal.set(
@@ -624,11 +570,20 @@ export function OurPantryWelcome({
       );
     });
 
+    const actionsTimer = setTimeout(
+      () => setActionsReady(true),
+      WELCOME_TIMELINE.crossfadeEndMs,
+    );
     const finalStateTimer = setTimeout(
       () => setShowFinalState(true),
       WELCOME_TIMELINE.finalSwapMs,
     );
-    return () => clearTimeout(finalStateTimer);
+    return () => {
+      clearTimeout(actionsTimer);
+      clearTimeout(finalStateTimer);
+      cancelAnimation(reveal);
+      assetValues.forEach(cancelAnimation);
+    };
   }, [assetValues, replayKey, reveal, shouldAnimate]);
 
   const launchStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.get() }));
@@ -685,57 +640,68 @@ export function OurPantryWelcome({
     <View style={{ flex: 1, backgroundColor: "#D95758" }}>
       <StatusBar animated={false} style="light" />
       <ReferenceCanvas>
-        {showFinalState ? (
-          <StaticFinalArtwork
-            onActionPress={onActionPress}
-            onPrimary={onPrimary}
-            onSecondary={onSecondary}
-            onTermsPress={onTermsPress}
-            onPrivacyPress={onPrivacyPress}
-            loadingActionId={loadingActionId}
-            error={error}
-          />
-        ) : (
-          <View
-            testID="ourpantry-welcome-animated"
-            pointerEvents="none"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={{ position: "absolute", inset: 0 }}
-          >
+        <View
+          testID={
+            showFinalState
+              ? "ourpantry-welcome-final"
+              : "ourpantry-welcome-animated"
+          }
+          style={{ position: "absolute", inset: 0 }}
+        >
+          {!showFinalState && (
             <Animated.View
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
               style={[{ position: "absolute", inset: 0 }, launchStyle]}
             >
               <LaunchArtwork />
             </Animated.View>
+          )}
+          <Animated.View
+            pointerEvents={actionsReady ? "auto" : "none"}
+            accessibilityElementsHidden={!actionsReady}
+            importantForAccessibility={
+              actionsReady ? "auto" : "no-hide-descendants"
+            }
+            style={[{ position: "absolute", inset: 0 }, shellStyle]}
+          >
+            <WelcomeShell
+              interactive={actionsReady}
+              onActionPress={onActionPress}
+              onPrimary={onPrimary}
+              onSecondary={onSecondary}
+              onTermsPress={onTermsPress}
+              onPrivacyPress={onPrivacyPress}
+              loadingActionId={loadingActionId}
+              error={error}
+            />
+          </Animated.View>
+          {ASSETS.map((asset, index) => (
             <Animated.View
-              style={[{ position: "absolute", inset: 0 }, shellStyle]}
+              key={`${asset.left}-${asset.top}`}
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                {
+                  position: "absolute",
+                  left: asset.left,
+                  top: asset.top,
+                  width: asset.width,
+                  height: asset.height,
+                },
+                assetStyles[index],
+              ]}
             >
-              <WelcomeShell interactive={false} />
+              <Image
+                source={asset.source}
+                contentFit="contain"
+                style={{ width: "100%", height: "100%" }}
+              />
             </Animated.View>
-            {ASSETS.map((asset, index) => (
-              <Animated.View
-                key={`${asset.left}-${asset.top}`}
-                style={[
-                  {
-                    position: "absolute",
-                    left: asset.left,
-                    top: asset.top,
-                    width: asset.width,
-                    height: asset.height,
-                  },
-                  assetStyles[index],
-                ]}
-              >
-                <Image
-                  source={asset.source}
-                  contentFit="contain"
-                  style={{ width: "100%", height: "100%" }}
-                />
-              </Animated.View>
-            ))}
-          </View>
-        )}
+          ))}
+        </View>
       </ReferenceCanvas>
     </View>
   );

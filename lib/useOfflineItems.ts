@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/expo";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -68,10 +68,7 @@ export function useOfflineItems(
 ) {
   const { userId } = useAuth();
   const scope = useMemo<OfflineScope | null>(
-    () =>
-      userId && householdId
-        ? { clerkUserId: userId, householdId }
-        : null,
+    () => (userId && householdId ? { clerkUserId: userId, householdId } : null),
     [householdId, userId],
   );
   const {
@@ -82,9 +79,6 @@ export function useOfflineItems(
     isOnline,
     processQueue,
   } = useScopedOfflineQueue(scope);
-
-  // Track items that are pending sync (by their temp ID or mutation ID)
-  const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(new Set());
 
   // Convex mutations for online mode
   const addItemMutation = useMutation(api.items.add);
@@ -105,7 +99,7 @@ export function useOfflineItems(
       setItem(cacheKey, updatedItems);
       setItem(timestampKey, Date.now());
     },
-    [listId]
+    [listId],
   );
 
   const getItemReference = useCallback(
@@ -125,11 +119,20 @@ export function useOfflineItems(
    * Add an item - works both online and offline
    */
   const addItem = useCallback(
-    async (name: string, options?: { quantity?: number; unit?: string; notes?: string; category?: string; estimatedPricePence?: number }) => {
+    async (
+      name: string,
+      options?: {
+        quantity?: number;
+        unit?: string;
+        notes?: string;
+        category?: string;
+        estimatedPricePence?: number;
+      },
+    ) => {
       const trimmedName = name.trim();
       if (!trimmedName) return;
 
-      if (isOnline) {
+      if (isOnline && queue.length === 0 && !isProcessing) {
         // Online: execute mutation directly
         await addItemMutation({
           listId,
@@ -153,6 +156,7 @@ export function useOfflineItems(
           unit: options?.unit,
           notes: options?.notes,
           category: options?.category,
+          estimatedPricePence: options?.estimatedPricePence,
           isCompleted: false,
           addedBy: "temp" as Id<"users">, // Will be set correctly when synced
           createdAt: now,
@@ -176,13 +180,18 @@ export function useOfflineItems(
         // Update cache with optimistic item
         updateCachedItems((items) => [...items, optimisticItem]);
 
-        // Track pending item
-        setPendingItemIds((prev) => new Set([...prev, tempId]));
-
         console.log("[OfflineItems] Added item offline:", trimmedName);
       }
     },
-    [isOnline, listId, addItemMutation, addToQueue, updateCachedItems]
+    [
+      isOnline,
+      isProcessing,
+      queue.length,
+      listId,
+      addItemMutation,
+      addToQueue,
+      updateCachedItems,
+    ],
   );
 
   /**
@@ -191,7 +200,7 @@ export function useOfflineItems(
   const toggleComplete = useCallback(
     async (itemId: Id<"items">) => {
       const isLocalOnlyItem = String(itemId).startsWith("temp_");
-      if (isOnline && !isLocalOnlyItem) {
+      if (isOnline && !isLocalOnlyItem && queue.length === 0 && !isProcessing) {
         // Online: execute mutation directly
         await toggleCompleteMutation({ itemId });
       } else {
@@ -219,11 +228,8 @@ export function useOfflineItems(
               };
             }
             return item;
-          })
+          }),
         );
-
-        // Track pending item
-        setPendingItemIds((prev) => new Set([...prev, itemId]));
 
         console.log("[OfflineItems] Toggled item offline:", itemId);
       }
@@ -232,6 +238,8 @@ export function useOfflineItems(
       addToQueue,
       getItemReference,
       isOnline,
+      isProcessing,
+      queue.length,
       listId,
       toggleCompleteMutation,
       updateCachedItems,
@@ -244,7 +252,7 @@ export function useOfflineItems(
   const removeItem = useCallback(
     async (itemId: Id<"items">) => {
       const isLocalOnlyItem = String(itemId).startsWith("temp_");
-      if (isOnline && !isLocalOnlyItem) {
+      if (isOnline && !isLocalOnlyItem && queue.length === 0 && !isProcessing) {
         // Online: execute mutation directly
         await removeItemMutation({ itemId });
       } else {
@@ -255,7 +263,9 @@ export function useOfflineItems(
         });
 
         // Update cache optimistically - remove the item
-        updateCachedItems((items) => items.filter((item) => item._id !== itemId));
+        updateCachedItems((items) =>
+          items.filter((item) => item._id !== itemId),
+        );
 
         console.log("[OfflineItems] Removed item offline:", itemId);
       }
@@ -264,6 +274,8 @@ export function useOfflineItems(
       addToQueue,
       getItemReference,
       isOnline,
+      isProcessing,
+      queue.length,
       removeItemMutation,
       updateCachedItems,
     ],
@@ -275,10 +287,17 @@ export function useOfflineItems(
   const updateItem = useCallback(
     async (
       itemId: Id<"items">,
-      updates: { name?: string; quantity?: number; unit?: string; notes?: string; category?: string; estimatedPricePence?: number | null }
+      updates: {
+        name?: string;
+        quantity?: number;
+        unit?: string;
+        notes?: string;
+        category?: string;
+        estimatedPricePence?: number | null;
+      },
     ) => {
       const isLocalOnlyItem = String(itemId).startsWith("temp_");
-      if (isOnline && !isLocalOnlyItem) {
+      if (isOnline && !isLocalOnlyItem && queue.length === 0 && !isProcessing) {
         // Online: execute mutation directly
         await updateItemMutation({ itemId, ...updates });
       } else {
@@ -294,11 +313,9 @@ export function useOfflineItems(
             if (item._id === itemId) {
               const optimisticUpdates = {
                 ...updates,
-                estimatedPricePence:
-                  updates.estimatedPricePence === null
-                    ? undefined
-                    : updates.estimatedPricePence,
-              };
+              } as Partial<OptimisticItem>;
+              if (updates.estimatedPricePence === null)
+                optimisticUpdates.estimatedPricePence = undefined;
               return {
                 ...item,
                 ...optimisticUpdates,
@@ -308,11 +325,8 @@ export function useOfflineItems(
               };
             }
             return item;
-          })
+          }),
         );
-
-        // Track pending item
-        setPendingItemIds((prev) => new Set([...prev, itemId]));
 
         console.log("[OfflineItems] Updated item offline:", itemId);
       }
@@ -321,6 +335,8 @@ export function useOfflineItems(
       addToQueue,
       getItemReference,
       isOnline,
+      isProcessing,
+      queue.length,
       updateItemMutation,
       updateCachedItems,
     ],
@@ -331,9 +347,6 @@ export function useOfflineItems(
    */
   const isPendingSync = useCallback(
     (itemId: Id<"items">): boolean => {
-      // Check if item ID is in pending set
-      if (pendingItemIds.has(itemId)) return true;
-
       // Check if there's a queued mutation for this item
       const reference = getItemReference(itemId);
       return queue.some((mutation) => {
@@ -351,13 +364,15 @@ export function useOfflineItems(
         );
       });
     },
-    [getItemReference, pendingItemIds, queue],
+    [getItemReference, queue],
   );
 
   const completeShop = useCallback(
     async (items: OptimisticItem[]) => {
       if (!householdId) {
-        throw new Error("Shop completion is unavailable until your household is loaded");
+        throw new Error(
+          "Shop completion is unavailable until your household is loaded",
+        );
       }
       const sessionDate = Date.now();
       const mode = getShopCompletionMode({
@@ -377,7 +392,9 @@ export function useOfflineItems(
           listId,
           operationId,
           sessionDate,
-          items: createShopCompletionSnapshot(items),
+          items: createShopCompletionSnapshot(
+            getItem<OptimisticItem[]>(getItemsCacheKey(listId)) ?? items,
+          ),
         },
       });
       return { mode, operationId, sessionDate } as const;
@@ -391,28 +408,6 @@ export function useOfflineItems(
       operation.args.listId === listId,
   );
 
-  /**
-   * Clear pending status for items that have been synced
-   */
-  useEffect(() => {
-    // When queue becomes empty and we were processing, clear all pending items
-    if (queue.length === 0 && !isProcessing && pendingItemIds.size > 0) {
-      setPendingItemIds(new Set());
-
-      // Also clear the isPendingSync flag from cached items
-      updateCachedItems((items) =>
-        items
-          // Remove optimistic items with temp IDs (they'll be replaced by real items)
-          .filter((item) => !String(item._id).startsWith("temp_"))
-          .map((item) => ({
-            ...item,
-            isPendingSync: false,
-            pendingMutationId: undefined,
-          }))
-      );
-    }
-  }, [queue.length, isProcessing, pendingItemIds.size, updateCachedItems]);
-
   return {
     // Operations
     addItem,
@@ -424,7 +419,11 @@ export function useOfflineItems(
     // Status
     isOnline,
     isPendingSync,
-    pendingCount: pendingItemIds.size,
+    pendingCount: queue.filter(
+      (operation) =>
+        "listId" in operation.args && operation.args.listId === listId,
+    ).length,
+    queue,
     isProcessing,
     hasSyncError,
     hasQueuedCompletion,

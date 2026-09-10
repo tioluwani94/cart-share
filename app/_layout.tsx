@@ -26,7 +26,7 @@ import { OfflineQueueProvider } from "@/lib/useScopedOfflineQueue";
 import type { OfflineScope } from "@/lib/offlineQueue";
 import { themeColors } from "@/lib/theme";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/expo";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { SessionSheetProvider } from "@/components/layout/SessionSheetProvider";
 import {
   Nunito_800ExtraBold,
   Nunito_900Black,
@@ -315,11 +315,13 @@ function ConvexClerkLayout() {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <AuthenticatedUserBoundary>
-        <SyncStatusProvider>
-          <AnalyticsProvider>
-            <InitialLayout />
-          </AnalyticsProvider>
-        </SyncStatusProvider>
+        <SessionSheetProvider>
+          <SyncStatusProvider>
+            <AnalyticsProvider>
+              <InitialLayout />
+            </AnalyticsProvider>
+          </SyncStatusProvider>
+        </SessionSheetProvider>
       </AuthenticatedUserBoundary>
     </ConvexProviderWithClerk>
   );
@@ -367,19 +369,17 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <StatusBar style="dark" />
-        <AccountDeletionCleanupBoundary>
-          <ClerkProvider
-            publishableKey={publishableKey}
-            tokenCache={clerkTokenCache}
-          >
-            <ClerkLoaded>
-              <ConvexClerkLayout />
-            </ClerkLoaded>
-          </ClerkProvider>
-        </AccountDeletionCleanupBoundary>
-      </BottomSheetModalProvider>
+      <StatusBar style="dark" />
+      <AccountDeletionCleanupBoundary>
+        <ClerkProvider
+          publishableKey={publishableKey}
+          tokenCache={clerkTokenCache}
+        >
+          <ClerkLoaded>
+            <ConvexClerkLayout />
+          </ClerkLoaded>
+        </ClerkProvider>
+      </AccountDeletionCleanupBoundary>
     </GestureHandlerRootView>
   );
 }

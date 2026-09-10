@@ -1,13 +1,22 @@
-import { useEffect, useRef, useMemo } from "react";
+import { applyPendingItemOperations } from "./optimisticItems";
+import type { OfflineOperation } from "./offlineQueue";
+import {
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  useSyncExternalStore,
+} from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useIsOnline } from "./useNetworkStatus";
 import {
+  storage,
+  getItemsCacheKey,
   cacheLists,
   getCachedLists,
   cacheItems,
-  getCachedItems,
   cacheListDetail,
   getCachedListDetail,
   cacheHousehold,
@@ -118,7 +127,7 @@ export function useCachedHousehold(
   const data =
     isOnline && household !== undefined
       ? household
-      : cachedHousehold ?? household;
+      : (cachedHousehold ?? household);
   return {
     data,
     isFromCache: cachedHousehold !== null && household === undefined,
@@ -167,7 +176,7 @@ export function useCachedList(
     return null;
   }, [clerkUserId, isOnline, list, listId]);
 
-  const data = isOnline && list !== undefined ? list : cachedList ?? list;
+  const data = isOnline && list !== undefined ? list : (cachedList ?? list);
   return {
     data,
     isFromCache: cachedList !== null && list === undefined,
@@ -182,7 +191,7 @@ export function useCachedList(
  * - Cache expires after 5 minutes when online
  */
 export function useCachedLists(
-  householdId: Id<"households"> | undefined
+  householdId: Id<"households"> | undefined,
 ): CachedQueryResult<ListWithCounts[]> {
   const isOnline = useIsOnline();
   const hasInitializedCache = useRef(false);
@@ -190,7 +199,7 @@ export function useCachedLists(
   // Fetch from Convex when online and householdId is available
   const lists = useQuery(
     api.lists.getByHousehold,
-    householdId && isOnline ? { householdId } : "skip"
+    householdId && isOnline ? { householdId } : "skip",
   );
 
   // Cache the lists when they're successfully loaded
@@ -238,65 +247,64 @@ export function useCachedLists(
   return { data, isFromCache, isLoading };
 }
 
-/**
- * Hook to fetch items for a list with MMKV caching support.
- * - Caches items to MMKV after successful query when online
- * - Returns cached data when offline
- * - Cache expires after 5 minutes when online
+const NO_PENDING_OPERATIONS: readonly OfflineOperation[] = [];
+
+/** Live cache updates offline; pending intent overlays server data until replay completes.
+ * Keep the last local snapshot while reconnecting rather than expiring unsynced work.
  */
 export function useCachedItems(
-  listId: Id<"lists"> | undefined
+  listId: Id<"lists"> | undefined,
+  operations: readonly OfflineOperation[] = NO_PENDING_OPERATIONS,
 ): CachedQueryResult<ItemWithUser[]> {
   const isOnline = useIsOnline();
-  const hasInitializedCache = useRef(false);
-
-  // Fetch from Convex when online and listId is available
   const items = useQuery(
     api.items.getByList,
-    listId && isOnline ? { listId } : "skip"
+    listId && isOnline ? { listId } : "skip",
+  );
+  const cacheKey = listId ? getItemsCacheKey(listId) : undefined;
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      const listener = storage.addOnValueChangedListener((key) => {
+        if (key === cacheKey) notify();
+      });
+      return () => listener.remove();
+    },
+    [cacheKey],
+  );
+  const readSnapshot = useCallback(
+    () => (cacheKey ? storage.getString(cacheKey) : undefined),
+    [cacheKey],
+  );
+  const cachedJSON = useSyncExternalStore(
+    subscribe,
+    readSnapshot,
+    readSnapshot,
+  );
+  const cachedItems = useMemo<ItemWithUser[] | undefined>(() => {
+    if (!cachedJSON) return undefined;
+    try {
+      return JSON.parse(cachedJSON);
+    } catch {
+      return undefined;
+    }
+  }, [cachedJSON]);
+  const serverItems = useMemo(
+    () =>
+      items && listId
+        ? applyPendingItemOperations(items, listId, operations)
+        : undefined,
+    [items, listId, operations],
   );
 
-  // Cache the items when they're successfully loaded
   useEffect(() => {
-    if (items && listId && isOnline) {
-      cacheItems(listId, items);
-    }
-  }, [items, listId, isOnline]);
+    if (isOnline && listId && serverItems) cacheItems(listId, serverItems);
+  }, [isOnline, listId, serverItems]);
 
-  // Get cached data for offline mode
-  const cachedItems = useMemo(() => {
-    if (!listId) return null;
-
-    if (!isOnline) {
-      // When offline, always use cache regardless of age
-      return getCachedItems<ItemWithUser[]>(listId, Infinity);
-    }
-
-    // When online, only use cache if query hasn't returned yet
-    if (items === undefined && !hasInitializedCache.current) {
-      hasInitializedCache.current = true;
-      return getCachedItems<ItemWithUser[]>(listId);
-    }
-
-    return null;
-  }, [listId, isOnline, items]);
-
-  // Determine the final data to return
-  const data = useMemo(() => {
-    // When online, prefer fresh data from query
-    if (isOnline && items !== undefined) {
-      return items;
-    }
-    // When offline or query is loading, use cached data
-    if (cachedItems !== null) {
-      return cachedItems;
-    }
-    // Return query data even if it's undefined (loading state)
-    return items;
-  }, [isOnline, items, cachedItems]);
-
-  const isFromCache = !isOnline && cachedItems !== null && items === undefined;
-  const isLoading = data === undefined;
-
-  return { data, isFromCache, isLoading };
+  const data =
+    isOnline && serverItems !== undefined ? serverItems : cachedItems;
+  return {
+    data,
+    isFromCache: data !== undefined && (!isOnline || items === undefined),
+    isLoading: data === undefined,
+  };
 }

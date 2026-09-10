@@ -7,7 +7,7 @@ function readSource(path: string) {
 describe("glass sheet composition", () => {
   it("uses one shared header hierarchy across list creation and shop finishing", () => {
     const createList = readSource("components/lists/CreateListSheet.tsx");
-    const shop = readSource("app/(tabs)/shop.tsx");
+    const shop = readSource("components/lists/FinishShopSheet.tsx");
 
     expect(createList).toContain("<GlassSheetHeader");
     expect(shop).toContain("<GlassSheetHeader");
@@ -15,7 +15,7 @@ describe("glass sheet composition", () => {
 
   it("uses the shared hierarchy without reintroducing legacy summary cards", () => {
     const categoryChip = readSource("components/lists/CategoryChip.tsx");
-    const shop = readSource("app/(tabs)/shop.tsx");
+    const shop = readSource("components/lists/FinishShopSheet.tsx");
 
     expect(categoryChip).toContain("border-separator bg-surface");
     expect(shop).toContain("Other ways to finish");
@@ -39,7 +39,7 @@ describe("glass sheet composition", () => {
   it("keeps glass as the only translucent layer behind ordinary controls", () => {
     const categoryChip = readSource("components/lists/CategoryChip.tsx");
     const editItem = readSource("components/lists/EditItemSheet.tsx");
-    const finishShop = readSource("app/(tabs)/shop.tsx");
+    const finishShop = readSource("components/lists/FinishShopSheet.tsx");
 
     expect(categoryChip).not.toContain("useIsOnGlassSurface");
     expect(categoryChip).not.toContain("bg-white/30");

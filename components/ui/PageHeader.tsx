@@ -21,6 +21,7 @@ interface PageHeaderProps {
   appearance?: "light" | "overlay";
   leadingIcon?: "back" | "close";
   backLabel?: string;
+  backDisabled?: boolean;
   trailing?: ReactNode;
 }
 
@@ -30,6 +31,7 @@ export function PageHeader({
   appearance = "light",
   leadingIcon = "back",
   backLabel = "Back",
+  backDisabled = false,
   trailing,
 }: PageHeaderProps) {
   const insets = useSafeAreaInsets();
@@ -70,6 +72,7 @@ export function PageHeader({
           size="sm"
           iconOnly
           onPress={onBack}
+          disabled={backDisabled}
           className="-ml-1"
           accessibilityLabel={backLabel}
           accessibilityHint="Returns to the previous screen"

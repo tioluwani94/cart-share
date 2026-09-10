@@ -1,19 +1,14 @@
-import { UploadProgressRing } from "@/components/ui";
-import { Image, Text, View } from "react-native";
+import { themeColors } from "@/lib/theme";
+import { ActivityIndicator, Image, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { RECEIPT_STATE_ENTER } from "./receiptStateMotion";
 
 interface UploadingReceiptProps {
   /** URI of the receipt photo to display */
   photoUri?: string;
-  /** Upload progress from 0 to 100 */
-  uploadProgress: number;
 }
 
-export const UploadingReceipt = ({
-  photoUri,
-  uploadProgress,
-}: UploadingReceiptProps) => {
+export const UploadingReceipt = ({ photoUri }: UploadingReceiptProps) => {
   return (
     <Animated.View entering={RECEIPT_STATE_ENTER} className="items-center">
       {photoUri && (
@@ -26,11 +21,10 @@ export const UploadingReceipt = ({
         </View>
       )}
 
-      <UploadProgressRing
-        progress={uploadProgress}
-        isUploading={true}
-        size={140}
-        strokeWidth={10}
+      <ActivityIndicator
+        size="large"
+        color={themeColors.coral}
+        accessibilityLabel="Uploading receipt"
       />
 
       <Text className="mt-6 text-center text-[17px] leading-6 text-ink-secondary">

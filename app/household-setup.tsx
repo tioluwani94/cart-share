@@ -1,10 +1,8 @@
-import { InviteCode } from "@/components/household-setup/InviteCode";
 import { OnboardingFormScreen } from "@/components/onboarding/OnboardingFormScreen";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { api } from "@/convex/_generated/api";
 import { useConvex, useMutation } from "convex/react";
-import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -22,10 +20,8 @@ export default function HouseholdSetupScreen() {
   const createHousehold = useMutation(api.households.create);
 
   const [householdName, setHouseholdName] = useState("");
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const handleCreate = async () => {
     if (!householdName.trim()) {
@@ -37,9 +33,9 @@ export default function HouseholdSetupScreen() {
     setError(null);
 
     try {
-      const result = await createHousehold({ name: householdName.trim() });
-      setInviteCode(result.inviteCode);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await createHousehold({ name: householdName.trim() });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/restock-setup");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong";
@@ -73,33 +69,6 @@ export default function HouseholdSetupScreen() {
       setIsCreating(false);
     }
   };
-
-  const handleCopyCode = async () => {
-    if (!inviteCode) return;
-
-    await Clipboard.setStringAsync(inviteCode);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleContinue = () => {
-    router.replace("/(tabs)");
-  };
-
-  // Show invite code screen after household is created
-  if (inviteCode) {
-    return (
-      <InviteCode
-        copied={copied}
-        inviteCode={inviteCode}
-        householdName={householdName}
-        handleContinue={handleContinue}
-        handleCopyCode={handleCopyCode}
-      />
-    );
-  }
 
   // Initial creation screen
   return (

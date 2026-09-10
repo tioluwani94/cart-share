@@ -65,16 +65,10 @@ jest.mock("react-native-reanimated", () => {
     },
     Easing: { out: (value: unknown) => value, quad: "quad" },
     Extrapolation: { CLAMP: "clamp" },
-    interpolate: (
-      _value: number,
-      _input: number[],
-      output: number[],
-    ) => output[0],
-    interpolateColor: (
-      _value: number,
-      _input: number[],
-      output: string[],
-    ) => output[0],
+    interpolate: (_value: number, _input: number[], output: number[]) =>
+      output[0],
+    interpolateColor: (_value: number, _input: number[], output: string[]) =>
+      output[0],
     runOnJS: (callback: (...args: unknown[]) => unknown) => callback,
     useAnimatedStyle: (factory: () => Record<string, unknown>) => factory(),
     useReducedMotion: () => false,
@@ -89,7 +83,9 @@ jest.mock("react-native-reanimated", () => {
 
 const itemId = "item-1" as Id<"items">;
 
-function renderListItem(overrides: Partial<React.ComponentProps<typeof ListItem>> = {}) {
+function renderListItem(
+  overrides: Partial<React.ComponentProps<typeof ListItem>> = {},
+) {
   let renderer!: ReactTestRenderer;
   act(() => {
     renderer = TestRenderer.create(
@@ -119,6 +115,46 @@ function pressByLabel(renderer: ReactTestRenderer, accessibilityLabel: string) {
 describe("ListItem swipe actions", () => {
   beforeEach(() => {
     mockShowToast.mockClear();
+  });
+
+  it("updates checked state immediately for partner changes and recycled rows", () => {
+    const onToggle = jest.fn();
+    const renderer = renderListItem({ onToggle, isSwipeOpen: false });
+    const checkbox = () =>
+      renderer.root.findByProps({ accessibilityRole: "checkbox" }).props as {
+        onPress: () => void;
+        accessibilityState: { checked: boolean };
+      };
+    expect(checkbox().accessibilityState.checked).toBe(false);
+    act(() => checkbox().onPress());
+    expect(onToggle).toHaveBeenCalledWith(itemId);
+    const props = {
+      id: itemId,
+      name: "Pasta",
+      isCompleted: false,
+      onToggle,
+      onDelete: jest.fn(async () => {}),
+      onEdit: jest.fn(),
+      isSwipeOpen: false,
+      onSwipeOpen: jest.fn(),
+      onSwipeClose: jest.fn(),
+    };
+    act(() => renderer.update(<ListItem {...props} isCompleted />));
+    expect(checkbox().accessibilityState.checked).toBe(true);
+    act(() =>
+      renderer.update(
+        <ListItem
+          {...props}
+          id={"another_item" as Id<"items">}
+          name="Milk"
+          isCompleted={false}
+        />,
+      ),
+    );
+    expect(checkbox().accessibilityState.checked).toBe(false);
+    act(() => checkbox().onPress());
+    expect(onToggle).toHaveBeenLastCalledWith("another_item");
+    act(() => renderer.unmount());
   });
 
   it("invokes Edit with the selected item's complete editable payload", () => {

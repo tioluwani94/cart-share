@@ -5,9 +5,6 @@ import { Keyboard, TextInput, View } from "react-native";
 import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
 import { themeColors } from "@/lib/theme";
 import { Button } from "@/components/ui/Button";
@@ -33,8 +30,6 @@ export function AddItemInput({
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Animation values
-  const inputOpacity = useSharedValue(1);
 
   // Keyboard animation
   const keyboard = useAnimatedKeyboard();
@@ -54,10 +49,6 @@ export function AddItemInput({
     ],
   }));
 
-  const inputAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: inputOpacity.value,
-  }));
-
   const handleSubmit = useCallback(async () => {
     Keyboard.dismiss();
 
@@ -72,12 +63,6 @@ export function AddItemInput({
       // Success haptic feedback
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      // Clear animation - subtle fade and scale
-      inputOpacity.value = withSequence(
-        withTiming(0.3, { duration: 100 }),
-        withTiming(1, { duration: 200 }),
-      );
-
       // Clear the input
       setValue("");
     } catch (error) {
@@ -87,13 +72,7 @@ export function AddItemInput({
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    value,
-    isSubmitting,
-    disabled,
-    onAdd,
-    inputOpacity,
-  ]);
+  }, [value, isSubmitting, disabled, onAdd]);
 
   const handleKeyboardSubmit = () => {
     void handleSubmit();
@@ -125,7 +104,7 @@ export function AddItemInput({
     >
       <View className="flex-row items-center gap-3">
         {/* Input field */}
-        <Animated.View style={[{ flex: 1 }, inputAnimatedStyle]}>
+        <View className="flex-1">
           <TextInput
             value={value}
             onChangeText={setValue}
@@ -143,7 +122,7 @@ export function AddItemInput({
             accessibilityLabel="Add item input"
             accessibilityHint="Enter the name of an item to add to your list"
           />
-        </Animated.View>
+        </View>
 
         {/* Add button */}
         <Button
@@ -154,11 +133,7 @@ export function AddItemInput({
           accessibilityLabel="Add item"
           accessibilityHint="Adds the entered item to this shopping list"
         >
-          <Plus
-            size={22}
-            color={themeColors.surface}
-            strokeWidth={2.5}
-          />
+          <Plus size={22} color={themeColors.surface} strokeWidth={2.5} />
         </Button>
       </View>
     </Animated.View>

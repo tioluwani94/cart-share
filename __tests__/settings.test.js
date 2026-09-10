@@ -452,6 +452,8 @@ describe("SettingsScreen", () => {
       await confirm.props.onPress();
     });
 
+    expect(mockDismissSignOutSheet).toHaveBeenCalled();
+    expect(mockDismissSignOutSheet.mock.invocationCallOrder[0]).toBeLessThan(mockDeleteAccount.mock.invocationCallOrder[0]);
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
     expect(mockMarkCleanupRequired).toHaveBeenCalledTimes(1);
     expect(mockClearAll).toHaveBeenCalledTimes(1);
@@ -464,6 +466,23 @@ describe("SettingsScreen", () => {
     expect(mockAnalyticsReset).toHaveBeenCalledTimes(1);
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockRouterReplace).toHaveBeenCalledWith("/(auth)/welcome");
+  });
+
+  it("keeps the confirmation mounted while paused queries and deletion are in flight", async () => {
+    let resolveDeletion;
+    mockDeleteAccount.mockImplementationOnce(() => new Promise(resolve => { resolveDeletion = resolve; }));
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<SettingsScreen />); });
+    let pending;
+    await act(async () => {
+      pending = renderer.root.findByProps({ accessibilityLabel: "Permanently delete your account" }).props.onPress();
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith("getCurrentHousehold", "skip");
+    expect(renderer.root.findByProps({ accessibilityLabel: "Permanently delete your account" }).props.loading).toBe(true);
+    expect(mockDismissSignOutSheet).toHaveBeenCalledWith({ duration: 0 });
+    await act(async () => { resolveDeletion(); await pending; });
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(auth)/welcome");
+    act(() => renderer.unmount());
   });
 
   it("stays in Settings when Clerk refuses account deletion", async () => {
@@ -488,6 +507,7 @@ describe("SettingsScreen", () => {
 
     expect(mockClearAll).not.toHaveBeenCalled();
     expect(mockCancelCleanupRequired).toHaveBeenCalledTimes(1);
+    expect(mockPresentSignOutSheet).toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(
       renderer.root.findByProps({ accessibilityRole: "alert" }).props.children,

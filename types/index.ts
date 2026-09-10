@@ -5,5 +5,4 @@ export type ScreenState =
   | "manual_entry"
   | "upload_error"
   | "ocr_error"
-  | "saving_session"
-  | "session_saved";
+  | "saving_session";

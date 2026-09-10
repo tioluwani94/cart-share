@@ -8,7 +8,7 @@ const mockReducedMotion = { current: false };
 const originalPlatformOS = Platform.OS;
 
 jest.mock("@/components/ui/Button", () => {
-  const { Pressable, Text } = require("react-native");
+  const { Pressable, Text } = jest.requireActual("react-native");
   return {
     Button: ({ children, ...props }) => (
       <Pressable {...props} accessibilityRole="button">
@@ -26,18 +26,18 @@ function setPlatformOS(os) {
 }
 
 jest.mock("expo-image", () => {
-  const { View } = require("react-native");
+  const { View } = jest.requireActual("react-native");
   return { Image: View };
 });
 
 jest.mock("expo-status-bar", () => {
-  const { View } = require("react-native");
+  const { View } = jest.requireActual("react-native");
   return { StatusBar: View };
 });
 
 jest.mock("react-native-reanimated", () => {
-  const React = require("react");
-  const { View } = require("react-native");
+  const React = jest.requireActual("react");
+  const { View } = jest.requireActual("react-native");
   return {
     __esModule: true,
     default: { View },
@@ -189,11 +189,14 @@ describe("OurPantryWelcome", () => {
     ]);
   });
 
-  it("keeps actions gated until the final swap and restarts for replayKey", () => {
+  it("enables sign-in before the artwork finishes without remounting the button", () => {
     let renderer;
+    const onActionPress = jest.fn();
 
     act(() => {
-      renderer = TestRenderer.create(<OurPantryWelcome replayKey="first" />);
+      renderer = TestRenderer.create(
+        <OurPantryWelcome replayKey="first" onActionPress={onActionPress} />,
+      );
     });
 
     expect(
@@ -205,9 +208,21 @@ describe("OurPantryWelcome", () => {
         .some((node) => typeof node.props.onPress === "function"),
     ).toBe(false);
 
-    act(() => {
-      jest.advanceTimersByTime(1733);
-    });
+    act(() => jest.advanceTimersByTime(800));
+    const google = renderer.root
+      .findAllByProps({ accessibilityLabel: "Continue with Google" })
+      .find((node) => typeof node.props.onPress === "function");
+    act(() => google.props.onPress());
+    expect(onActionPress).toHaveBeenCalledWith("ourpantry.continue-google");
+    expect(
+      renderer.root.findByProps({ testID: "ourpantry-welcome-animated" }),
+    ).toBeDefined();
+    act(() => jest.advanceTimersByTime(933));
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: "Continue with Google",
+      }),
+    ).toContain(google);
     expect(
       renderer.root.findByProps({ testID: "ourpantry-welcome-final" }),
     ).toBeDefined();

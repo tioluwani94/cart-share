@@ -4,8 +4,6 @@ export {
   type AmountInputPresentation,
   type AmountInputProps,
 } from "./AmountInput";
-export { Card, CardHeader, CardContent, CardFooter } from "./Card";
-export { Checkbox } from "./Checkbox";
 export { CodeInput } from "./CodeInput";
 export {
   EmptyStateCard,
@@ -44,5 +42,4 @@ export {
   type ToastStrategy,
   type ToastTone,
 } from "./Toast";
-export { UploadProgressRing } from "./UploadProgressRing";
 export { UserAvatar } from "./UserAvatar";

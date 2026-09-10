@@ -1,12 +1,9 @@
 import React from "react";
-import TestRenderer, {
-  act,
-  type ReactTestRenderer,
-} from "react-test-renderer";
+import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 
 import ReceiptConfirmScreen from "@/app/receipt-confirm";
 
-const mockCreateSession = jest.fn(async () => ({ sessionId: "session_1" }));
+const mockCreateSession = jest.fn();
 const mockDeleteReceipt = jest.fn(async () => undefined);
 const mockTrack = jest.fn();
 const mockRouter = {
@@ -88,19 +85,14 @@ jest.mock("@/components/ui", () => {
         <Text>{children}</Text>
       </Pressable>
     ),
-    PageHeader: ({
-      title,
-      onBack,
-    }: {
-      title: string;
-      onBack: () => void;
-    }) => (
+    PageHeader: ({ title, onBack }: { title: string; onBack: () => void }) => (
       <View>
         <Pressable accessibilityLabel="Back" onPress={onBack} />
         <Text>{title}</Text>
       </View>
     ),
     usePageHeaderHeight: () => 103,
+    useToast: () => ({ showToast: jest.fn() }),
   };
 });
 
@@ -116,9 +108,6 @@ jest.mock("react-native-reanimated", () => ({
   withTiming: <Value,>(value: Value) => value,
 }));
 
-jest.mock("@/components/receipt-confirm/ConfettiParticle", () => ({
-  ConfettiParticle: () => null,
-}));
 jest.mock("@/components/receipt-confirm/ManualEntry", () => {
   const { Pressable, Text, TextInput, View } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -146,18 +135,14 @@ jest.mock("@/components/receipt-confirm/ManualEntry", () => {
         >
           <Text>Continue</Text>
         </Pressable>
-        <Pressable accessibilityLabel="Skip financial details" onPress={handleSkip}>
+        <Pressable
+          accessibilityLabel="Skip financial details"
+          onPress={handleSkip}
+        >
           <Text>Skip</Text>
         </Pressable>
       </View>
     ),
-  };
-});
-jest.mock("@/components/receipt-confirm/SessionSaved", () => {
-  const { Text } =
-    jest.requireActual<typeof import("react-native")>("react-native");
-  return {
-    SessionSaved: () => <Text accessibilityLabel="Trip saved">Trip saved</Text>,
   };
 });
 
@@ -210,7 +195,10 @@ jest.mock("@/components/receipt-confirm/ScanSuccess", () => {
         >
           <Text>Partner</Text>
         </Pressable>
-        <Pressable accessibilityLabel="Save confirmed trip" onPress={handleConfirm}>
+        <Pressable
+          accessibilityLabel="Save confirmed trip"
+          onPress={handleConfirm}
+        >
           <Text>Save</Text>
         </Pressable>
       </View>
@@ -231,7 +219,7 @@ jest.mock("@/components/receipt-confirm/UploadingReceipt", () => {
 describe("ReceiptConfirmScreen manual completion", () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    mockCreateSession.mockClear();
+    mockCreateSession.mockReset().mockResolvedValue({ sessionId: "session_1" });
     mockDeleteReceipt.mockClear();
     mockTrack.mockClear();
     mockRouter.back.mockClear();
@@ -241,6 +229,63 @@ describe("ReceiptConfirmScreen manual completion", () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it("does not navigate after leaving while a save finishes", async () => {
+    let resolveSave!: (value: unknown) => void;
+    mockCreateSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<ReceiptConfirmScreen />);
+    });
+    let pending!: Promise<void>;
+    act(() => {
+      pending = (
+        renderer.root.findByProps({
+          accessibilityLabel: "Skip financial details",
+        }).props.onPress as () => Promise<void>
+      )();
+    });
+    act(() => renderer.unmount());
+    await act(async () => {
+      resolveSave({ sessionId: "session_1" });
+      await pending;
+    });
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it("restores entry after a save fails so the trip can be retried", async () => {
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockCreateSession.mockRejectedValueOnce(new Error("Connection lost"));
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<ReceiptConfirmScreen />);
+    });
+    await act(async () => {
+      await (
+        renderer.root.findByProps({
+          accessibilityLabel: "Skip financial details",
+        }).props.onPress as () => Promise<void>
+      )();
+    });
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    await act(async () => {
+      await (
+        renderer.root.findByProps({
+          accessibilityLabel: "Skip financial details",
+        }).props.onPress as () => Promise<void>
+      )();
+    });
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockRouter.replace).toHaveBeenCalledWith("/(tabs)/analytics");
+    act(() => renderer.unmount());
+    errorLog.mockRestore();
   });
 
   it("finishes the originating list without inventing financial data when skipped", async () => {
@@ -265,18 +310,13 @@ describe("ReceiptConfirmScreen manual completion", () => {
       totalAmount: undefined,
     });
     expect(mockRouter.back).not.toHaveBeenCalled();
-    expect(
-      renderer.root.findByProps({ accessibilityLabel: "Trip saved" }),
-    ).toBeTruthy();
     expect(mockTrack).toHaveBeenCalledWith("shop completed", {
       household_id: "household_1",
       item_count_bucket: "1-10",
       receipt_present: false,
       total_present: false,
     });
-    act(() => {
-      jest.advanceTimersByTime(2500);
-    });
+
     expect(mockRouter.replace).toHaveBeenCalledWith("/(tabs)/analytics");
   });
 
@@ -293,28 +333,29 @@ describe("ReceiptConfirmScreen manual completion", () => {
       (amount.props.onChangeText as (value: string) => void)("1,234.56"),
     );
     act(() => {
-      const onPress = renderer.root
-        .findByProps({ accessibilityLabel: "Continue manual amount" })
-        .props.onPress as () => void;
+      const onPress = renderer.root.findByProps({
+        accessibilityLabel: "Continue manual amount",
+      }).props.onPress as () => void;
       onPress();
     });
 
     act(() => {
-      const onChangeText = renderer.root
-        .findByProps({ accessibilityLabel: "Confirmation store" })
-        .props.onChangeText as (value: string) => void;
+      const onChangeText = renderer.root.findByProps({
+        accessibilityLabel: "Confirmation store",
+      }).props.onChangeText as (value: string) => void;
       onChangeText("Tesco Extra");
     });
     act(() => {
-      const onPress = renderer.root
-        .findByProps({ accessibilityLabel: "Choose partner payment source" })
-        .props.onPress as () => void;
+      const onPress = renderer.root.findByProps({
+        accessibilityLabel: "Choose partner payment source",
+      }).props.onPress as () => void;
       onPress();
     });
     await act(async () => {
-      await (renderer.root
-        .findByProps({ accessibilityLabel: "Save confirmed trip" })
-        .props.onPress as () => Promise<void>)();
+      await (
+        renderer.root.findByProps({ accessibilityLabel: "Save confirmed trip" })
+          .props.onPress as () => Promise<void>
+      )();
     });
 
     expect(mockCreateSession).toHaveBeenCalledWith({

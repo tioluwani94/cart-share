@@ -38,7 +38,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { RefreshControl, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import {
   SafeAreaView,
@@ -71,7 +71,6 @@ export default function PlanScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { onScroll, scrollY } = useCollapsibleHeader();
   const bottomSheetRef = useRef<GlassBottomSheetRef>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(false);
   const [choosingListId, setChoosingListId] = useState<Id<"lists"> | null>(
     null,
@@ -222,11 +221,6 @@ export default function PlanScreen() {
     [choosingListId, isOnline, recalculate, setNextShop],
   );
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 500);
-  }, []);
-
   if (
     household === undefined ||
     review === undefined ||
@@ -254,14 +248,6 @@ export default function PlanScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={themeColors.coral}
-            progressViewOffset={insets.top + 56}
-          />
-        }
       >
         <TabLargeTitle
           title="Plan"

@@ -8,7 +8,7 @@ export const WELCOME_TIMELINE = {
 } as const;
 
 export function isWelcomeInteractive(elapsedMs: number): boolean {
-  return elapsedMs >= WELCOME_TIMELINE.finalSwapMs;
+  return elapsedMs >= WELCOME_TIMELINE.crossfadeEndMs;
 }
 
 export function getWelcomePresentation({
@@ -26,6 +26,6 @@ export function getWelcomePresentation({
 
   return {
     showFinalState,
-    actionsEnabled: showFinalState,
+    actionsEnabled: bypassAnimation || isWelcomeInteractive(elapsedMs),
   };
 }

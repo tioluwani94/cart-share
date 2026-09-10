@@ -31,9 +31,7 @@ import { StorageKeys, getItem, removeItem, setItem } from "./storage";
 
 function getStoredQueue(scope: OfflineScope | null): OfflineOperation[] {
   if (!scope) return [];
-  return (
-    getItem<OfflineOperation[]>(getOfflineQueueStorageKey(scope)) ?? []
-  );
+  return getItem<OfflineOperation[]>(getOfflineQueueStorageKey(scope)) ?? [];
 }
 
 function saveQueue(scope: OfflineScope, queue: OfflineOperation[]): void {
@@ -44,9 +42,7 @@ function saveQueue(scope: OfflineScope, queue: OfflineOperation[]): void {
 
 function getStoredConflicts(scope: OfflineScope | null): OfflineConflict[] {
   if (!scope) return [];
-  return (
-    getItem<OfflineConflict[]>(getOfflineConflictStorageKey(scope)) ?? []
-  );
+  return getItem<OfflineConflict[]>(getOfflineConflictStorageKey(scope)) ?? [];
 }
 
 function saveConflicts(
@@ -111,15 +107,13 @@ function useOfflineQueueController(scope: OfflineScope | null) {
       }
 
       const operation = createOfflineOperation(scope, input);
-      setQueue((current) => {
-        const next = appendOfflineOperation(
-          current,
-          operation,
-          inFlightOperationIdsRef.current,
-        );
-        saveQueue(scope, next);
-        return next;
-      });
+      const next = appendOfflineOperation(
+        getStoredQueue(scope),
+        operation,
+        inFlightOperationIdsRef.current,
+      );
+      saveQueue(scope, next);
+      setQueue(next);
       return operation.id;
     },
     [scope],
@@ -200,9 +194,9 @@ function useOfflineQueueController(scope: OfflineScope | null) {
       remaining,
     } = replayResult;
 
-    const operationsQueuedDuringReplay = getStoredQueue(
-      processingScope,
-    ).filter((operation) => !replayIds.has(operation.id));
+    const operationsQueuedDuringReplay = getStoredQueue(processingScope).filter(
+      (operation) => !replayIds.has(operation.id),
+    );
     const nextQueue = [...remaining, ...operationsQueuedDuringReplay].sort(
       (a, b) => a.queuedAt - b.queuedAt,
     );
@@ -215,10 +209,7 @@ function useOfflineQueueController(scope: OfflineScope | null) {
     ];
     saveQueue(processingScope, nextQueue);
     saveConflicts(processingScope, nextConflicts);
-    if (
-      scopeRef.current &&
-      scopesMatch(scopeRef.current, processingScope)
-    ) {
+    if (scopeRef.current && scopesMatch(scopeRef.current, processingScope)) {
       setQueue(nextQueue);
       setConflicts(nextConflicts);
       setHasSyncError(failed > 0 || replayConflicts.length > 0);

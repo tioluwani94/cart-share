@@ -1,8 +1,10 @@
+import { FinishShopSheet } from "@/components/lists/FinishShopSheet";
+import { ShoppingListSummary } from "@/components/lists/ShoppingListSummary";
+import { canFinishShoppingList } from "@/lib/shoppingList";
 import emptyBasketArtwork from "@/assets/empty-states/empty-basket.png";
 import {
   AddItemInput,
   ArchiveConfirmDialog,
-  CompletionCelebration,
   EditItemSheet,
   ListItem,
   type ListItemEditPayload,
@@ -13,11 +15,10 @@ import {
   Button,
   EmptyStateCard,
   GlassBottomSheet,
-  GlassBottomSheetView,
+  GlassBottomSheetScrollView,
   GlassSheetHeader,
   type GlassBottomSheetRef,
   PageHeader,
-  ProgressBar,
   usePageHeaderHeight,
   useToast,
 } from "@/components/ui";
@@ -25,13 +26,13 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCachedList } from "@/lib/useCachedQuery";
 import { useShoppingList } from "@/lib/useShoppingList";
-import { getReceiptCaptureRoute } from "@/lib/receiptFlow";
 import {
   formatCurrencyFromPence,
   parseCurrencyInputToPence,
 } from "@/lib/formatters";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
 import { themeColors } from "@/lib/theme";
+import { getItemCountBucket } from "@/lib/analytics";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery } from "convex/react";
@@ -39,26 +40,13 @@ import { useAuth } from "@clerk/expo";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Archive,
-  ChevronDown,
+  Check,
   CloudOff,
   PoundSterling,
   SearchX,
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  RefreshControl,
-  Text,
-  View,
-} from "react-native";
-import Animated, {
-  FadeIn,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { ActivityIndicator, Keyboard, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Type for partner activity toast state
@@ -75,21 +63,21 @@ const PAGE_HEADER_CONTENT_CLEARANCE = 24;
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const listId = id as Id<"lists">;
+  return <ShoppingListDetail key={id} listId={id as Id<"lists">} />;
+}
+
+function ShoppingListDetail({ listId }: { listId: Id<"lists"> }) {
   const { userId } = useAuth();
   const pageHeaderHeight = usePageHeaderHeight();
   const { showToast } = useToast();
   const analytics = useAnalytics();
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [completedExpanded, setCompletedExpanded] = useState(true);
   const [editingItem, setEditingItem] = useState<ListItemEditPayload | null>(
     null,
   );
   const [openSwipeItemId, setOpenSwipeItemId] = useState<Id<"items"> | null>(
     null,
   );
-  const [showCelebration, setShowCelebration] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [tripBudgetInput, setTripBudgetInput] = useState("");
@@ -97,7 +85,6 @@ export default function ListDetailScreen() {
   const [isSavingTripBudget, setIsSavingTripBudget] = useState(false);
   const [partnerActivity, setPartnerActivity] =
     useState<PartnerActivity | null>(null);
-  const previousProgressRef = useRef<number | null>(null);
   const previousItemIdsRef = useRef<Set<string>>(new Set());
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flashListRef = useRef<any>(null);
@@ -114,50 +101,68 @@ export default function ListDetailScreen() {
     items,
     isFromCache,
     isLoading: itemsLoading,
-    uncompletedItems,
-    completedItems,
     totalItems,
     completedCount,
-    progress,
     plannedTotalPence,
     addItem: offlineAddItem,
     toggleComplete: offlineToggleComplete,
     removeItem: offlineRemoveItem,
     updateItem: offlineUpdateItem,
     isPendingSync,
+    isOnline,
+    queueLength,
+    hasQueuedCompletion,
+    completeShop,
+    hasSyncError,
+    isProcessing,
+    retrySync,
   } = useShoppingList(listId, list?.householdId);
 
   const archiveList = useMutation(api.lists.archive);
   const updateList = useMutation(api.lists.update);
 
-  // Animation for completed section
-  const expandedRotation = useSharedValue(completedExpanded ? 0 : -90);
-
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${expandedRotation.value}deg` }],
-  }));
-
-  const progressPercent = progress * 100;
-
-  // Detect when list becomes 100% complete
-  useEffect(() => {
-    // Skip on initial load (when previousProgressRef is null)
-    if (previousProgressRef.current === null) {
-      previousProgressRef.current = progressPercent;
-      return;
+  const finishSheetRef = useRef<GlassBottomSheetRef>(null);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const finishingRef = useRef(false);
+  const [completionQueued, setCompletionQueued] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const canFinish = canFinishShoppingList({
+    totalItems,
+    isFinishing,
+    hasQueuedCompletion,
+  });
+  const canScanReceipt =
+    canFinish && isOnline && queueLength === 0 && !hasQueuedCompletion;
+  const finishWithoutReceipt = async () => {
+    if (!canFinish || finishingRef.current || !list) return;
+    finishingRef.current = true;
+    setIsFinishing(true);
+    setFinishError(null);
+    try {
+      const result = await completeShop(items ?? []);
+      analytics.track("shop completed", {
+        household_id: list.householdId,
+        item_count_bucket: getItemCountBucket(totalItems),
+        total_present: false,
+        receipt_present: false,
+      });
+      finishSheetRef.current?.dismiss();
+      if (result.mode === "immediate") {
+        showToast({ message: "Shop saved", tone: "success" });
+        router.replace("/(tabs)");
+      } else {
+        setCompletionQueued(true);
+      }
+    } catch (error) {
+      console.error("Couldn't finish shop:", error);
+      setFinishError(
+        "We couldn't save this shop. Your list is still available.",
+      );
+    } finally {
+      finishingRef.current = false;
+      setIsFinishing(false);
     }
-
-    // Trigger celebration when transitioning to 100% from less than 100%
-    if (
-      progressPercent === 100 &&
-      previousProgressRef.current < 100 &&
-      totalItems > 0
-    ) {
-      setShowCelebration(true);
-    }
-
-    previousProgressRef.current = progressPercent;
-  }, [progressPercent, totalItems]);
+  };
 
   // Detect when partner adds an item (for partner activity toast)
   useEffect(() => {
@@ -196,10 +201,10 @@ export default function ListDetailScreen() {
   }, []);
 
   const handlePartnerToastPress = useCallback(() => {
-    if (!partnerActivity || !uncompletedItems) return;
+    if (!partnerActivity || !items) return;
 
-    // Find the index of the new item in the uncompleted items list
-    const itemIndex = uncompletedItems.findIndex(
+    // Find the index of the new item in the displayed list
+    const itemIndex = items.findIndex(
       (item) => item._id === partnerActivity.itemId,
     );
 
@@ -213,16 +218,7 @@ export default function ListDetailScreen() {
     }
 
     setPartnerActivity(null);
-  }, [partnerActivity, uncompletedItems]);
-
-  const handleDismissCelebration = useCallback(() => {
-    setShowCelebration(false);
-  }, []);
-
-  const handleScanReceipt = useCallback(async () => {
-    setShowCelebration(false);
-    router.push(getReceiptCaptureRoute(listId));
-  }, [listId]);
+  }, [partnerActivity, items]);
 
   const handleToggle = useCallback(
     async (itemId: Id<"items">) => {
@@ -287,10 +283,8 @@ export default function ListDetailScreen() {
       await archiveList({ listId });
       setShowArchiveDialog(false);
       showToast({ message: "List archived", tone: "success" });
-      // Navigate back after showing toast briefly
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      if (router.canGoBack()) router.back();
+      else router.replace("/(tabs)");
     } catch (error) {
       console.error("Failed to archive list:", error);
       setIsArchiving(false);
@@ -332,22 +326,6 @@ export default function ListDetailScreen() {
       setIsSavingTripBudget(false);
     }
   }, [listId, tripBudgetInput, updateList]);
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    // Convex queries auto-refresh, but we simulate a refresh for UX
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setRefreshing(false);
-  }, []);
-
-  const toggleCompletedSection = () => {
-    const newExpanded = !completedExpanded;
-    setCompletedExpanded(newExpanded);
-    expandedRotation.value = withSpring(newExpanded ? 0 : -90, {
-      damping: 15,
-      stiffness: 200,
-    });
-  };
 
   // Loading state (only show if we don't have any data - cached or fresh)
   if (list === undefined || (items === undefined && itemsLoading)) {
@@ -391,111 +369,81 @@ export default function ListDetailScreen() {
     );
   }
 
+  if (completionQueued || hasQueuedCompletion) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-background-light"
+        edges={["left", "right", "bottom"]}
+      >
+        <PageHeader
+          title="Shopping list"
+          onBack={() =>
+            router.canGoBack() ? router.back() : router.replace("/(tabs)")
+          }
+        />
+        <View
+          className="flex-1 justify-center px-6"
+          style={{ paddingTop: pageHeaderHeight }}
+        >
+          <EmptyStateCard
+            title="Shop saved"
+            description={
+              hasSyncError
+                ? "We couldn't sync this shop yet. It's still safely saved on this device."
+                : "Your shop is saved on this device and will sync when you're connected."
+            }
+          />
+          {hasSyncError && (
+            <Button
+              className="mt-4"
+              onPress={() => void retrySync()}
+              disabled={!isOnline || isProcessing}
+              loading={isProcessing}
+            >
+              Retry sync
+            </Button>
+          )}
+          <Button className="mt-4" onPress={() => router.replace("/(tabs)")}>
+            Go to Plan
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView
       className="flex-1 bg-background-light"
       edges={["left", "right", "bottom"]}
     >
       <PageHeader
-        title={list.name}
-        onBack={() => router.back()}
+        title="Shopping list"
+        onBack={() =>
+          router.canGoBack() ? router.back() : router.replace("/(tabs)")
+        }
         trailing={
           <Button
-            onPress={handleArchivePress}
-            variant="ghost"
+            onPress={() => {
+              setFinishError(null);
+              finishSheetRef.current?.present();
+            }}
+            disabled={!canFinish || completionQueued}
+            variant="tonal"
             size="sm"
             iconOnly
-            className="border border-separator bg-surface"
-            accessibilityLabel="Archive list"
-            accessibilityHint="Opens a confirmation before archiving this list"
+            accessibilityLabel="Finish shopping"
+            accessibilityHint="Opens receipt and finish options"
           >
-            <Archive
-              size={22}
-              color={themeColors.secondaryInk}
-              strokeWidth={2}
-            />
+            <Check size={21} color={themeColors.coral} strokeWidth={2.5} />
           </Button>
         }
       />
-
-      <View
-        className="border-b border-separator px-6 pb-4"
-        style={{
-          paddingTop: pageHeaderHeight + PAGE_HEADER_CONTENT_CLEARANCE,
-        }}
-      >
-        <View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[15px] text-ink-secondary">
-              {completedCount} of {totalItems} items
-            </Text>
-            {progressPercent === 100 && totalItems > 0 && (
-              <Animated.View
-                entering={FadeIn.duration(300)}
-                className="rounded-full bg-teal/20 px-3 py-1"
-              >
-                <Text className="text-sm font-semibold text-teal">
-                  All done!
-                </Text>
-              </Animated.View>
-            )}
-          </View>
-
-          <View className="mt-2 flex-row">
-            <ProgressBar
-              value={completedCount}
-              max={totalItems}
-              size="compact"
-              accessibilityLabel="Shopping progress"
-              accessibilityText={`${completedCount} of ${totalItems} items complete`}
-            />
-          </View>
-
-          <View className="mt-3 flex-row flex-wrap gap-2">
-            {plannedTotalPence > 0 && (
-              <View className="rounded-full bg-teal/10 px-3 py-1.5">
-                <Text className="text-sm font-medium text-teal">
-                  Planned {formatCurrencyFromPence(plannedTotalPence)}
-                </Text>
-              </View>
-            )}
-            <Pressable
-              onPress={handleOpenBudgetEditor}
-              className="min-h-12 justify-center rounded-full bg-coral/10 px-3 py-1.5"
-              accessibilityRole="button"
-              accessibilityLabel={
-                list.tripBudgetPence === undefined
-                  ? "Set trip budget"
-                  : "Edit trip budget"
-              }
-            >
-              <Text className="text-sm font-medium text-coral">
-                {list.tripBudgetPence === undefined
-                  ? "Set trip budget"
-                  : `Budget ${formatCurrencyFromPence(list.tripBudgetPence)}`}
-              </Text>
-            </Pressable>
-          </View>
-
-          {isFromCache && (
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              className="mt-3 flex-row items-center rounded-lg bg-yellow/20 px-3 py-2"
-            >
-              <CloudOff size={14} color="#CA8A04" strokeWidth={2} />
-              <Text className="ml-2 text-xs text-yellow-700">
-                Showing cached items (offline)
-              </Text>
-            </Animated.View>
-          )}
-        </View>
-      </View>
 
       {/* Items list */}
       <FlashList
         {...keyboardDismissScrollProps}
         ref={flashListRef}
-        data={uncompletedItems}
+        data={items ?? []}
         renderItem={({ item }) => (
           <ListItem
             id={item._id}
@@ -518,78 +466,63 @@ export default function ListDetailScreen() {
         )}
         keyExtractor={(item) => item._id}
         contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 100,
+          paddingHorizontal: 24,
+          paddingTop: pageHeaderHeight + PAGE_HEADER_CONTENT_CLEARANCE,
+          paddingBottom: 120,
         }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#FF6B6B"
-            colors={["#FF6B6B"]}
-          />
-        }
         onScrollBeginDrag={() => setOpenSwipeItemId(null)}
-        ListEmptyComponent={
-          completedItems.length === 0 ? (
-            <EmptyStateCard
-              title="No items yet"
-              description="Add the first thing you need for this shop."
-              artworkSource={emptyBasketArtwork}
-              density="compact"
-              className="mt-8"
+        ListHeaderComponent={
+          <View className="pb-4">
+            <ShoppingListSummary
+              title={list.name}
+              description="Your focused shopping list"
+              completedCount={completedCount}
+              totalCount={totalItems}
+              plannedTotalPence={plannedTotalPence}
+              tripBudgetPence={list.tripBudgetPence}
             />
-          ) : null
-        }
-        ListFooterComponent={
-          completedItems.length > 0 ? (
-            <View className="mt-4">
-              {/* Completed section header */}
-              <Pressable
-                onPress={toggleCompletedSection}
-                className="mb-3 flex-row items-center"
-                accessibilityRole="button"
-                accessibilityLabel={`${completedExpanded ? "Collapse" : "Expand"} completed items`}
+            <View className="mt-4 flex-row gap-2">
+              <Button
+                variant="tonal"
+                size="sm"
+                onPress={handleOpenBudgetEditor}
+                accessibilityLabel="Edit trip budget"
               >
-                <Animated.View style={chevronStyle}>
-                  <ChevronDown size={20} color="#78716C" strokeWidth={2} />
-                </Animated.View>
-                <Text className="ml-2 text-base font-semibold text-warm-gray-600">
-                  Done! ({completedItems.length})
-                </Text>
-              </Pressable>
-
-              {/* Completed items */}
-              {completedExpanded && (
-                <Animated.View entering={FadeIn.duration(200)}>
-                  {completedItems.map((item) => (
-                    <ListItem
-                      key={item._id}
-                      id={item._id}
-                      name={item.name}
-                      quantity={item.quantity}
-                      unit={item.unit}
-                      notes={item.notes}
-                      category={item.category}
-                      estimatedPricePence={item.estimatedPricePence}
-                      isCompleted={item.isCompleted}
-                      addedByUser={item.addedByUser}
-                      isPendingSync={
-                        item.isPendingSync || isPendingSync(item._id)
-                      }
-                      onToggle={handleToggle}
-                      onDelete={handleDelete}
-                      onEdit={handleEdit}
-                      isSwipeOpen={openSwipeItemId === item._id}
-                      onSwipeOpen={handleSwipeOpen}
-                      onSwipeClose={handleSwipeClose}
-                    />
-                  ))}
-                </Animated.View>
-              )}
+                {list.tripBudgetPence === undefined
+                  ? "Set trip budget"
+                  : `Budget ${formatCurrencyFromPence(list.tripBudgetPence)}`}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={handleArchivePress}
+                disabled={!isOnline || isArchiving || hasQueuedCompletion}
+                accessibilityLabel="Archive list"
+              >
+                <Archive size={18} color={themeColors.secondaryInk} />
+                <Text className="ml-2 text-sm text-ink-secondary">Archive</Text>
+              </Button>
             </View>
-          ) : null
+            {(isFromCache || !isOnline || queueLength > 0) && (
+              <View className="mt-3 flex-row items-start rounded-xl border border-yellow/50 bg-yellow/20 px-3 py-2.5">
+                <CloudOff size={17} color={themeColors.warningInk} />
+                <Text className="ml-2 flex-1 text-sm leading-5 text-yellow-900">
+                  {!isOnline
+                    ? "Offline changes are saved on this device. You can finish now and sync later."
+                    : "Showing saved items while your changes sync."}
+                </Text>
+              </View>
+            )}
+          </View>
+        }
+        ListEmptyComponent={
+          <EmptyStateCard
+            title="Add the first thing you need"
+            description="Type below. Everyone in the household will see it."
+            artworkSource={emptyBasketArtwork}
+            density="compact"
+            className="mt-8"
+          />
         }
       />
 
@@ -610,7 +543,7 @@ export default function ListDetailScreen() {
         snapPoints={["44%"]}
         dismissible={!isSavingTripBudget}
       >
-        <GlassBottomSheetView className="px-6 pb-10 pt-2">
+        <GlassBottomSheetScrollView className="px-6 pb-10 pt-2">
           <GlassSheetHeader
             title="Trip budget"
             description="Set a calm spending guide for this shop. Leave it empty to remove the budget."
@@ -636,14 +569,27 @@ export default function ListDetailScreen() {
           >
             Save budget
           </Button>
-        </GlassBottomSheetView>
+        </GlassBottomSheetScrollView>
       </GlassBottomSheet>
 
-      {/* Completion celebration overlay */}
-      <CompletionCelebration
-        visible={showCelebration}
-        onDismiss={handleDismissCelebration}
-        onScanReceipt={handleScanReceipt}
+      <FinishShopSheet
+        ref={finishSheetRef}
+        listId={listId}
+        completedCount={completedCount}
+        totalCount={totalItems}
+        canFinish={canFinish}
+        canScanReceipt={canScanReceipt}
+        isFinishing={isFinishing}
+        finishUnavailableMessage={
+          hasQueuedCompletion
+            ? "This shop is already waiting to sync."
+            : totalItems === 0
+              ? "Add at least one item before finishing this shop."
+              : null
+        }
+        finishError={finishError}
+        onClose={() => finishSheetRef.current?.dismiss()}
+        onFinishWithoutReceipt={finishWithoutReceipt}
       />
 
       {/* Archive confirmation dialog */}

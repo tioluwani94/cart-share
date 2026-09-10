@@ -140,10 +140,17 @@ export default function SettingsScreen() {
   const analytics = useAnalytics();
   const canQueryAuthenticatedData =
     isConvexAuthenticated && !isSigningOut && !isDeletingAccount;
-  const household = useQuery(
+  const queriedHousehold = useQuery(
     api.households.getCurrentHousehold,
     canQueryAuthenticatedData ? {} : "skip",
   );
+  // Keep the sheet mounted while authenticated queries are paused for deletion/sign-out.
+  const lastHousehold = useRef(queriedHousehold);
+  if (queriedHousehold !== undefined) lastHousehold.current = queriedHousehold;
+  const household =
+    isSigningOut || isDeletingAccount
+      ? lastHousehold.current
+      : queriedHousehold;
   const preferences = useQuery(
     api.notifications.getPreferences,
     canQueryAuthenticatedData ? {} : "skip",
@@ -424,6 +431,7 @@ export default function SettingsScreen() {
         console.warn("Couldn't disable push tokens before sign out:", error);
       }
       await analytics.reset();
+      signOutSheetRef.current?.dismiss({ duration: 0 });
       await signOut();
     } catch (error) {
       console.error("Sign out failed:", error);
@@ -487,6 +495,8 @@ export default function SettingsScreen() {
 
       await markAccountDeletionCleanupRequired();
       cleanupMarked = true;
+      // Deletion can invalidate the session and unmount Settings before it resolves.
+      deleteAccountSheetRef.current?.dismiss({ duration: 0 });
       await clerkUser.delete();
       accountDeleted = true;
       try {
@@ -544,6 +554,7 @@ export default function SettingsScreen() {
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsDeletingAccount(false);
+      deleteAccountSheetRef.current?.present();
     }
   }, [
     analytics,

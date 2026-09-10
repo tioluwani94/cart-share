@@ -1,17 +1,18 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import Animated, {
   useReducedMotion,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  Easing,
+  cancelAnimation,
   withTiming,
 } from "react-native-reanimated";
 import { cn } from "@/lib/cn";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNetworkStatus } from "../../lib/useNetworkStatus";
-import { useSyncStatusSafe, SyncStatus } from "../../lib/SyncStatusContext";
+import { useSyncStatusSafe } from "../../lib/SyncStatusContext";
 
 /**
  * Cloud icon for offline state
@@ -56,7 +57,13 @@ interface OfflineIndicatorProps {
 /**
  * Banner state types for UI rendering.
  */
-type BannerState = "hidden" | "offline" | "syncing" | "synced" | "online";
+type BannerState =
+  | "hidden"
+  | "offline"
+  | "syncing"
+  | "synced"
+  | "online"
+  | "error";
 
 /**
  * OfflineIndicator - A friendly banner that shows when the user is offline
@@ -75,105 +82,79 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
   const reduceMotion = useReducedMotion();
   const syncStatus = syncStatusContext?.status ?? "idle";
   const [bannerState, setBannerState] = useState<BannerState>("hidden");
-  const [previousSyncStatus, setPreviousSyncStatus] = useState<SyncStatus>("idle");
-
-  // Animation values
-  const translateY = useSharedValue(-100);
+  const previousStatus = useRef({
+    isConnected: true,
+    syncStatus: "idle",
+    justCameOnline: false,
+  });
+  const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
-
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
     opacity: opacity.value,
   }));
 
-  // Show the banner with animation
-  const showBanner = useCallback(() => {
-    if (reduceMotion) {
-      translateY.value = 0;
-      opacity.value = 1;
-      return;
-    }
-    translateY.value = withSpring(0, {
-      damping: 15,
-      stiffness: 150,
-    });
-    opacity.value = withTiming(1, { duration: 200 });
-  }, [opacity, reduceMotion, translateY]);
-
-  // Hide the banner with animation
-  const hideBanner = useCallback(() => {
-    if (reduceMotion) {
-      translateY.value = -100;
-      opacity.value = 0;
-      setBannerState("hidden");
-      return;
-    }
-    translateY.value = withSpring(-100, {
-      damping: 15,
-      stiffness: 150,
-    });
-    opacity.value = withTiming(0, { duration: 200 });
-    // Reset state after animation
-    setTimeout(() => {
-      setBannerState("hidden");
-    }, 300);
-  }, [opacity, reduceMotion, translateY]);
-
-  // Handle offline state
   useEffect(() => {
     onStatusChange?.(isConnected);
+  }, [isConnected, onStatusChange]);
 
-    if (!isConnected) {
-      // Show offline banner
-      setBannerState("offline");
-      showBanner();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
-  }, [isConnected, onStatusChange, showBanner]);
-
-  // Handle sync status changes
   useEffect(() => {
-    // Detect transition to syncing
-    if (syncStatus === "syncing" && previousSyncStatus !== "syncing") {
-      setBannerState("syncing");
-      showBanner();
-    }
-
-    // Detect transition to synced
-    if (syncStatus === "synced" && previousSyncStatus === "syncing") {
+    const previous = previousStatus.current;
+    previousStatus.current = { isConnected, syncStatus, justCameOnline };
+    if (!isConnected) setBannerState("offline");
+    else if (syncStatus === "syncing") setBannerState("syncing");
+    else if (syncStatus === "error") setBannerState("error");
+    else if (syncStatus === "synced" && previous.syncStatus !== "synced")
       setBannerState("synced");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Hide after showing success for 2 seconds
-      setTimeout(() => {
-        hideBanner();
-      }, 2000);
-    }
-
-    // Detect transition back to idle (no pending mutations, online)
-    if (syncStatus === "idle" && previousSyncStatus === "synced") {
-      // Already hidden by the synced timeout
-    }
-
-    // Handle when coming online with no pending items
-    if (justCameOnline && syncStatus === "idle" && bannerState === "offline") {
-      // Just came online, no sync needed
+    else if (
+      !previous.isConnected ||
+      (justCameOnline && !previous.justCameOnline)
+    )
       setBannerState("online");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => {
-        hideBanner();
+    else if (
+      syncStatus === "idle" &&
+      (previous.syncStatus === "error" || previous.syncStatus === "syncing")
+    )
+      setBannerState("hidden");
+  }, [isConnected, justCameOnline, syncStatus]);
+
+  // Each visible status owns its timers. A newer warning cancels both the dwell
+  // and the dismissal of the previous status, including during an exit fade.
+  useEffect(() => {
+    let dismissTimer: ReturnType<typeof setTimeout> | undefined;
+    let hiddenTimer: ReturnType<typeof setTimeout> | undefined;
+    const easing = Easing.bezier(0.23, 1, 0.32, 1);
+    if (bannerState === "hidden") {
+      opacity.value = 0;
+      return;
+    }
+    translateY.value = reduceMotion
+      ? 0
+      : withTiming(0, { duration: 180, easing });
+    opacity.value = withTiming(1, { duration: 180, easing });
+    if (["offline", "error", "online", "synced"].includes(bannerState)) {
+      void Haptics.notificationAsync(
+        bannerState === "offline" || bannerState === "error"
+          ? Haptics.NotificationFeedbackType.Warning
+          : Haptics.NotificationFeedbackType.Success,
+      );
+    }
+    if (bannerState === "online" || bannerState === "synced") {
+      dismissTimer = setTimeout(() => {
+        translateY.value = reduceMotion
+          ? 0
+          : withTiming(-8, { duration: 150, easing });
+        opacity.value = withTiming(0, { duration: 150, easing });
+        hiddenTimer = setTimeout(() => setBannerState("hidden"), 150);
       }, 2000);
     }
-
-    setPreviousSyncStatus(syncStatus);
-  }, [
-    bannerState,
-    hideBanner,
-    justCameOnline,
-    previousSyncStatus,
-    showBanner,
-    syncStatus,
-  ]);
+    return () => {
+      clearTimeout(dismissTimer);
+      clearTimeout(hiddenTimer);
+      cancelAnimation(translateY);
+      cancelAnimation(opacity);
+    };
+  }, [bannerState, opacity, reduceMotion, translateY]);
 
   // Get banner content based on state
   const getBannerConfig = () => {
@@ -182,6 +163,13 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
         return {
           icon: <CloudOffIcon />,
           message: "You're offline — no worries, we've got your list!",
+          bgClass: "bg-yellow",
+          textClass: "text-warm-gray-800",
+        };
+      case "error":
+        return {
+          icon: <CloudOffIcon />,
+          message: "Changes are saved on this device. Sync needs another try.",
           bgClass: "bg-yellow",
           textClass: "text-warm-gray-800",
         };
@@ -221,10 +209,7 @@ export function OfflineIndicator({ onStatusChange }: OfflineIndicatorProps) {
   return (
     <Animated.View
       style={[animatedStyle, { paddingTop: insets.top }]}
-      className={cn(
-        "absolute inset-x-0 top-0 z-50 shadow-lg",
-        config.bgClass,
-      )}
+      className={cn("absolute inset-x-0 top-0 z-50 shadow-lg", config.bgClass)}
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       accessibilityLabel={config.message}

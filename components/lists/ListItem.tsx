@@ -6,10 +6,6 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-  withSequence,
-  withDelay,
-  withRepeat,
-  interpolateColor,
   runOnJS,
   interpolate,
   Extrapolation,
@@ -91,9 +87,7 @@ function SwipeActionButton({
   const pressProgress = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(pressProgress.value, [0, 1], [1, 0.84]),
-    transform: [
-      { scale: interpolate(pressProgress.value, [0, 1], [1, 0.97]) },
-    ],
+    transform: [{ scale: interpolate(pressProgress.value, [0, 1], [1, 0.97]) }],
   }));
 
   const setPressed = (pressed: boolean) => {
@@ -154,30 +148,6 @@ export function ListItem({
   const reduceMotion = useReducedMotion();
   const { showToast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
-  const scale = useSharedValue(1);
-  const fillProgress = useSharedValue(isCompleted ? 1 : 0);
-  const checkmarkProgress = useSharedValue(isCompleted ? 1 : 0);
-  const textOpacity = useSharedValue(isCompleted ? 0.7 : 1);
-  // Sync indicator animation
-  const syncRotation = useSharedValue(0);
-
-  // Animate sync icon rotation when pending
-  useEffect(() => {
-    if (isPendingSync && !reduceMotion) {
-      syncRotation.value = withRepeat(
-        withTiming(360, { duration: 1500 }),
-        -1, // Infinite repeat
-        false, // Don't reverse
-      );
-    } else {
-      syncRotation.value = 0;
-    }
-  }, [isPendingSync, reduceMotion, syncRotation]);
-
-  const syncIconStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${syncRotation.value}deg` }],
-  }));
-
   // Swipe gesture values
   const translateX = useSharedValue(0);
   const gestureStartX = useSharedValue(0);
@@ -200,84 +170,20 @@ export function ListItem({
   };
 
   const handleToggle = () => {
-    const newCompleted = !isCompleted;
-
-    if (newCompleted) {
-      if (reduceMotion) {
-        scale.value = 1;
-        fillProgress.value = 1;
-        checkmarkProgress.value = 1;
-        textOpacity.value = 0.7;
-        triggerHaptic();
-        onToggle(id);
-        return;
-      }
-      // Checking animation: short scale pulse
-      scale.value = withSequence(
-        withTiming(1.06, {
-          duration: 100,
-          easing: Easing.out(Easing.quad),
-        }),
-        withTiming(1, {
-          duration: 140,
-          easing: Easing.out(Easing.quad),
-        }),
-      );
-      fillProgress.value = withTiming(1, { duration: 200 });
-      checkmarkProgress.value = withTiming(1, { duration: 250 });
-      // The native text decoration stays aligned with every font size.
-      textOpacity.value = withDelay(100, withTiming(0.7, { duration: 200 }));
-      runOnJS(triggerHaptic)();
-    } else {
-      // Unchecking animation
-      fillProgress.value = reduceMotion
-        ? 0
-        : withTiming(0, { duration: 150 });
-      checkmarkProgress.value = reduceMotion
-        ? 0
-        : withTiming(0, { duration: 100 });
-      textOpacity.value = reduceMotion
-        ? 1
-        : withTiming(1, { duration: 150 });
-    }
-
+    triggerHaptic();
     onToggle(id);
   };
 
-  const checkboxContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  // Follow props so partner updates and recycled rows stay visually correct.
+  const checkboxFillStyle = {
+    backgroundColor: isCompleted ? themeColors.teal : "transparent",
+    borderColor: isCompleted ? themeColors.teal : themeColors.disabled,
+  };
+  const checkmarkStyle = { opacity: isCompleted ? 1 : 0 };
+  const textCompletionStyle = { opacity: isCompleted ? 0.7 : 1 };
 
-  const checkboxFillStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      fillProgress.value,
-      [0, 1],
-      ["transparent", themeColors.teal],
-    ),
-    borderColor: interpolateColor(
-      fillProgress.value,
-      [0, 1],
-      [themeColors.disabled, themeColors.teal],
-    ),
-  }));
-
-  const checkmarkStyle = useAnimatedStyle(() => ({
-    opacity: checkmarkProgress.value,
-    transform: [
-      { scale: checkmarkProgress.value },
-      { rotate: `${-5 + checkmarkProgress.value * 5}deg` },
-    ],
-  }));
-
-  const textAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-  }));
-
-  // Close swipe actions
   const closeSwipe = useCallback(() => {
-    translateX.value = reduceMotion
-      ? 0
-      : withSpring(0, SWIPE_SETTLE);
+    translateX.value = reduceMotion ? 0 : withSpring(0, SWIPE_SETTLE);
     hasTriggeredRevealHaptic.value = false;
   }, [hasTriggeredRevealHaptic, reduceMotion, translateX]);
 
@@ -491,20 +397,20 @@ export function ListItem({
             >
               {/* The whole row is the checkbox target. */}
               <View className="relative mr-4" pointerEvents="none">
-                <Animated.View style={checkboxContainerStyle}>
-                  <Animated.View
+                <View>
+                  <View
                     style={checkboxFillStyle}
                     className="h-7 w-7 items-center justify-center rounded-full border-2"
                   >
-                    <Animated.View style={checkmarkStyle}>
+                    <View style={checkmarkStyle}>
                       <Check
                         size={14}
                         color={themeColors.surface}
                         strokeWidth={3}
                       />
-                    </Animated.View>
-                  </Animated.View>
-                </Animated.View>
+                    </View>
+                  </View>
+                </View>
               </View>
 
               {/* Item name and quantity */}
@@ -512,7 +418,7 @@ export function ListItem({
                 <View className="flex-1">
                   <Animated.Text
                     style={[
-                      textAnimatedStyle,
+                      textCompletionStyle,
                       isCompleted && {
                         textDecorationLine: "line-through",
                         textDecorationColor: themeColors.disabled,
@@ -521,9 +427,7 @@ export function ListItem({
                     ]}
                     className={cn(
                       "text-base font-medium",
-                      isCompleted
-                        ? "text-warm-gray-400"
-                        : "text-warm-gray-800",
+                      isCompleted ? "text-warm-gray-400" : "text-warm-gray-800",
                     )}
                     numberOfLines={2}
                   >
@@ -560,7 +464,7 @@ export function ListItem({
 
                 {/* Partner avatar */}
                 {addedByUser && (
-                  <View className="ml-2" style={{ marginRight: -4 }}>
+                  <View className="ml-2 shrink-0">
                     <UserAvatar
                       name={addedByUser.name}
                       imageUrl={addedByUser.imageUrl}
@@ -573,8 +477,7 @@ export function ListItem({
 
                 {/* Sync indicator for offline items */}
                 {isPendingSync && (
-                  <Animated.View
-                    style={syncIconStyle}
+                  <View
                     className="ml-2"
                     accessibilityLabel="Pending sync"
                     accessibilityHint="This item will sync when you're back online"
@@ -584,7 +487,7 @@ export function ListItem({
                       color={themeColors.warningInk}
                       strokeWidth={2}
                     />
-                  </Animated.View>
+                  </View>
                 )}
               </View>
             </Pressable>

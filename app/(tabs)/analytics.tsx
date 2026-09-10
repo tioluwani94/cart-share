@@ -22,8 +22,8 @@ import { useUser } from "@clerk/expo";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { ReceiptText } from "lucide-react-native";
-import { useCallback, useState } from "react";
-import { RefreshControl, Text, View } from "react-native";
+import { useState } from "react";
+import { Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import {
   SafeAreaView,
@@ -63,7 +63,6 @@ export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { onScroll, scrollY } = useCollapsibleHeader();
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<SessionWithReceiptUrl | null>(null);
   const [receiptViewerVisible, setReceiptViewerVisible] = useState(false);
@@ -112,11 +111,6 @@ export default function AnalyticsScreen() {
     setSelectedSession(null);
   };
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 500);
-  }, []);
-
   if (household === undefined || monthlyData === undefined) {
     return <SpendingLoadingState />;
   }
@@ -140,15 +134,6 @@ export default function AnalyticsScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={themeColors.coral}
-            colors={[themeColors.coral]}
-            progressViewOffset={insets.top + 56}
-          />
-        }
       >
         <TabLargeTitle
           title="Spending"
@@ -158,7 +143,9 @@ export default function AnalyticsScreen() {
 
         <MonthlyBudgetPrompt
           monthlyBudgetPence={monthlyData.monthlyBudgetPence}
-          onSetup={() => router.push({ pathname: "/settings", params: { edit: "budget" } })}
+          onSetup={() =>
+            router.push({ pathname: "/settings", params: { edit: "budget" } })
+          }
         />
 
         {hasSpendingData || hasBudget ? (
@@ -172,23 +159,22 @@ export default function AnalyticsScreen() {
               />
               {spendingHistory && spendingHistory.length >= 2 && (
                 <View className="mt-5">
-                  <MonthOverMonthComparison
-                    spendingHistory={spendingHistory}
-                  />
+                  <MonthOverMonthComparison spendingHistory={spendingHistory} />
                 </View>
               )}
             </View>
 
-            {spendingHistory && spendingHistory.some((month) => month.totalPence > 0) && (
-              <View className="mt-6">
-                <Text className="mb-3 text-xl font-heading text-ink">
-                  Six-month view
-                </Text>
-                <View className="items-center overflow-hidden rounded-2xl border border-separator bg-surface px-2 py-4">
-                  <SpendingChart data={spendingHistory} />
+            {spendingHistory &&
+              spendingHistory.some((month) => month.totalPence > 0) && (
+                <View className="mt-6">
+                  <Text className="mb-3 text-xl font-heading text-ink">
+                    Six-month view
+                  </Text>
+                  <View className="items-center overflow-hidden rounded-2xl border border-separator bg-surface px-2 py-4">
+                    <SpendingChart data={spendingHistory} />
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
 
             <View className="mt-7">
               <Text className="mb-3 text-xl font-heading text-ink">

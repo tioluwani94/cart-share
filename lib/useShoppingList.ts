@@ -13,12 +13,13 @@ export function useShoppingList(
   listId: Id<"lists">,
   householdId?: Id<"households">,
 ) {
-  const { data: items, isFromCache, isLoading } = useCachedItems(listId);
   const actions = useOfflineItems(listId, householdId);
-  const summary = useMemo(
-    () => summarizeShoppingList(items ?? []),
-    [items],
-  );
+  const {
+    data: items,
+    isFromCache,
+    isLoading,
+  } = useCachedItems(listId, actions.queue);
+  const summary = useMemo(() => summarizeShoppingList(items ?? []), [items]);
 
   return {
     items,
