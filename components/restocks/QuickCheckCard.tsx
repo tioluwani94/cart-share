@@ -6,6 +6,7 @@ import { Image } from "expo-image";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   Text,
   View,
   useWindowDimensions,
@@ -28,6 +29,7 @@ type Choice = Exclude<RestockDecision, "stop_tracking">;
 export function QuickCheckCard({
   name,
   note,
+  explanation,
   remaining,
   canAdd,
   busy,
@@ -35,6 +37,7 @@ export function QuickCheckCard({
 }: {
   name: string;
   note: string;
+  explanation: string;
   remaining: number;
   canAdd: boolean;
   busy: boolean;
@@ -43,6 +46,7 @@ export function QuickCheckCard({
   const reduceMotion = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   const [width, setWidth] = useState(320);
+  const [showExplanation, setShowExplanation] = useState(false);
   const committing = useRef(false);
   const x = useSharedValue(0);
   const start = useSharedValue(0);
@@ -178,6 +182,22 @@ export function QuickCheckCard({
             <Text className="mt-2 text-center text-sm leading-5 text-ink-secondary">
               {note}
             </Text>
+            <Pressable
+              onPress={() => setShowExplanation((shown) => !shown)}
+              accessibilityRole="button"
+              accessibilityLabel={`Why ${name} is being suggested`}
+              accessibilityState={{ expanded: showExplanation }}
+              className="min-h-11 self-center justify-center px-3"
+            >
+              <Text className="text-sm font-semibold text-coral">
+                Why this?
+              </Text>
+            </Pressable>
+            {showExplanation && (
+              <Text className="text-center text-sm leading-5 text-ink-secondary">
+                {explanation}
+              </Text>
+            )}
             <View
               className={
                 fontScale >= 1.5 ? "mt-5 gap-2" : "mt-5 flex-row gap-2"

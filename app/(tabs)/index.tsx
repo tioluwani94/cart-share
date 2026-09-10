@@ -23,13 +23,21 @@ import {
 import { useCachedHousehold, useCachedLists } from "@/lib/useCachedQuery";
 import { useCachedRestockReview } from "@/lib/useCachedRestockReview";
 import { useRestockDecisionActions } from "@/lib/useRestockDecisionActions";
+import { usePlanNotificationEntry } from "@/lib/usePlanNotificationEntry";
 import { themeColors } from "@/lib/theme";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useUser } from "@clerk/expo";
 import { useMutation } from "convex/react";
 import { type Href, useRouter } from "expo-router";
 import { CloudOff } from "lucide-react-native";
-import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  type ComponentRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { RefreshControl, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import {
@@ -55,6 +63,9 @@ function PlanLoadingState() {
 export default function PlanScreen() {
   const router = useRouter();
   const analytics = useAnalytics();
+  const notificationEntry = usePlanNotificationEntry();
+  const scrollRef = useRef<ComponentRef<typeof Animated.ScrollView>>(null);
+  const trackedReviewKey = useRef<string | null>(null);
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -73,10 +84,11 @@ export default function PlanScreen() {
     isFromCache,
     isLoading: areListsLoading,
   } = useCachedLists(household?._id);
-  const { data: review, isOnline } = useCachedRestockReview(
-    user?.id,
-    household?._id,
-  );
+  const {
+    data: review,
+    isOnline,
+    isFromCache: isReviewFromCache,
+  } = useCachedRestockReview(user?.id, household?._id);
   const candidateProductIds = useMemo(
     () => review?.candidates.map((candidate) => candidate.householdProductId),
     [review?.candidates],
@@ -93,10 +105,60 @@ export default function PlanScreen() {
     candidateProductIds,
     householdId: household?._id,
     marketCountryCode: review?.household.marketCountryCode,
-    source: "plan",
+    source: notificationEntry.source,
     enableUndo: true,
     userId: user?.id,
   });
+
+  const isPlanReady =
+    household !== undefined &&
+    review !== undefined &&
+    !shouldWaitForPlanLists({ areListsLoading, isOnline });
+
+  useEffect(() => {
+    if (notificationEntry.entryId && isPlanReady) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [notificationEntry.entryId, isPlanReady]);
+
+  useEffect(() => {
+    if (!notificationEntry.isFocused) {
+      trackedReviewKey.current = null;
+      return;
+    }
+    if (
+      !isPlanReady ||
+      !review ||
+      notificationEntry.isEnteringNotification ||
+      (isOnline && isReviewFromCache)
+    )
+      return;
+    const key = `${user?.id}:${review.household._id}:${notificationEntry.entryId ?? "plan"}`;
+    if (trackedReviewKey.current === key) return;
+    trackedReviewKey.current = key;
+    const count = review.candidates.filter(
+      (candidate) =>
+        !candidate.isAdded &&
+        !hiddenProductIds.has(candidate.householdProductId),
+    ).length;
+    analytics.track("restock review shown", {
+      candidate_count_bucket: count === 0 ? "0" : count <= 3 ? "1-3" : "4+",
+      source: notificationEntry.source,
+      market: review.household.marketCountryCode,
+    });
+  }, [
+    analytics,
+    hiddenProductIds,
+    isOnline,
+    isPlanReady,
+    isReviewFromCache,
+    notificationEntry.entryId,
+    notificationEntry.isEnteringNotification,
+    notificationEntry.isFocused,
+    notificationEntry.source,
+    review,
+    user?.id,
+  ]);
 
   const otherLists = useMemo(
     () => (lists ?? []).filter((list) => list._id !== review?.activeList?._id),
@@ -178,6 +240,7 @@ export default function PlanScreen() {
   return (
     <View className="flex-1 bg-background-light">
       <Animated.ScrollView
+        ref={scrollRef}
         {...keyboardDismissScrollProps}
         className="flex-1"
         contentContainerStyle={{
@@ -217,8 +280,10 @@ export default function PlanScreen() {
           )}
 
           <QuickCheckSection
-            key={`${review.household._id}:${activeList?._id ?? "no-list"}`}
+            key={`${review.household._id}:${activeList?._id ?? "no-list"}:${notificationEntry.entryId ?? "plan"}`}
             review={review}
+            fromNotification={notificationEntry.source === "notification"}
+            isReviewFromCache={isReviewFromCache}
             hiddenIds={hiddenProductIds}
             error={decisionError}
             isOnline={isOnline}
@@ -226,6 +291,9 @@ export default function PlanScreen() {
             undoDecision={undoDecision}
             onShop={() => router.push("/(tabs)/shop" as Href)}
             onPantry={() => router.push("/(tabs)/pantry" as Href)}
+            onChooseRegulars={() =>
+              router.push("/choose-regulars?from=plan" as Href)
+            }
           />
 
           {activeList ? (

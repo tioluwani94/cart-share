@@ -260,7 +260,7 @@ Spending shows an opaque white monthly-budget CTA card whenever no budget is con
 
 #### Secondary screen chrome
 
-- **Shared header:** Settings, list details, restock review, receipt confirmation, and receipt capture use the shared `PageHeader`. It owns the top safe area, compact centred title, leading navigation action, and optional trailing action; screens must not rebuild this geometry locally.
+- **Shared header:** Settings, list details, receipt confirmation, and receipt capture use the shared `PageHeader`. It owns the top safe area, compact centred title, leading navigation action, and optional trailing action; screens must not rebuild this geometry locally.
 - **Scroll edge:** The light header is fixed above full-height content and uses the same bounded `ProgressiveBlurEdge` material as tab chrome. Scroll containers add the shared header height to their content and indicator insets so the first content remains readable while later content can pass beneath the material. Avoid opaque header fills and hard bottom dividers.
 - **Camera context:** Receipt capture keeps the same geometry and progressive edge but switches to a dark system-material tint with white foreground controls. Reduce Transparency resolves both light and dark treatments to legible opaque semantic fallbacks.
 
@@ -403,7 +403,7 @@ Persistent empty states use `components/ui/EmptyStateCard.tsx` so hierarchy, typ
 
 ### Secondary Task Screen
 
-Receipt capture and confirmation, list detail, restock review, tracked-product editing, and recovery states share one compact task structure. These screens should feel like the same product even when they are reached only from a completion flow or deep link.
+Receipt capture and confirmation, list detail, tracked-product editing, and recovery states share one compact task structure. These screens should feel like the same product even when they are reached only from a completion flow or deep link.
 
 - **Header:** Use the shared `PageHeader` with a 48 pt back or close action, a centred Nunito title, and at most one trailing action. Do not recreate a bespoke white navigation bar per route.
 - **Layout:** Use 24 pt horizontal margins and a top-weighted reading order. Focused transient states may centre a short message, but forms and decisions must not float inside a large dead zone when the keyboard or primary action needs the space.

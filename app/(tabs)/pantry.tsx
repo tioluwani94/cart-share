@@ -442,7 +442,7 @@ export default function PantryScreen() {
                 onAction={() => {
                   Keyboard.dismiss();
                   if (products.length === 0)
-                    router.push("/restock-setup" as Href);
+                    router.push("/choose-regulars?from=pantry" as Href);
                   else {
                     resetScroll();
                     searchInputRef.current?.clear();

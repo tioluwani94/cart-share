@@ -105,3 +105,30 @@ No EAS build or production release is part of this change. Automated tests and b
 - Three focused suites / 18 tests, typecheck, targeted ESLint and diff checks passed. Regression coverage includes 1–4 remaining products, shrinking queues, 340/520/720pt card heights, and completion navigation without an active-stack View list button.
 - At the user's request, made exactly three additional existing products due in development deployment `savory-woodpecker-17`, in the household with active list Weekly Groceries. Set Bananas, Bread and Eggs to 1-day cadence using the existing authenticated updateProduct mutation. Original cadences for restoration after UAT: Bananas 7 days, Bread 7 days, Eggs 14 days. No purchases, extra products or shopping-list items were invented. Query verified four unadded candidates: Bananas, Bread, Eggs, Wipes.
 - Local Release build installed on iPhone 13 (zero errors, existing Hermes warning). Opened the fresh build and visually verified two clearly exposed back-card edges above Bananas and no View list action beneath the swipe hints. Left all four candidates unchecked for user UAT. No EAS build or production changes.
+
+
+## Restock notification consolidation — 10 September 2026
+
+- Both restock-review and shop-reminder taps now navigate to Plan and scroll to the cards, including when Plan is already open. Each notification starts a fresh check. Product-learning taps still open Pantry's Learning filter.
+- `/restock-review` is a compatibility redirect. The server keeps its existing payload URL so older installed versions still handle newly delivered reminders. No notification scheduling or backend behavior changed.
+- An initially empty cached review now picks up arriving candidates automatically. An existing check retains its fixed progress denominator and Undo; later suggestions can still be checked on request.
+- A notification with no remaining candidates explains the current state, offers Shop when an active list exists, and distinguishes saved offline/refreshing data from current household data. Ordinary quiet Plan visits remain uncluttered.
+- Cards retain the saved-rhythm/date explanation through Why this?; tracking can be paused in Pantry. Removed the obsolete standalone review UI and its already-added summary helper.
+- Review impressions and decisions retain notification attribution for the focused Plan visit. Route parameters are consumed, so later visits use Plan attribution.
+- Device UAT remains: tap both PN kinds with the app closed, backgrounded, on another tab, and scrolled down on Plan; tap an older delivered PN; repeat with another member having resolved the items and with cached offline data. Check Why this? at large text sizes and confirm swipes, buttons and Undo remain reachable. No build, installation or deployment was performed for this change.
+
+- Validation: 11 focused suites / 106 tests passed, including Plan notification entry, legacy routes, candidate updates, notification handling, authentication, offline decisions, Undo and stack behavior. TypeScript and production-code ESLint passed; existing `any` warnings remain in the Quick check test mocks.
+
+## Choose regulars after activation — 10 September 2026
+
+- Plan's Choose a few regulars and the empty Pantry's Choose products now open `/choose-regulars` directly. The screen shares activation's ProductChoice cards, catalogue artwork and suggestions, with the same product-picking copy. A back header and an Add regulars action replace activation progress and navigation through setup steps.
+- Saving returns to the originating tab with a success toast. No household settings, active list or notification preferences are reset. The new `restocks.addRegulars` mutation preserves existing history/timing, respects paused products, deduplicates household products and recalculates reminders in the same transaction.
+- No products are preselected. Existing active/paused products are marked and disabled. Failed saves retain selection; rapid repeated taps cannot create duplicate requests; reconnect retains local selection.
+- Validation: picker, activation, Plan entry, Quick check, backend and auth-routing suites passed; typecheck and targeted ESLint passed. Physical-device UAT remains: enter from both tabs, select/deselect at large text size and with Reduce Motion, save, back out without saving, and reconnect after a network interruption.
+- Release dependency: deploy the updated Convex functions containing `restocks.addRegulars` before shipping the new app build. No deployment, installation or household-data changes were performed in this implementation task.
+
+## Local iPhone 13 test build — 10 September 2026
+
+- At the user's request, deployed current Convex functions to development `savory-woodpecker-17` and verified `restocks.addRegulars` is available. Production was not deployed.
+- Built the current workspace as a signed Release app; Xcode reported BUILD SUCCEEDED with zero errors. Verified the embedded bundle contains the development backend URL and the choose-regulars route.
+- Installed and launched `app.ourpantry` successfully on the user's connected iPhone 13. This build runs without Metro and includes the notification consolidation and standalone regulars picker. Left interaction testing to the user; no Git push or household-data changes.

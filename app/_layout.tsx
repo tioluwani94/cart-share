@@ -224,7 +224,15 @@ function InitialLayout() {
       });
     }
     if (decision === "handle") {
-      router.push(getNotificationDestination(pendingNotification.kind) as Href);
+      const destination = getNotificationDestination(
+        pendingNotification.kind,
+        pendingNotification.identifier,
+      ) as Href;
+      if (pendingNotification.kind === "product_learning") {
+        router.push(destination);
+      } else {
+        router.navigate(destination);
+      }
     }
     setPendingNotification(null);
     void clearLastRestockNotificationResponse().catch((error) => {

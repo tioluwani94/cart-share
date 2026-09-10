@@ -48,9 +48,17 @@ completed shop reveals one or more possible regulars.
 
 | Notification      | Trigger                                                                                          | Cadence                                                                                           | Recipient and timing                                                                                                                             | Destination                |
 | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
-| Restock review    | At least one tracked product becomes eligible for review and is not already on the active list   | Once per member per shopping cycle                                                                | At the member's selected local time, not before the earliest eligible review time                                                                | Plan restock-review state  |
-| Shop reminder     | Eligible products remain unresolved shortly before a dated Next shop                             | At most once per member per shopping cycle                                                        | Approximately 24 hours before the planned shop, at the member's selected local time; omitted when no valid delivery time remains before the shop | Plan restock-review state  |
+| Restock review    | At least one tracked product becomes eligible for review and is not already on the active list   | Once per member per shopping cycle                                                                | At the member's selected local time, not before the earliest eligible review time                                                                | Plan Quick check cards  |
+| Shop reminder     | Eligible products remain unresolved shortly before a dated Next shop                             | At most once per member per shopping cycle                                                        | Approximately 24 hours before the planned shop, at the member's selected local time; omitted when no valid delivery time remains before the shop | Plan Quick check cards  |
 | Possible regulars | One or more learning products reach two distinct completed-shop observations in the same session | One consolidated prompt per opted-in member and completed shopping session; never one per product | At the member's selected local time after the qualifying shop                                                                                    | Learning section of Pantry |
+
+Restock notification taps open Plan at the Quick check cards. The legacy
+`ourpantry://restock-review` payload remains compatible with older installed
+clients; updated clients route it to Plan, and `/restock-review` itself redirects
+to Plan. Product-learning notifications continue to open Pantry's Learning filter.
+If nothing remains to check, notification entry explains that the suggestions
+may already have been handled. Cached data is labelled as saved data until refreshed.
+Notification attribution lasts only for that focused visit to Plan.
 
 ### 3.1 Delivery-time rules
 

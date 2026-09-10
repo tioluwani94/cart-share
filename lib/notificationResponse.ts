@@ -8,10 +8,13 @@ export interface RestockNotificationResponse {
   kind: NotificationKind;
 }
 
-export function getNotificationDestination(kind: NotificationKind): string {
+export function getNotificationDestination(
+  kind: NotificationKind,
+  identifier?: string,
+): string {
   return kind === "product_learning"
     ? "/(tabs)/pantry?focus=learning&source=notification"
-    : "/restock-review?source=notification";
+    : `/(tabs)?source=notification${identifier ? `&notificationId=${encodeURIComponent(identifier)}` : ""}`;
 }
 
 export function parseRestockNotificationResponse({

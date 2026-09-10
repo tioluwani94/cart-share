@@ -1,7 +1,7 @@
 import { Button, EmptyStateCard, ProgressBar } from "@/components/ui";
 import type { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatFriendlyDate } from "@/lib/formatters";
+import { formatDateWithWeekday, formatFriendlyDate } from "@/lib/formatters";
 import { quickCheckEmptyKind, quickCheckProgress } from "@/lib/quickCheck";
 import type {
   RestockDecision,
@@ -9,7 +9,7 @@ import type {
 } from "@/lib/useRestockDecisionActions";
 import type { FunctionReturnType } from "convex/server";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { QuickCheckCard } from "./QuickCheckCard";
 
@@ -30,6 +30,9 @@ export function QuickCheckSection({
   undoDecision,
   onShop,
   onPantry,
+  onChooseRegulars,
+  fromNotification = false,
+  isReviewFromCache = false,
 }: {
   review: Review;
   hiddenIds: ReadonlySet<Id<"householdProducts">>;
@@ -42,9 +45,16 @@ export function QuickCheckSection({
   undoDecision: (id: Id<"restockUndoRecords">) => Promise<boolean>;
   onShop: () => void;
   onPantry: () => void;
+  onChooseRegulars: () => void;
+  fromNotification?: boolean;
+  isReviewFromCache?: boolean;
 }) {
-  const eligible = review.candidates.filter(
-    (c) => !c.isAdded && !hiddenIds.has(c.householdProductId),
+  const eligible = useMemo(
+    () =>
+      review.candidates.filter(
+        (c) => !c.isAdded && !hiddenIds.has(c.householdProductId),
+      ),
+    [review.candidates, hiddenIds],
   );
   const latest = useRef(eligible);
   latest.current = eligible;
@@ -78,6 +88,13 @@ export function QuickCheckSection({
       };
     }, [reset]),
   );
+  useEffect(() => {
+    // A cached/quiet initial review must not permanently freeze an empty queue.
+    // Once a check has started, keep its denominator and Undo intact.
+    if (session.length === 0 && eligible.length > 0) {
+      setSession(eligible);
+    }
+  }, [eligible, session.length]);
   useEffect(() => {
     if (!last) return;
     const timer = setTimeout(
@@ -202,8 +219,20 @@ export function QuickCheckSection({
   }[kind];
   const pantryAction =
     kind === "new" || kind === "learning" || kind === "paused";
+  const showNotificationEmpty =
+    fromNotification &&
+    !candidate &&
+    eligible.length === 0 &&
+    Object.keys(decisions).length === 0;
   // Keep completion/Undo and setup guidance, but no placeholder for a quiet pantry.
-  if (!candidate && kind === "quiet" && !error) return null;
+  if (
+    !candidate &&
+    kind === "quiet" &&
+    !error &&
+    !showNotificationEmpty &&
+    newCandidates.length === 0
+  )
+    return null;
   return (
     <View className="mb-7">
       {candidate && (
@@ -238,10 +267,32 @@ export function QuickCheckSection({
               ? `Last bought ${formatFriendlyDate(candidate.lastPurchasedAt, Date.now(), { locale: review.household.locale, timeZone: review.household.planningTimeZone })}`
               : `Usually bought every ${candidate.cadenceDays} days`
           }
+          explanation={`Based on the saved dates and your current ${candidate.cadenceDays}-day rhythm, it may be due around ${formatDateWithWeekday(candidate.expectedDueAt, { locale: review.household.locale, timeZone: review.household.planningTimeZone })}. You can adjust the rhythm or pause tracking in Pantry.`}
           remaining={remaining.length}
           canAdd={Boolean(review.activeList)}
           busy={Boolean(busy) || undoing}
           onDecision={decide}
+        />
+      ) : showNotificationEmpty ? (
+        <EmptyStateCard
+          className="mt-4"
+          title={
+            isReviewFromCache
+              ? "No checks in your saved plan"
+              : "Nothing needs checking now"
+          }
+          description={
+            isReviewFromCache
+              ? isOnline
+                ? "Refreshing your household’s latest plan…"
+                : "Reconnect to check your household’s latest plan."
+              : review.activeList
+                ? "Your household may have already handled these suggestions. Open Shop to see the current list."
+                : "Your household may have already handled these suggestions. Choose a Next shop below when you’re ready."
+          }
+          artworkSource={require("@/assets/empty-states/plan-complete.png")}
+          actionLabel={review.activeList ? "View list" : undefined}
+          onAction={review.activeList ? onShop : undefined}
         />
       ) : kind !== "quiet" ? (
         <EmptyStateCard
@@ -262,7 +313,9 @@ export function QuickCheckSection({
                 ? "Open Pantry"
                 : "View list"
           }
-          onAction={pantryAction ? onPantry : onShop}
+          onAction={
+            kind === "new" ? onChooseRegulars : pantryAction ? onPantry : onShop
+          }
         />
       ) : null}
       {error && (

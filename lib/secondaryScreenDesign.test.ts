@@ -14,12 +14,10 @@ describe("secondary screen design system", () => {
   });
   it("uses the shared progressive page header on secondary routes", () => {
     const receipt = readSource("app/receipt-confirm.tsx");
-    const restockReview = readSource("app/restock-review.tsx");
     const listDetail = readSource("app/list/[id].tsx");
     const pageHeader = readSource("components/ui/PageHeader.tsx");
 
     expect(receipt).toContain("<PageHeader");
-    expect(restockReview).toContain("<PageHeader");
     expect(listDetail).toContain("<PageHeader");
     expect(pageHeader).toContain("<ProgressiveBlurEdge");
     expect(pageHeader).toContain('position: "absolute"');

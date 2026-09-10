@@ -88,6 +88,7 @@ function props(): Props {
     undoDecision: jest.fn(async () => true),
     onShop: jest.fn(),
     onPantry: jest.fn(),
+    onChooseRegulars: jest.fn(),
   };
 }
 describe("native Quick check", () => {
@@ -179,7 +180,97 @@ describe("native Quick check", () => {
     mount(p);
     expect(tree.root.findByProps({ testID: "card" }).props.canAdd).toBe(false);
   });
-  it("routes the new-household action to Pantry without a progress bar", () => {
+  it("starts cards when fresh candidates arrive after an empty cached review", () => {
+    const p = props();
+    const freshReview = p.review;
+    mount({ ...p, review: { ...freshReview, candidates: [] } });
+    act(() => tree.update(<QuickCheckSection {...p} review={freshReview} />));
+    expect(tree.root.findByProps({ testID: "card" }).props.name).toBe("Milk");
+    expect(tree.root.findByProps({ testID: "progress" }).props.max).toBe(1);
+  });
+  it("keeps an active check fixed when new suggestions arrive", async () => {
+    const p = props();
+    mount(p);
+    const freshReview = {
+      ...p.review,
+      candidates: [
+        ...p.review.candidates,
+        {
+          ...p.review.candidates[0],
+          householdProductId: "bread" as Id<"householdProducts">,
+          displayName: "Bread",
+        },
+      ],
+    };
+    act(() => tree.update(<QuickCheckSection {...p} review={freshReview} />));
+    expect(tree.root.findByProps({ testID: "progress" }).props.max).toBe(1);
+    await act(async () => {
+      await choose("still_have_some");
+    });
+    const restart = tree.root
+      .findAllByProps({ children: "Check new suggestions" })
+      .find((node) => typeof node.props.onPress === "function")!;
+    // The mutation response removes the resolved product from the live review.
+    act(() =>
+      tree.update(
+        <QuickCheckSection
+          {...p}
+          review={{
+            ...freshReview,
+            candidates: freshReview.candidates.slice(1),
+          }}
+        />,
+      ),
+    );
+    act(() => (restart.props.onPress as () => void)());
+    expect(tree.root.findByProps({ testID: "card" }).props.name).toBe("Bread");
+  });
+  it("explains a notification whose suggestions another member already handled", () => {
+    const p = props();
+    p.review.candidates = p.review.candidates.map((c) => ({
+      ...c,
+      isAdded: true,
+    }));
+    mount({ ...p, fromNotification: true });
+    expect(
+      tree.root.findAllByProps({ children: "Nothing needs checking now" })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ testID: "card" })).toHaveLength(0);
+    act(pressEmpty);
+    expect(p.onShop).toHaveBeenCalledTimes(1);
+  });
+  it.each([true, false])(
+    "does not claim cached notification data is current (online: %s)",
+    (isOnline) => {
+      const p = props();
+      p.review.candidates = [];
+      mount({
+        ...p,
+        fromNotification: true,
+        isReviewFromCache: true,
+        isOnline,
+      });
+      expect(
+        tree.root.findAllByProps({ children: "No checks in your saved plan" })
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        tree.root.findAllByProps({ children: "Nothing needs checking now" }),
+      ).toHaveLength(0);
+    },
+  );
+  it("provides the saved-rhythm explanation to the card", () => {
+    const p = props();
+    mount(p);
+    expect(
+      tree.root.findByProps({ testID: "card" }).props.explanation,
+    ).toContain("current 7-day rhythm");
+    expect(
+      tree.root.findByProps({ testID: "card" }).props.explanation,
+    ).toContain("pause tracking in Pantry");
+  });
+  it("routes the new-household action directly to regular selection without a progress bar", () => {
     const p = props();
     p.review.candidates = [];
     p.review.trackedProductCount = 0;
@@ -187,7 +278,8 @@ describe("native Quick check", () => {
     mount(p);
     expect(tree.root.findAllByProps({ testID: "progress" })).toHaveLength(0);
     act(pressEmpty);
-    expect(p.onPantry).toHaveBeenCalledTimes(1);
+    expect(p.onChooseRegulars).toHaveBeenCalledTimes(1);
+    expect(p.onPantry).not.toHaveBeenCalled();
     expect(p.onShop).not.toHaveBeenCalled();
   });
   it("restores the card and progress when safe Undo succeeds", async () => {

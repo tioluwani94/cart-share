@@ -15,7 +15,10 @@ import { shouldRejectNextShopClaim } from "../lib/shoppingList";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { scheduleProductLearningNotifications } from "./notifications";
+import {
+  recalculateHouseholdReminders,
+  scheduleProductLearningNotifications,
+} from "./notifications";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
@@ -709,6 +712,80 @@ export const completeSetup = mutation({
     });
 
     return { success: true as const };
+  },
+});
+
+/** Add regulars after activation without changing household or shopping setup. */
+export const addRegulars = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        displayName: v.string(),
+        category: v.optional(v.string()),
+        cadenceDays: v.number(),
+        defaultQuantity: v.optional(v.number()),
+        defaultUnit: v.optional(v.string()),
+        lastPurchasedAt: v.optional(v.number()),
+        purchaseObservationCount: v.optional(v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, { products }) => {
+    const user = await requireCurrentUser(ctx);
+    const membership = await ctx.db
+      .query("householdMembers")
+      .withIndex("by_user", (index) => index.eq("userId", user._id))
+      .first();
+    if (!membership) throw new Error("You do not belong to a household");
+    const household = await ctx.db.get(membership.householdId);
+    if (!household?.restockSetupCompletedAt)
+      throw new Error("Complete household setup first");
+    if (products.length < 1 || products.length > 12)
+      throw new Error("Choose between 1 and 12 regulars");
+    const now = Date.now();
+    let addedCount = 0;
+    const seen = new Set<string>();
+    for (const product of products) {
+      const displayName = product.displayName.trim();
+      const normalizedName = normalizeProductName(displayName);
+      if (!normalizedName || !Number.isFinite(product.cadenceDays))
+        throw new Error("Choose a valid product and rhythm");
+      if (seen.has(normalizedName)) continue;
+      seen.add(normalizedName);
+      const existing = await ctx.db
+        .query("householdProducts")
+        .withIndex("by_household_and_normalized_name", (index) =>
+          index
+            .eq("householdId", membership.householdId)
+            .eq("normalizedName", normalizedName),
+        )
+        .unique();
+      if (existing) {
+        // Retries and simultaneous household selections must not overwrite
+        // learned timing, purchase history or an explicit pause.
+        if (existing.status !== "learning") continue;
+        await ctx.db.patch(existing._id, { status: "active", updatedAt: now });
+      } else {
+        await ctx.db.insert("householdProducts", {
+          ...product,
+          displayName,
+          normalizedName,
+          householdId: membership.householdId,
+          cadenceDays: clampCadenceDays(product.cadenceDays),
+          purchaseObservationCount: Math.max(
+            0,
+            Math.round(product.purchaseObservationCount ?? 0),
+          ),
+          status: "active",
+          createdBy: user._id,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      addedCount++;
+    }
+    await recalculateHouseholdReminders(ctx, membership.householdId);
+    return { addedCount };
   },
 });
 

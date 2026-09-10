@@ -1,12 +1,11 @@
+import { ProductChoice } from "@/components/pantry/ProductChoice";
+import { getRegularSuggestions } from "@/lib/regularSuggestions";
 import { ActivationProgress } from "@/components/onboarding/ActivationProgress";
 import { Button } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { useAnalytics } from "@/lib/AnalyticsContext";
 import { cn } from "@/lib/cn";
 import { keyboardDismissScrollProps } from "@/lib/keyboard";
-import { pantryArtwork } from "@/lib/pantryArtwork";
-import { resolvePantryArtwork } from "@/lib/pantryCatalogue";
-import { themeColors } from "@/lib/theme";
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { getCalendars } from "expo-localization";
@@ -20,7 +19,6 @@ import {
   ScrollView,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import {
   SafeAreaView,
@@ -59,15 +57,6 @@ const CHECK_ENTER = ZoomIn.duration(160)
   .easing(MOTION_EASE_OUT)
   .withInitialValues({ opacity: 0, transform: [{ scale: 0.95 }] });
 const CHECK_ENTER_REDUCED = FadeIn.duration(140).easing(MOTION_EASE_OUT);
-
-const starterProducts = [
-  { displayName: "Milk", cadenceDays: 7, category: "Dairy" },
-  { displayName: "Bread", cadenceDays: 7, category: "Bakery" },
-  { displayName: "Eggs", cadenceDays: 14, category: "Dairy" },
-  { displayName: "Bananas", cadenceDays: 7, category: "Produce" },
-  { displayName: "Pasta", cadenceDays: 30, category: "Pantry" },
-  { displayName: "Toilet roll", cadenceDays: 21, category: "Household" },
-];
 
 const setupCopy = [
   {
@@ -127,18 +116,10 @@ export default function RestockSetupScreen() {
     });
   }, [analytics, household?._id]);
 
-  const suggestions = useMemo(() => {
-    const history = historySuggestions ?? [];
-    const names = new Set(
-      history.map((product) => product.displayName.toLocaleLowerCase("en-GB")),
-    );
-    return [
-      ...history,
-      ...starterProducts.filter(
-        (product) => !names.has(product.displayName.toLocaleLowerCase("en-GB")),
-      ),
-    ].slice(0, 12);
-  }, [historySuggestions]);
+  const suggestions = useMemo(
+    () => getRegularSuggestions(historySuggestions ?? []),
+    [historySuggestions],
+  );
 
   const toggleProduct = (name: string) => {
     setSelectedProducts((current) => {
@@ -178,10 +159,7 @@ export default function RestockSetupScreen() {
           cadenceDays: product.cadenceDays,
           lastPurchasedAt:
             "lastPurchasedAt" in product ? product.lastPurchasedAt : undefined,
-          purchaseObservationCount:
-            "purchaseObservationCount" in product
-              ? product.purchaseObservationCount
-              : 0,
+          purchaseObservationCount: product.purchaseObservationCount ?? 0,
         }));
 
       await completeSetup({
@@ -470,101 +448,6 @@ function Choice({
       <View
         className={cn(
           "h-6 w-6 items-center justify-center rounded-full",
-          selected ? "bg-coral" : "border border-warm-gray-300",
-        )}
-      >
-        {selected && (
-          <Animated.View
-            entering={reduceMotion ? CHECK_ENTER_REDUCED : CHECK_ENTER}
-          >
-            <Check size={15} color="#FFFFFF" />
-          </Animated.View>
-        )}
-      </View>
-    </AnimatedPressable>
-  );
-}
-
-function ProductChoice({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const reduceMotion = useReducedMotion();
-  const [pressed, setPressed] = useState(false);
-  const { fontScale } = useWindowDimensions();
-  const artwork = pantryArtwork[resolvePantryArtwork(label)];
-  // Reuse the catalogue's optical sizing, with clearance for the checkbox.
-  const artworkScale = 0.72;
-
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      pressRetentionOffset={16}
-      className={cn(
-        "relative items-center rounded-3xl border px-3 pb-4 pt-7",
-        fontScale >= 1.6 ? "w-full" : "w-[48.5%]",
-        selected
-          ? "border-coral bg-coral-soft"
-          : "border-warm-gray-200 bg-white",
-      )}
-      style={{
-        backgroundColor: selected ? themeColors.coralSoft : themeColors.surface,
-        opacity: pressed ? 0.84 : 1,
-        transform: [{ scale: pressed && !reduceMotion ? 0.98 : 1 }],
-        transitionProperty: reduceMotion
-          ? ["opacity", "backgroundColor", "borderColor"]
-          : ["opacity", "transform", "backgroundColor", "borderColor"],
-        transitionDuration: PRESS_DURATION_MS,
-        transitionTimingFunction: PRESS_EASING,
-      }}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-    >
-      <View
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        className="items-center overflow-hidden"
-        style={{ width: 140 * artworkScale, height: 162 * artworkScale }}
-      >
-        <Image
-          testID={`activation-product-artwork-${label}`}
-          source={artwork.source}
-          contentFit="contain"
-          transition={0}
-          accessible={false}
-          style={{
-            position: "absolute",
-            width: artwork.size * artworkScale,
-            height: artwork.size * artworkScale,
-            bottom: artwork.bottom * artworkScale,
-          }}
-        />
-      </View>
-      <Text
-        className={cn(
-          "mt-2 text-center font-heading text-base leading-6",
-          selected ? "text-coral" : "text-warm-gray-900",
-        )}
-      >
-        {label}
-      </Text>
-      <View
-        testID={`activation-product-checkbox-${label}`}
-        pointerEvents="none"
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        className={cn(
-          "absolute right-3 top-3 h-6 w-6 items-center justify-center rounded-full",
           selected ? "bg-coral" : "border border-warm-gray-300",
         )}
       >
