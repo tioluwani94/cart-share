@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
-    "test": "jest"
+    "test": "jest",
+    "auth:check": "node scripts/check-oauth.cjs"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",

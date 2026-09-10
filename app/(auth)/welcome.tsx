@@ -6,6 +6,9 @@ import * as WebBrowser from "expo-web-browser";
 
 import { OurPantryWelcome } from "@/components/welcome/OurPantryWelcome";
 import { OUR_PANTRY_URLS } from "@/lib/legalUrls";
+import { emailSignInErrorCode } from "@/lib/emailSignIn";
+import { oauthSignInError } from "@/lib/oauthSignIn";
+import { redirectPath } from "@/lib/oauthConfig.json";
 import type { WelcomeActionId } from "@/lib/welcomeActions";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -18,7 +21,8 @@ export default function WelcomeScreen() {
 
   const { startSSOFlow } = useSSO();
 
-  const redirectUrl = Linking.createURL("/(auth)/welcome");
+  // Keep the callback compatible with distributed builds and Clerk's allowlist.
+  const redirectUrl = Linking.createURL(redirectPath);
 
   const completeOAuth = useCallback(
     async (
@@ -37,8 +41,11 @@ export default function WelcomeScreen() {
           await setActive({ session: createdSessionId });
         }
       } catch (oauthError) {
-        console.error("OAuth error:", oauthError);
-        setError("Something went wrong. Please try again.");
+        console.error("OAuth sign-in failed", {
+          strategy,
+          code: emailSignInErrorCode(oauthError) ?? "unknown",
+        });
+        setError(oauthSignInError(oauthError));
       } finally {
         setLoadingActionId(null);
       }

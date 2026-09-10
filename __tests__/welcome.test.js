@@ -97,6 +97,8 @@ describe("welcome authentication", () => {
     mockOpenURL.mockResolvedValue(undefined);
   });
 
+  afterEach(() => jest.restoreAllMocks());
+
   it("opens email sign-in without launching OAuth", async () => {
     let renderer;
     await act(async () => {
@@ -167,5 +169,40 @@ describe("welcome authentication", () => {
       ["https://ourpantry.app/terms"],
       ["https://ourpantry.app/privacy"],
     ]);
+  });
+
+  it.each(["Google", "Apple"])("explains a production callback rejection for %s without exposing provider details", async (provider) => {
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockSSOFlow.mockRejectedValue({
+      errors: [{
+        code: "resource_missmatch",
+        message: "Redirect url mismatch",
+        long_message: "Private provider response and account details",
+      }],
+    });
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<WelcomeScreen />); });
+    await act(async () => {
+      renderer.root.findByProps({ accessibilityLabel: `Continue with ${provider}` }).props.onPress();
+    });
+    expect(renderer.root.findByProps({ accessibilityRole: "alert" }).props.children)
+      .toBe("Apple and Google sign-in are temporarily unavailable. Please use email if you already have a password, or try again later.");
+    expect(errorLog).toHaveBeenCalledWith("OAuth sign-in failed", {
+      strategy: `oauth_${provider.toLowerCase()}`,
+      code: "resource_missmatch",
+    });
+    errorLog.mockRestore();
+  });
+
+  it("activates a completed OAuth session", async () => {
+    const setActive = jest.fn().mockResolvedValue(undefined);
+    mockSSOFlow.mockResolvedValue({ createdSessionId: "session_test", setActive });
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<WelcomeScreen />); });
+    await act(async () => {
+      renderer.root.findByProps({ accessibilityLabel: "Continue with Google" }).props.onPress();
+    });
+    expect(setActive).toHaveBeenCalledWith({ session: "session_test" });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

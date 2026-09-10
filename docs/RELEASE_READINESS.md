@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Core MVP and production services deployed; auth-enabled iPhone-only build 9 processed by Apple and assigned to internal testers; approved store assets uploaded and preview playback verified; reviewer setup complete; external beta review and final device/privacy/distribution verification remain pending**
+Status: **Build 9 in internal TestFlight; Google and Apple login confirmed working after production OAuth configuration fixes; external review and remaining release verification are pending**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,65 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 10 September 2026 TestFlight OAuth blocker
+
+- Reproduced both Google and Apple failures against production Clerk's native
+  Frontend API: `resource_missmatch` / `Redirect url mismatch`.
+  The installed Expo URL builder generates `ourpantry:///(auth)/welcome` for
+  the welcome screen. The production mobile SSO allowlist was empty.
+- Added exactly `ourpantry:///(auth)/welcome` under production Native
+  applications → Allowlist for mobile SSO redirect. Verified the saved row.
+  Repeating both anonymous OAuth initiations now succeeds, returning Google
+  and Apple HTTPS authorization URLs. This server configuration fix applies
+  immediately to existing TestFlight build 9; it requires no replacement binary.
+- Added `pnpm auth:check https://clerk.ourpantry.app` as a required preflight
+  before the next TestFlight build/review checkpoint. It starts anonymous
+  attempts without account credentials, does not follow provider redirects,
+  and fails on rejected callbacks, missing client IDs, invalid provider return
+  URLs, or missing authorization state. It never
+  prints provider state, tokens, or complete response bodies. Use the target
+  Clerk Frontend API origin when checking another environment.
+- The app and preflight share the callback path; a regression test uses the
+  installed Expo URL builder with standalone configuration to check the exact
+  callback, including its three slashes. Keep this URL allowlisted while older
+  distributed builds still use it. Do not replace it with `ourpantry://welcome`
+  or `app.ourpantry://callback` without supporting existing builds.
+- Local error handling now explains provider unavailability and logs only the
+  strategy/error code, replacing raw provider-response logging. These message
+  changes ship with a future binary; they are separate from the live fix.
+- The owner confirmed Google login works on the existing TestFlight build after
+  this fix. Apple initially still failed after its sign-in page opened and Face ID succeeded.
+  Further inspection found Apple OAuth marked **Setup required** in production
+  Clerk, with Services ID, Private Key, Team ID and Key ID all unconfigured.
+  Clerk nevertheless returns HTTP 200 and an Apple URL with an empty `client_id`.
+  The preflight now rejects that incomplete setup; a regression test proves it.
+- Completed the production browser-OAuth setup using the existing
+  Apple app `app.ourpantry` (team `5L6QPNNMP8`), an associated Services ID and Sign
+  in with Apple key, domain `clerk.ourpantry.app`, and return URL
+  `https://clerk.ourpantry.app/v1/oauth_callback`. Credentials were handled
+  privately by the owner and are not included in the repository.
+- Enabled Sign in with Apple on the existing App ID as a primary, created
+  Services ID `app.ourpantry.signin` (description OurPantry), and saved its link
+  to that primary App ID with the domain and return URL above. Apple warns the
+  capability change invalidates provisioning profiles for future use; regenerate
+  profiles for the next build. Prepared a dedicated `OurPantry Sign In` key,
+  scoped only to that primary App ID; the owner completed the private credential
+  setup and subsequently confirmed Apple login works in the existing TestFlight build.
+- Apple Private Email Relay initially had no registered sources. With explicit
+  owner approval, registered Clerk's exact production relay sender. Apple
+  confirmed Email Source Registration Complete / one email address. Actual
+  delivery to a Hide My Email address remains untested.
+- Both Google and Apple physical-device sign-in are confirmed by the owner.
+  The final credential-free production preflight also passes for both providers.
+  Broader new-user onboarding and remaining release checks are separate from
+  this resolved login blocker. External review and public release remain unsubmitted.
+- Local validation: 35 targeted authentication tests passed across six suites,
+  plus three preflight-response regression tests. TypeScript passed; repository
+  lint reports zero errors and the same 18 existing warnings. Jest used
+  `--watchman=false --forceExit`; open-handle cleanup is not verified.
+
+Reference: [Clerk Expo production callback configuration](https://clerk.com/docs/guides/development/deployment/expo).
 
 ### 8 September 2026 release preparation
 
