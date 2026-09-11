@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Editable display names passed the owner's local UAT and are deployed to both development and production Convex. The next production iOS binary is being prepared for internal TestFlight. The owner has deferred the sign-out crash investigation until it can be reproduced reliably. External beta submission remains deferred.**
+Status: **Editable display names passed the owner's local UAT and are deployed to both development and production Convex. Production iOS 1.0.0 (12) is uploaded to App Store Connect for internal TestFlight and awaiting Apple processing. The owner has deferred the sign-out crash investigation until it can be reproduced reliably. External beta submission remains deferred.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -11,6 +11,9 @@ document does not authorize any further production deployment. Repository checkp
 
 ### 11 September 2026 editable display names
 
+- Release source: `50077c3830cdabe542b9b43df921a2a3923968f2` (`Add editable household display names`). EAS production build `f99a1e6a-b2e6-4d81-96a7-7f5b264784c9`, version **1.0.0 (12)**, completed successfully at `2026-09-11T00:25:58.560Z`.
+- Verified downloaded IPA SHA-256 `d9d07f2dd829ce8487fe76bf2057697d1f5d0f74088b7a9e585ed0afdd5e3b27`: correct bundle/version, iPhone-only, display-name mutation/editor code present, production Clerk and Convex with no development Convex URL, production APNs, debugging disabled, TestFlight entitlement, tracking disabled, and strict/deep signature verification passed.
+- EAS submission `52458479-4e28-446a-8c3f-a249e4aa3f6a` uploaded build 12 successfully to App Store Connect, targeting `Team (Expo)`. The first scheduling attempt was rejected because EAS's optional changelog submission requires its Enterprise plan; retrying without that optional field succeeded. Apple processing is pending; repeated read-only App Store Connect status checks still did not list build 12 at 01:36 BST. Upload success is verified, internal install availability is not yet verified, and no external beta review was submitted.
 - Added Settings → Account → Display name, using the shared keyboard-aware sheet and input. Names are trimmed, repeated whitespace is collapsed, and blank names or names over 60 characters are rejected. Failed saves preserve the draft; an offline save explains that an internet connection is required.
 - Added authenticated `users.updateDisplayName`. It derives the target user from the verified session, refuses deleted/missing accounts, and accepts no target user ID. Optional `users.hasCustomName` preserves the chosen name across identity refreshes and Clerk webhook updates. No migration or new index is needed. Missing webhook names also preserve previously supplied provider names.
 - Settings member rows use “Household member” when a name is absent. Existing household/item queries consume the same `users.name`, so a chosen name is available through their existing subscriptions.
