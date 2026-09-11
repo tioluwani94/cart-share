@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Editable display names passed the owner's local UAT and are deployed to both development and production Convex. The owner confirmed production iOS 1.0.0 (12) is visible and installable in internal TestFlight; testing of that binary is pending. The owner has deferred the sign-out crash investigation until it can be reproduced reliably. External beta submission remains deferred.**
+Status: **The owner accepted internal TestFlight UAT for iOS 1.0.0 (12). Build 12 is submitted to Apple Beta App Review for the Family closed beta group and is Waiting for Review. Development and production Convex are deployed. The owner has deferred the isolated sign-out crash investigation until it can be reproduced reliably.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,14 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 11 September 2026 external beta submission
+
+- The owner confirmed internal TestFlight UAT was complete and explicitly authorized beta submission. Reused the accepted production binary **1.0.0 (12)**; no rebuild or backend change was necessary.
+- Read-only Apple API checks confirmed valid processing, active internal testing, eligibility for external beta submission, saved reviewer contact/demo-account credentials and notes, beta description, feedback email, and privacy URL. Credential values were neither printed nor added to the repository.
+- Saved and verified build 12's `en-US` What to Test notes covering household onboarding, shared/offline shopping, regulars, receipts/spending, display names, notifications, and account deletion. Assigned the build to the existing **Family closed beta** group (`cf101fa9-359a-4ea1-a30c-f1569d8bce34`). Its public link remains disabled.
+- Submitted App Store Connect build `8c628069-bc5c-4f79-82fb-b18625ddaed5` through Apple's Beta App Review API using the existing EAS-managed Apple credentials. Apple returned submission `8c628069-bc5c-4f79-82fb-b18625ddaed5`, submitted at **01:48:59 BST on 11 September 2026** (`2026-09-11T00:48:59Z`).
+- Read-back verification confirmed `betaReviewState: WAITING_FOR_REVIEW` and `externalBuildState: WAITING_FOR_BETA_REVIEW`. This is a successful beta-review submission, not Apple approval or a public App Store release.
 
 ### 11 September 2026 editable display names
 
