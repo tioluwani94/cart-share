@@ -1,4 +1,5 @@
 export { BudgetEditSheet } from "./BudgetEditSheet";
+export { DisplayNameEditSheet } from "./DisplayNameEditSheet";
 export {
   ReminderTimeSheet,
   type ReminderTimeOption,

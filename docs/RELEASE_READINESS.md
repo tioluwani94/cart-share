@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Build 9 in internal TestFlight; Google and Apple login confirmed working after production OAuth configuration fixes; external review and remaining release verification are pending**
+Status: **Editable display names passed the owner's local UAT and are deployed to both development and production Convex. The next production iOS binary is being prepared for internal TestFlight. The owner has deferred the sign-out crash investigation until it can be reproduced reliably. External beta submission remains deferred.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,45 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 11 September 2026 editable display names
+
+- Added Settings → Account → Display name, using the shared keyboard-aware sheet and input. Names are trimmed, repeated whitespace is collapsed, and blank names or names over 60 characters are rejected. Failed saves preserve the draft; an offline save explains that an internet connection is required.
+- Added authenticated `users.updateDisplayName`. It derives the target user from the verified session, refuses deleted/missing accounts, and accepts no target user ID. Optional `users.hasCustomName` preserves the chosen name across identity refreshes and Clerk webhook updates. No migration or new index is needed. Missing webhook names also preserve previously supplied provider names.
+- Settings member rows use “Household member” when a name is absent. Existing household/item queries consume the same `users.name`, so a chosen name is available through their existing subscriptions.
+- Validation passed: 105 suites / 530 tests, app TypeScript, changed TypeScript-file ESLint, and diff whitespace checks. Regression coverage includes authenticated ownership, deleted/missing accounts, name normalization/limits, persistence across login and webhooks, fallback text, offline save, and failed-save retry state.
+- Development `savory-woodpecker-17` deployed successfully with typechecking and code generation enabled. The owner subsequently accepted local display-name UAT and authorized production deployment and another internal TestFlight build. Production `tangible-mink-681` dry run and deployment passed with typechecking enabled, successful schema validation, and no deleted indexes. Production Google/Apple OAuth initiation preflight passed again before the new binary build.
+- Native Debug build succeeded with no errors (one existing Hermes build-script warning), installed on the owner's iPhone 13, and its running process was verified through CoreDevice. The development launcher initially did not discover Metro; opening the explicit development-client URL connected it and loaded the app bundle. The owner then confirmed display-name UAT passed.
+- Local UAT: open Settings → Account → Display name; save a name and verify it in household membership and contributor details; sign out/in and confirm persistence; confirm another member's name cannot be edited; test blank input, keyboard dismissal, and offline save feedback.
+- The owner requested no further crash investigation until a reliable reproduction is available. Installing TestFlight over a development build is an unverified possibility, not an established cause or fix.
+
+### 11 September 2026 build 11 UAT follow-ups
+
+- The owner confirmed the shipped changes work in internal TestFlight, then reported a first-login/sign-out crash and Apple household members displayed as “Unknown.”
+- Retrieved TestFlight crash submission `AJa3OZHBYp5FxHA2FfH2qMc` through the existing App Store Connect credentials. The report says “Crashed after i signed out” and identifies OurPantry 1.0.0 (11), iPhone14,5, iOS 26.3.1, at 00:41:03 BST on 11 September. Incident: `413868EB-F71A-4F73-A730-FB1B800D9254`.
+- The crash is native `EXC_BAD_ACCESS (SIGSEGV)` / `KERN_INVALID_ADDRESS` on the JavaScript thread. The symbolicated stack runs through Hermes property-map insertion, Set iteration and `arrayFrom`, during a microtask checkpoint. It does not identify a JavaScript caller or prove which app/SDK operation caused the invalid access. Sign-out source inspection is not a reproduction; no root cause or fix is claimed. A device reproduction with runtime diagnostics is still needed.
+- Read-only checks of the affected production Apple profile found empty first/last names in Clerk and an absent name in Convex. Settings explicitly falls back to “Unknown” for an absent name. Apple supplies name data only on initial authorization; repeat authorization can legitimately omit it. The profile checks do not establish whether the original authorization supplied a name.
+- Recommended product follow-up: an optional editable display name, with a neutral “Household member” fallback when absent. Do not expose a private relay email as the member's name. No authentication, profile, dependency or production configuration changes were made during this investigation.
+
+Reference: [Apple's Sign in with Apple authorization data behavior](https://developer.apple.com/documentation/signinwithapple/configuring-your-webpage-for-sign-in-with-apple).
+
+### 11 September 2026 post-UAT release
+
+- The owner accepted the cleanup and UAT fixes in commit `9438003`, then explicitly authorized production Convex deployment and a new production iOS build/upload for another internal UAT. External beta submission remains deferred until that UAT is accepted.
+- Production `tangible-mink-681` was missing `restocks.addRegulars`, which had only been deployed to development. The production dry run and applied deployment passed with typechecking enabled and no index deletions. Read-only function metadata now confirms `restocks.addRegulars`, `users.deleteByClerkId`, and `users.continueDeletion` are present.
+- Production Clerk already subscribes to `user.created`, `user.updated`, and `user.deleted`. Google and Apple OAuth initiation preflight passed; device completion and production account-deletion/rejoin are part of final UAT.
+- Pre-commit validation passed: 105 Jest suites / 517 tests, TypeScript, changed TypeScript-file ESLint, and diff checks. Jest ran without Watchman. The existing JavaScript test lint configuration lacks Jest globals; a broader JS-test lint invocation is not claimed green.
+- The first iOS build preparation found the saved provisioning profile invalid and stopped before creating a cloud build. EAS refreshed the profile through the existing App Store Connect credentials. Remote build number 10 was consumed during that preparation; the new build is **1.0.0 (11)**.
+- EAS production build `e653f71e-520b-438f-bb95-80bb6a0aa997` completed successfully at `2026-09-10T23:29:20.897Z` (11 September local), using source commit `94380031320e3af34421fe0eb955e05423738991`, the production environment, and the existing distribution certificate with refreshed provisioning profile.
+- Downloaded IPA SHA-256: `538021d2da02083dc3c25ec02eeceed90a8b78dc06ef72ffc701b646e4eae990`. Verified `app.ourpantry`, version `1.0.0 (11)`, iPhone-only device family, production Clerk/Convex values, absence of the development Convex URL, production APNs, disabled debugging, TestFlight entitlement, and tracking disabled. Strict/deep code-signature verification passed.
+- EAS submission `e42052b1-81c6-4877-8b84-0f87bea638b3` uploaded build 11 successfully to App Store Connect, targeting the existing internal `Team (Expo)` group. At 00:34 BST on 11 September, App Store Connect reported `processingState: VALID`, `internalState: IN_BETA_TESTING`, and `externalState: READY_FOR_BETA_SUBMISSION`. The build is available for internal UAT; installation is not inferred. External Beta App Review remains deferred for the owner's final UAT.
+
+Final internal UAT priorities for build 11:
+
+1. Add regulars from both Plan and Pantry; verify existing household setup, shopping lists, and tracked-product history remain intact.
+2. Join with a disposable account, delete it, confirm its membership disappears for the remaining member and the sheet closes, then recreate/rejoin. Check the production deletion webhook succeeds and shared lists remain.
+3. Offline add/check/uncheck, leave/reopen, finish without a receipt, then reconnect; verify the intended state and trip sync once.
+4. Check contributor avatars, full invite-code paste, list creation/Finish options, receipt saving, activation choices, and production Google/Apple sign-in.
 
 ### 10 September 2026 TestFlight OAuth blocker
 

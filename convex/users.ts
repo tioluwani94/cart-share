@@ -34,7 +34,9 @@ export const ensureCurrent = mutation({
     if (existingUser) {
       await ctx.db.patch(existingUser._id, {
         email: identity.email,
-        ...(identity.name ? { name: identity.name } : {}),
+        ...(!existingUser.hasCustomName && identity.name
+          ? { name: identity.name }
+          : {}),
         ...(identity.pictureUrl ? { imageUrl: identity.pictureUrl } : {}),
         updatedAt: now,
       });
@@ -79,11 +81,39 @@ export const syncExistingFromClerk = internalMutation({
 
     await ctx.db.patch(existingUser._id, {
       email: args.email,
-      name: args.name,
+      ...(!existingUser.hasCustomName && args.name?.trim()
+        ? { name: args.name }
+        : {}),
       imageUrl: args.imageUrl,
       updatedAt: now,
     });
     return existingUser._id;
+  },
+});
+
+/** Update only the authenticated user's household-facing name. */
+export const updateDisplayName = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, { name }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    if (await hasAccountDeletionTombstone(ctx, identity.subject)) {
+      throw new Error("Account is being deleted");
+    }
+    const normalizedName = name.trim().replace(/\s+/g, " ");
+    if (!normalizedName || normalizedName.length > 60) {
+      throw new Error("Enter a name between 1 and 60 characters");
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(user._id, {
+      name: normalizedName,
+      hasCustomName: true,
+      updatedAt: Date.now(),
+    });
   },
 });
 

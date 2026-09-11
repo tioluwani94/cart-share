@@ -7,6 +7,9 @@ import SettingsScreen from "../app/settings";
 const mockUpdatePreferences = jest.fn();
 const mockRecalculateReminders = jest.fn();
 const mockSaveMonthlyBudget = jest.fn();
+const mockUpdateDisplayName = jest.fn();
+let mockIsOnline = true;
+let mockCurrentUser;
 const mockRegisterForPushNotifications = jest.fn();
 const mockPresentSignOutSheet = jest.fn();
 const mockDismissSignOutSheet = jest.fn();
@@ -26,6 +29,7 @@ let mockArchivedLists;
 let mockIsConvexAuthenticated;
 const mockUseQuery = jest.fn((query, args) => {
   if (args === "skip") return undefined;
+  if (query === "getCurrentUser") return mockCurrentUser;
   if (query === "getCurrentHousehold") {
     return mockHousehold;
   }
@@ -38,6 +42,10 @@ const mockUseQuery = jest.fn((query, args) => {
 
 jest.mock("@/convex/_generated/api", () => ({
   api: {
+    users: {
+      getCurrentUser: "getCurrentUser",
+      updateDisplayName: "updateDisplayName",
+    },
     households: {
       getCurrentHousehold: "getCurrentHousehold",
       setMonthlyBudget: "setMonthlyBudget",
@@ -61,6 +69,7 @@ jest.mock("convex/react", () => ({
   useConvexAuth: () => ({ isAuthenticated: mockIsConvexAuthenticated }),
   useQuery: (...args) => mockUseQuery(...args),
   useMutation: (mutation) => {
+    if (mutation === "updateDisplayName") return mockUpdateDisplayName;
     if (mutation === "updatePreferences") return mockUpdatePreferences;
     if (mutation === "recalculateForHousehold") {
       return mockRecalculateReminders;
@@ -68,6 +77,10 @@ jest.mock("convex/react", () => ({
     if (mutation === "setMonthlyBudget") return mockSaveMonthlyBudget;
     return jest.fn();
   },
+}));
+
+jest.mock("@/lib/useNetworkStatus", () => ({
+  useIsOnline: () => mockIsOnline,
 }));
 
 jest.mock("@clerk/expo", () => ({
@@ -142,6 +155,7 @@ jest.mock("@/components/ui", () => {
       return <View testID="sign-out-sheet">{children}</View>;
     }),
     GlassBottomSheetView: View,
+    GlassBottomSheetScrollView: View,
     GlassSheetHeader: ({
       title,
       description,
@@ -157,12 +171,15 @@ jest.mock("@/components/ui", () => {
         />
       </View>
     ),
-    Input: ({ value, onChangeText, accessibilityLabel }) => (
-      <TextInput
+    Input: ({ value, onChangeText, accessibilityLabel, error }) => (
+      <View>
+        <TextInput
         value={value}
         onChangeText={onChangeText}
         accessibilityLabel={accessibilityLabel}
-      />
+        />
+        {error ? <Text>{error}</Text> : null}
+      </View>
     ),
     AmountInput: ({ value, onChangeText, accessibilityLabel }) => (
       <TextInput
@@ -211,6 +228,9 @@ describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRouteParams = {};
+    mockIsOnline = true;
+    mockCurrentUser = { _id: "user_1", name: "Test User" };
+    mockUpdateDisplayName.mockReset().mockResolvedValue(undefined);
     mockIsConvexAuthenticated = true;
     mockPreferences = {
       analyticsConsent: "denied",
@@ -248,6 +268,53 @@ describe("SettingsScreen", () => {
     jest.spyOn(Share, "share").mockResolvedValue({
       action: Share.dismissedAction,
     });
+  });
+
+  it("edits the current user's display name and confirms a successful save", async () => {
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<SettingsScreen />); });
+    act(() => renderer.root.findByProps({ accessibilityLabel: "Edit your display name" }).props.onPress());
+    const input = renderer.root.findByProps({ accessibilityLabel: "Display name" });
+    expect(input.props.value).toBe("Test User");
+    act(() => input.props.onChangeText("  Tíolu  K  "));
+    await act(async () => {
+      await renderer.root.findByProps({ accessibilityLabel: "Save display name" }).props.onPress();
+    });
+    expect(mockUpdateDisplayName).toHaveBeenCalledWith({ name: "Tíolu K" });
+    expect(mockShowToast).toHaveBeenCalledWith({ message: "Name saved", tone: "success" });
+    expect(mockDismissSignOutSheet).toHaveBeenCalled();
+  });
+
+  it("uses a neutral fallback and refuses a blank name", async () => {
+    mockCurrentUser.name = undefined;
+    mockHousehold.members[0].user.name = undefined;
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<SettingsScreen />); });
+    expect(JSON.stringify(renderer.toJSON())).toContain("Household member");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Unknown");
+    await act(async () => {
+      await renderer.root.findByProps({ accessibilityLabel: "Save display name" }).props.onPress();
+    });
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("Enter a name between 1 and 60 characters.");
+  });
+
+  it.each(["offline", "server failure"])("keeps a name draft for retry on %s", async (failure) => {
+    mockIsOnline = failure !== "offline";
+    if (failure === "server failure") mockUpdateDisplayName.mockRejectedValueOnce(new Error("Unavailable"));
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<SettingsScreen />); });
+    act(() => renderer.root.findByProps({ accessibilityLabel: "Display name" }).props.onChangeText("Tio"));
+    await act(async () => {
+      await renderer.root.findByProps({ accessibilityLabel: "Save display name" }).props.onPress();
+    });
+    expect(mockDismissSignOutSheet).not.toHaveBeenCalled();
+    expect(mockShowToast).not.toHaveBeenCalled();
+    expect(renderer.root.findByProps({ accessibilityLabel: "Display name" }).props.value).toBe("Tio");
+    if (failure === "offline") expect(mockUpdateDisplayName).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain(failure === "offline"
+      ? "Connect to the internet to save your name."
+      : "Couldn't save your name. Please try again.");
   });
 
   it("opens the native share sheet for a household invite", async () => {

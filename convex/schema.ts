@@ -7,6 +7,8 @@ export default defineSchema({
     clerkId: v.string(),
     email: v.string(),
     name: v.optional(v.string()),
+    // A name chosen in Settings takes precedence over identity-provider updates.
+    hasCustomName: v.optional(v.boolean()),
     imageUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),

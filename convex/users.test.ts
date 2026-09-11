@@ -1,5 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import { ensureCurrent, syncExistingFromClerk } from "./users";
+import { ensureCurrent, syncExistingFromClerk, updateDisplayName } from "./users";
 
 type EnsureCurrentHandler = (
   ctx: unknown,
@@ -23,6 +23,83 @@ type SyncExistingUserHandler = (
 const syncExistingUser = (
   syncExistingFromClerk as unknown as { _handler: SyncExistingUserHandler }
 )._handler;
+
+const saveDisplayName = (
+  updateDisplayName as unknown as {
+    _handler: (ctx: unknown, args: { name: string }) => Promise<void>;
+  }
+)._handler;
+
+describe("display name persistence", () => {
+  function fixture({ signedIn = true, deleted = false, missing = false } = {}) {
+    const user: { _id: string; name?: string; hasCustomName?: boolean } = {
+      _id: "user_1",
+      name: "Provider name",
+    };
+    const eq = jest.fn();
+    const patch = jest.fn(async (_id, changes) => Object.assign(user, changes));
+    const ctx = {
+      auth: {
+        getUserIdentity: async () => signedIn
+          ? { subject: "clerk_1", email: "member@example.com", name: "Old provider name" }
+          : null,
+      },
+      db: {
+        query: (table: string) => ({
+          withIndex: (_index: string, filter: (q: { eq: typeof eq }) => unknown) => {
+            filter({ eq });
+            return { unique: async () => table === "accountDeletionTombstones"
+              ? (deleted ? { _id: "tombstone" } : null)
+              : (missing ? null : user) };
+          },
+        }),
+        patch,
+      },
+    };
+    return { ctx, user, patch, eq };
+  }
+
+  it("saves the authenticated user's name and retains it across login and webhooks", async () => {
+    const { ctx, user, patch, eq } = fixture();
+    await saveDisplayName(ctx, { name: "  Tíolu   Kolawole  " });
+    expect(eq).toHaveBeenCalledWith("clerkId", "clerk_1");
+    expect(patch).toHaveBeenCalledWith("user_1", expect.objectContaining({
+      name: "Tíolu Kolawole", hasCustomName: true,
+    }));
+    await ensureSignedInUser(ctx, {});
+    await syncExistingUser(ctx, { clerkId: "clerk_1", email: "member@example.com", name: "Old provider name" });
+    await syncExistingUser(ctx, { clerkId: "clerk_1", email: "member@example.com" });
+    expect(user.name).toBe("Tíolu Kolawole");
+  });
+
+  it("preserves a provider name when a later Apple webhook omits it", async () => {
+    const { ctx, user } = fixture();
+    await syncExistingUser(ctx, { clerkId: "clerk_1", email: "member@example.com" });
+    expect(user.name).toBe("Provider name");
+  });
+
+  it("still refreshes names for users who have not chosen their own", async () => {
+    const { ctx, user } = fixture();
+    await syncExistingUser(ctx, { clerkId: "clerk_1", email: "member@example.com", name: "Updated provider name" });
+    expect(user.name).toBe("Updated provider name");
+  });
+
+  it.each(["", "   ", "a".repeat(61)])("rejects invalid names without writing", async (name) => {
+    const { ctx, patch } = fixture();
+    await expect(saveDisplayName(ctx, { name })).rejects.toThrow("between 1 and 60");
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ signedIn: false }, "Not authenticated"],
+    [{ deleted: true }, "Account is being deleted"],
+    [{ missing: true }, "User not found"],
+  ] as const)("refuses unavailable accounts: %j", async (options, message) => {
+    const { ctx, patch } = fixture(options);
+    await expect(saveDisplayName(ctx, { name: "Tio" })).rejects.toThrow(message);
+    expect(patch).not.toHaveBeenCalled();
+  });
+});
 
 describe("users.ensureCurrent", () => {
   it("recreates the authenticated user from verified identity claims", async () => {

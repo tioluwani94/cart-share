@@ -11,6 +11,7 @@ import {
 } from "@/components/ui";
 import {
   BudgetEditSheet,
+  DisplayNameEditSheet,
   ReminderTimeSheet,
   SettingsRow,
   SettingsSection,
@@ -35,6 +36,7 @@ import {
   registerForPushNotifications,
 } from "@/lib/pushNotifications";
 import { themeColors } from "@/lib/theme";
+import { useIsOnline } from "@/lib/useNetworkStatus";
 import { isClerkAPIResponseError, useAuth, useUser } from "@clerk/expo";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
@@ -54,12 +56,14 @@ import {
   ShieldCheck,
   Trash2,
   UserPlus,
+  UserRound,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Linking,
+  Keyboard,
   ScrollView,
   Share,
   Text,
@@ -109,6 +113,12 @@ export default function SettingsScreen() {
   const pageHeaderHeight = usePageHeaderHeight();
   const { showToast } = useToast();
   const [archivedExpanded, setArchivedExpanded] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameError, setDisplayNameError] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const nameSaveInFlight = useRef(false);
+  const displayNameSheetRef = useRef<GlassBottomSheetRef>(null);
+  const isOnline = useIsOnline();
   const [restoringListId, setRestoringListId] = useState<Id<"lists"> | null>(
     null,
   );
@@ -140,6 +150,11 @@ export default function SettingsScreen() {
   const analytics = useAnalytics();
   const canQueryAuthenticatedData =
     isConvexAuthenticated && !isSigningOut && !isDeletingAccount;
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    canQueryAuthenticatedData ? {} : "skip",
+  );
+  const updateDisplayName = useMutation(api.users.updateDisplayName);
   const queriedHousehold = useQuery(
     api.households.getCurrentHousehold,
     canQueryAuthenticatedData ? {} : "skip",
@@ -235,6 +250,39 @@ export default function SettingsScreen() {
       showToast({ message: "Couldn't open sharing", tone: "error" });
     }
   }, [analytics, household, showToast]);
+
+  const openDisplayNameEditor = () => {
+    setDisplayName(currentUser?.name ?? "");
+    setDisplayNameError("");
+    displayNameSheetRef.current?.present();
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (nameSaveInFlight.current) return;
+    const name = displayName.trim().replace(/\s+/g, " ");
+    if (!name || name.length > 60) {
+      setDisplayNameError("Enter a name between 1 and 60 characters.");
+      return;
+    }
+    if (!isOnline) {
+      setDisplayNameError("Connect to the internet to save your name.");
+      return;
+    }
+    Keyboard.dismiss();
+    nameSaveInFlight.current = true;
+    setIsSavingName(true);
+    setDisplayNameError("");
+    try {
+      await updateDisplayName({ name });
+      displayNameSheetRef.current?.dismiss();
+      showToast({ message: "Name saved", tone: "success" });
+    } catch {
+      setDisplayNameError("Couldn't save your name. Please try again.");
+    } finally {
+      nameSaveInFlight.current = false;
+      setIsSavingName(false);
+    }
+  };
 
   const openBudgetEditor = useCallback(() => {
     setMonthlyBudget(
@@ -634,13 +682,13 @@ export default function SettingsScreen() {
                   key={member._id}
                   leading={
                     <UserAvatar
-                      name={member.user?.name || "User"}
+                      name={member.user?.name?.trim() || "Household member"}
                       imageUrl={member.user?.imageUrl}
                       size={40}
                       showTooltip={false}
                     />
                   }
-                  title={member.user?.name || "Unknown"}
+                  title={member.user?.name?.trim() || "Household member"}
                   subtitle={
                     member.role === "owner" ? "Household owner" : "Member"
                   }
@@ -900,6 +948,17 @@ export default function SettingsScreen() {
           footer="Deleting your account is permanent. We’ll explain exactly what will be removed before you confirm."
         >
           <SettingsRow
+            icon={<UserRound size={19} color={themeColors.coral} strokeWidth={2} />}
+            iconTone="coral"
+            title="Display name"
+            subtitle={currentUser?.name?.trim() || "Household member"}
+            disclosure
+            disabled={!currentUser}
+            onPress={openDisplayNameEditor}
+            accessibilityLabel="Edit your display name"
+            accessibilityHint="Change the name your household sees"
+          />
+          <SettingsRow
             icon={
               <LogOut size={19} color={themeColors.error} strokeWidth={2} />
             }
@@ -926,6 +985,19 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
       </ScrollView>
+
+      <DisplayNameEditSheet
+        ref={displayNameSheetRef}
+        value={displayName}
+        onChangeText={(value) => {
+          setDisplayName(value);
+          setDisplayNameError("");
+        }}
+        onSave={handleSaveDisplayName}
+        onClose={() => displayNameSheetRef.current?.dismiss()}
+        error={displayNameError}
+        isSaving={isSavingName}
+      />
 
       <BudgetEditSheet
         ref={budgetSheetRef}
