@@ -1,7 +1,8 @@
 # Notification fixes — local UAT handoff
 
-20 September 2026. Implementation only: no deployment, TestFlight upload, Git
-push, production data export, or real notification delivery test was performed.
+20 September 2026. The initial implementation was validated locally. The
+follow-up below records the requested rebase and development UAT. No production
+deployment, TestFlight upload, Git push, or production data export was performed.
 
 ## Implemented behavior
 
@@ -57,15 +58,65 @@ static-check evidence:
 - Changed production files: ESLint passed without warnings.
 - `git diff --check`: passed.
 
-No simulator build or physical-device UAT has been claimed. Mocked HTTP tests do
-not contact Expo or send pushes.
+These initial checks used mocked HTTP and did not contact Expo or send pushes.
 
-## Internal UAT still required
+## Rebase and development UAT follow-up
+
+- Rebased `codex/notification-fixes` onto `origin/main` at `dcc2e10`; notification
+  implementation is now `21a2ed5`. No conflicts.
+- After rebase: typecheck passed; **108 suites, 579 tests passed**.
+- Deployed compatible functions/schema/indexes to development
+  `savory-woodpecker-17`. Production `tangible-mink-681` was not changed.
+- Live development API check for the approved Alex Parker / The Parkers demo
+  account: activity preference enabled independently of reminders, read back,
+  and restored to false. Existing reminders stayed false. No delivery was sent.
+- Release simulator and signed iPhone builds succeeded using Xcode 27 with a
+  local `IPHONEOS_DEPLOYMENT_TARGET=17.0` override for older Pod targets. Both
+  bundles contain the development endpoint and updated notification code.
+- Physical build signature verified, including development APNs entitlement.
+- The initial unsigned simulator artifact could not access Keychain. Rebuilding
+  with Xcode-managed simulator signing resolved startup; the welcome/sign-in UI
+  is live on iPhone 17 Pro / iOS 26.5. The user signed into **Tio** and approved
+  that household for live UAT instead of The Parkers.
+- Live Settings check: existing shopping reminders were on and activity was off.
+  Enabling activity opened the native iOS prompt, permission was granted, and
+  the activity switch changed to on. Disabling it restored off while reminders
+  stayed on; the live backend query confirmed both values.
+- Simulator-only notification injection displayed generic copy with no item
+  names or prices. A background list-activity tap opened Tio’s correct Next shop
+  list. Foreground banners also displayed correctly. These were local `simctl`
+  payloads, not end-to-end Expo/APNs delivery.
+- Cold start retained the authenticated session, showed Plan without another
+  permission prompt, and refreshed the same enabled iOS push-token row. The
+  Spending empty state rendered correctly.
+- **Unverified:** completion-notification taps, wrong-account/household taps,
+  and a full add/check/finish shop flow. Device Hub repeatedly returned
+  `noWindowsAvailable` for coordinate actions and invalid accessibility IDs
+  for notification overlays. A user-assisted completion tap was requested but
+  not observed. The new-list form was opened and cancelled; no list/item/shop
+  records were added or changed. These cases are not recorded as passes.
+- The second Tio household member had activity disabled. No pushes were sent
+  to another member. Grouping, receipt delivery, offline replay, quiet hours,
+  and account switching remain covered by automated tests and the manual
+  checklist below, not by an end-to-end live delivery claim.
+- Installed and launched the signed development build (`app.ourpantry`) on
+  **Tioluwani’s iPhone — iPhone 13, iOS 26.3.1**. Both install and launch commands
+  succeeded. It uses `savory-woodpecker-17`; manual acceptance is pending.
+
+For the immediate phone pass, start with Settings (reminders and activity are
+independent), then add/check/finish a clearly labeled test shop, including one
+without a total. Verify Recent trips. With two approved test devices, test a
+grouped list alert and a completion alert, then sign out/back in and verify
+registration recovery. The simulator-only tap fixtures do not verify delivery
+through Expo/APNs.
+
+## Manual UAT still required
 
 Use a non-production backend and two explicitly approved test accounts/devices.
 Sending a push to another person requires their test authorization; this task
-did not authorize delivery tests. A backend deployment and new client build are
-required before these checks can run; neither is part of this implementation.
+does not authorize pushes to other people. The development deployment and client
+builds are recorded above; real delivery checks below still need two approved
+test accounts/devices.
 
 1. Start with the current account opted into reminders. Sign out, sign back in,
    and verify that its token is enabled without another permission dialog.
