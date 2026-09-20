@@ -101,12 +101,13 @@ describe("NotificationSetupScreen", () => {
     });
 
     expect(
-      renderer.root.findByProps({ children: "Let OurPantry remember" }),
+      renderer.root.findByProps({ children: "Stay in the loop" }),
     ).toBeTruthy();
     expect(mockRegisterForPushNotifications).not.toHaveBeenCalled();
+    expect(mockUpdatePreferences).not.toHaveBeenCalled();
   });
 
-  it("enables reminders only after the affirmative action", async () => {
+  it("enables both categories only after the affirmative action and permission grant", async () => {
     mockRegisterForPushNotifications.mockResolvedValue({
       status: "granted",
       token: "ExponentPushToken[test]",
@@ -120,7 +121,7 @@ describe("NotificationSetupScreen", () => {
 
     await act(async () => {
       await renderer.root
-        .findByProps({ accessibilityLabel: "Turn on restock reminders" })
+        .findByProps({ accessibilityLabel: "Turn on shopping reminders and household activity" })
         .props.onPress();
     });
 
@@ -131,6 +132,7 @@ describe("NotificationSetupScreen", () => {
     });
     expect(mockUpdatePreferences).toHaveBeenCalledWith({
       restockNotificationsEnabled: true,
+      householdActivityEnabled: true,
     });
     expect(mockRecalculateReminders).toHaveBeenCalledWith({});
     expect(mockReplace).toHaveBeenCalledWith({
@@ -158,6 +160,7 @@ describe("NotificationSetupScreen", () => {
     expect(mockRegisterForPushNotifications).not.toHaveBeenCalled();
     expect(mockUpdatePreferences).toHaveBeenCalledWith({
       restockNotificationsEnabled: false,
+      householdActivityEnabled: false,
     });
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: "/analytics-setup",
@@ -177,11 +180,13 @@ describe("NotificationSetupScreen", () => {
 
     await act(async () => {
       await renderer.root
-        .findByProps({ accessibilityLabel: "Turn on restock reminders" })
+        .findByProps({ accessibilityLabel: "Turn on shopping reminders and household activity" })
         .props.onPress();
     });
 
     expect(mockRegisterDevice).not.toHaveBeenCalled();
+    expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
     const settingsLink = renderer.root.findByProps({
       accessibilityLabel: "Open device notification settings",
     });
@@ -190,4 +195,25 @@ describe("NotificationSetupScreen", () => {
     });
     expect(mockOpenSettings).toHaveBeenCalledTimes(1);
   });
+  it("leaves both categories unchanged when push registration is unavailable", async () => {
+    mockRegisterForPushNotifications.mockResolvedValue({ status: "unavailable" });
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<NotificationSetupScreen />);
+    });
+
+    await act(async () => {
+      await renderer.root
+        .findByProps({ accessibilityLabel: "Turn on shopping reminders and household activity" })
+        .props.onPress();
+    });
+
+    expect(mockRegisterDevice).not.toHaveBeenCalled();
+    expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(renderer.root.findByProps({
+      accessibilityLabel: "Continue without notifications",
+    })).toBeTruthy();
+  });
+
 });

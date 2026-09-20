@@ -72,8 +72,8 @@ export default function NotificationSetupScreen() {
         setPermissionFailure(registration.status);
         setError(
           registration.status === "denied"
-            ? "Notifications are off for OurPantry. You can allow them in device settings, or continue without reminders."
-            : "Reminders aren't available on this build. You can continue and turn them on later in Settings.",
+            ? "Notifications are off for OurPantry. You can allow them in device settings, or continue without notifications."
+            : "Notifications aren't available on this build. You can continue and turn them on later in Settings.",
         );
         return;
       }
@@ -83,13 +83,16 @@ export default function NotificationSetupScreen() {
         platform: registration.platform,
         deviceId: registration.deviceId,
       });
-      await updatePreferences({ restockNotificationsEnabled: true });
+      await updatePreferences({
+        restockNotificationsEnabled: true,
+        householdActivityEnabled: true,
+      });
       await recalculateReminders({});
       continueToAnalytics("granted");
     } catch (caughtError) {
-      console.error("Couldn't enable notification reminders:", caughtError);
+      console.error("Couldn't enable notifications:", caughtError);
       setPermissionFailure("unavailable");
-      setError("We couldn't turn on reminders. Please try again.");
+      setError("We couldn't turn on notifications. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -101,7 +104,10 @@ export default function NotificationSetupScreen() {
     setError(null);
 
     try {
-      await updatePreferences({ restockNotificationsEnabled: false });
+      await updatePreferences({
+        restockNotificationsEnabled: false,
+        householdActivityEnabled: false,
+      });
       continueToAnalytics(
         permissionFailure === "denied" ? "denied" : undefined,
       );
@@ -129,7 +135,7 @@ export default function NotificationSetupScreen() {
       <SafeAreaView className="flex-1 items-center justify-center bg-background-light">
         <ActivityIndicator size="large" color={themeColors.coral} />
         <Text className="mt-3 text-ink-secondary">
-          Preparing your reminders…
+          Preparing notifications…
         </Text>
       </SafeAreaView>
     );
@@ -138,8 +144,8 @@ export default function NotificationSetupScreen() {
   return (
     <OnboardingFormScreen
       artworkSource={restockReminderArtwork}
-      title="Let OurPantry remember"
-      description="Get a timely reminder when your household's restock review is ready."
+      title="Stay in the loop"
+      description="Get shopping reminders, grouped list updates, and a heads-up when someone finishes a shop."
       footer={
         <View>
           <Button
@@ -151,13 +157,13 @@ export default function NotificationSetupScreen() {
             className="w-full"
             accessibilityLabel={
               permissionFailure === "denied"
-                ? "Try turning on reminders again"
-                : "Turn on restock reminders"
+                ? "Try turning on notifications again"
+                : "Turn on shopping reminders and household activity"
             }
           >
             {permissionFailure === "denied"
               ? "Try again"
-              : "Turn on reminders"}
+              : "Turn on notifications"}
           </Button>
           <Button
             variant="ghost"
@@ -168,7 +174,7 @@ export default function NotificationSetupScreen() {
             className="mt-2 w-full"
             accessibilityLabel="Continue without notifications"
           >
-            {permissionFailure ? "Continue without reminders" : "Not now"}
+            {permissionFailure ? "Continue without notifications" : "Not now"}
           </Button>
         </View>
       }
@@ -187,8 +193,8 @@ export default function NotificationSetupScreen() {
               Calm and private by default
             </Text>
             <Text className="mt-1 text-[15px] leading-6 text-ink-secondary">
-              Reminders arrive around 18:00 and are grouped—not one alert per
-              product. Item names, prices, and receipts stay off your Lock
+              List changes are grouped. Household activity stays quiet from
+              20:00–08:00. Item names, prices, and receipts stay off your Lock
               Screen.
             </Text>
           </View>
@@ -196,7 +202,8 @@ export default function NotificationSetupScreen() {
       </View>
 
       <Text className="mt-5 text-sm leading-5 text-ink-secondary">
-        You can change the time or turn reminders off in Settings.
+        Choose which notifications you receive and set your reminder time in
+        Settings.
       </Text>
 
       {error ? (

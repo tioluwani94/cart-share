@@ -17,7 +17,10 @@ deployment, TestFlight upload, Git push, or production data export was performed
   cycle only when neither a sent timestamp nor an accepted ticket exists.
   Sent/failed records remain terminal, and pending retry backoff is preserved.
 - **Household activity** is a new per-person Settings opt-in, off for existing
-  accounts until chosen. The existing reminder setting is unchanged. Permission
+  accounts until chosen. Onboarding now explains both categories and enables
+  both after an affirmative choice and successful permission/registration;
+  Not now disables both. Existing accounts are not automatically opted in, and
+  Settings keeps independent switches. Permission
   denial offers device settings without silently enabling either category.
 - Adds, edits, deletes, checks, unchecks and Quick check additions queue one
   grouped activity alert for the other member. No-op writes and duplicate
@@ -162,3 +165,24 @@ To stop activity, switch the preference off for affected test accounts or ship a
 server queue/send guard. Preserve expanded schema compatibility while activity
 rows exist; do not roll back to validators that reject the new kinds or fields.
 Restock functionality and its consent remain independent.
+
+## Onboarding consent follow-up
+
+The user chose to introduce both categories during activation. The shared
+notification setup screen now names shopping reminders, grouped list updates,
+and finished-shop alerts before the system prompt. “Turn on notifications”
+enables both preferences together after permission and registration succeed;
+“Not now” leaves both off. Denied/unavailable registration does not enable either
+category. Settings retains separate switches, and no existing account preference
+is changed by installing the update.
+
+Focused validation: **4 suites / 45 tests passed**, covering notification setup,
+Settings, restock activation, and auth routing. Typecheck and production-file
+ESLint passed.
+
+The refreshed iPhone 13 Release build succeeded, its signature verified, and
+installation succeeded. The embedded bundle contains the new combined onboarding
+choice and development endpoint. Automatic launch was blocked because the
+iPhone was locked; unlock and open OurPantry to test. The simulator installation
+still contains the earlier build, so the prior live results do not validate
+this updated onboarding screen.
