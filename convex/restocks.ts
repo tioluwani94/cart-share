@@ -1,3 +1,4 @@
+import { queueListActivity } from "./collaborationNotifications";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { restockSnapshot } from "../lib/restockUndo";
@@ -1004,7 +1005,10 @@ export const decide = mutation({
           createdAt: Date.now(),
           updatedAt: Date.now(),
         }));
-      if (!existingItem) createdItemId = itemId;
+      if (!existingItem) {
+        createdItemId = itemId;
+        await queueListActivity(ctx, activeList._id, user._id);
+      }
     }
 
     await ctx.db.patch(product._id, {

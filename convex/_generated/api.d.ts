@@ -9,6 +9,7 @@
  */
 
 import type * as accountDeletion from "../accountDeletion.js";
+import type * as collaborationNotifications from "../collaborationNotifications.js";
 import type * as crons from "../crons.js";
 import type * as households from "../households.js";
 import type * as http from "../http.js";
@@ -30,6 +31,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accountDeletion: typeof accountDeletion;
+  collaborationNotifications: typeof collaborationNotifications;
   crons: typeof crons;
   households: typeof households;
   http: typeof http;

@@ -90,6 +90,7 @@ describe("offline item identity", () => {
         patch,
         query: (table: string) => ({
           withIndex: () => ({
+            take: async () => [],
             unique: async () => {
               if (table === "users") return { _id: userId };
               if (table === "items") {
@@ -136,6 +137,7 @@ describe("offline item identity", () => {
         patch,
         query: (table: string) => ({
           withIndex: () => ({
+            take: async () => [],
             unique: async () =>
               table === "users" ? { _id: userId } : { householdId, userId },
           }),
@@ -166,6 +168,7 @@ describe("item attribution", () => {
           id === listId ? { _id: listId, householdId } : null,
         query: (table: string) => ({
           withIndex: () => ({
+            take: async () => [],
             unique: async () =>
               table === "users" ? { _id: userId } : { householdId, userId },
             collect: async () =>

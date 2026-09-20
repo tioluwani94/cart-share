@@ -1,4 +1,8 @@
 import {
+  suspendPushRegistration,
+  resumePushRegistration,
+} from "@/lib/pushRegistrationLifecycle";
+import {
   Button,
   GlassBottomSheet,
   GlassBottomSheetView,
@@ -332,13 +336,18 @@ export default function SettingsScreen() {
   }, [monthlyBudget, saveMonthlyBudget, showToast]);
 
   const handleNotificationChange = useCallback(
-    async (enabled: boolean) => {
+    async (
+      enabled: boolean,
+      category:
+        | "restockNotificationsEnabled"
+        | "householdActivityEnabled" = "restockNotificationsEnabled",
+    ) => {
       setIsSavingPreferences(true);
       setPreferenceError(null);
       setShowNotificationSettingsLink(false);
       try {
         if (!enabled) {
-          await updatePreferences({ restockNotificationsEnabled: false });
+          await updatePreferences({ [category]: false });
           return;
         }
         const registration = await registerForPushNotifications();
@@ -358,8 +367,9 @@ export default function SettingsScreen() {
           token: registration.token,
           platform: registration.platform,
           deviceId: registration.deviceId,
+          expectedClerkId: clerkUser?.id,
         });
-        await updatePreferences({ restockNotificationsEnabled: true });
+        await updatePreferences({ [category]: true });
         await recalculateReminders({});
         analytics.track("notification permission answered", {
           answer: "granted",
@@ -376,6 +386,7 @@ export default function SettingsScreen() {
     },
     [
       analytics,
+      clerkUser?.id,
       household?._id,
       recalculateReminders,
       registerDevice,
@@ -471,6 +482,7 @@ export default function SettingsScreen() {
     setIsSigningOut(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      await suspendPushRegistration();
       try {
         const deviceId = await getCurrentDeviceId();
         if (deviceId) await disablePushDevice({ deviceId });
@@ -482,6 +494,7 @@ export default function SettingsScreen() {
       signOutSheetRef.current?.dismiss({ duration: 0 });
       await signOut();
     } catch (error) {
+      resumePushRegistration();
       console.error("Sign out failed:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsSigningOut(false);
@@ -832,6 +845,19 @@ export default function SettingsScreen() {
             accessibilityLabel="Shopping insights and reminders"
           />
 
+          <SettingsToggleRow
+            icon={<Bell size={19} color={themeColors.coral} strokeWidth={2} />}
+            iconTone="coral"
+            title="Household activity"
+            subtitle="Grouped list changes and finished shops from your partner · quiet hours 20:00–08:00"
+            value={preferences?.householdActivityEnabled ?? false}
+            onValueChange={(value) =>
+              void handleNotificationChange(value, "householdActivityEnabled")
+            }
+            disabled={isSavingPreferences || preferences === undefined}
+            accessibilityLabel="Household activity notifications"
+          />
+
           {preferences?.restockNotificationsEnabled ? (
             <SettingsRow
               icon={
@@ -948,7 +974,9 @@ export default function SettingsScreen() {
           footer="Deleting your account is permanent. We’ll explain exactly what will be removed before you confirm."
         >
           <SettingsRow
-            icon={<UserRound size={19} color={themeColors.coral} strokeWidth={2} />}
+            icon={
+              <UserRound size={19} color={themeColors.coral} strokeWidth={2} />
+            }
             iconTone="coral"
             title="Display name"
             subtitle={currentUser?.name?.trim() || "Household member"}
@@ -963,6 +991,7 @@ export default function SettingsScreen() {
               <LogOut size={19} color={themeColors.error} strokeWidth={2} />
             }
             title="Sign out"
+            disabled={isSavingPreferences}
             destructive
             onPress={() => signOutSheetRef.current?.present()}
             accessibilityLabel="Sign out of your account"
@@ -974,6 +1003,7 @@ export default function SettingsScreen() {
             }
             iconTone="danger"
             title="Delete account"
+            disabled={isSavingPreferences}
             destructive
             onPress={() => {
               setAccountDeletionError(null);

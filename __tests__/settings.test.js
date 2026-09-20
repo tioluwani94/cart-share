@@ -415,6 +415,22 @@ describe("SettingsScreen", () => {
     });
   });
 
+  it("keeps household activity opt-in separate from shopping reminders", async () => {
+    mockRegisterForPushNotifications.mockResolvedValue({ status: "granted", token: "ExpoPushToken[test]", platform: "ios" });
+    let renderer;
+    await act(async () => { renderer = TestRenderer.create(<SettingsScreen />); });
+    const activity = renderer.root.findByProps({ accessibilityLabel: "Household activity notifications" });
+    expect(activity.props.value).toBe(false);
+    await act(async () => { await activity.props.onValueChange(true); });
+    expect(mockUpdatePreferences).toHaveBeenCalledWith({ householdActivityEnabled: true });
+    expect(mockUpdatePreferences).not.toHaveBeenCalledWith({ restockNotificationsEnabled: true });
+    mockUpdatePreferences.mockClear();
+    mockRegisterForPushNotifications.mockClear();
+    await act(async () => { await activity.props.onValueChange(false); });
+    expect(mockUpdatePreferences).toHaveBeenCalledWith({ householdActivityEnabled: false });
+    expect(mockRegisterForPushNotifications).not.toHaveBeenCalled();
+  });
+
   it("offers device settings after notification permission is denied", async () => {
     mockPreferences = {
       ...mockPreferences,

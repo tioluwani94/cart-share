@@ -1,3 +1,4 @@
+import { notificationMatchesRecipient } from "./notificationHandling";
 import { getNotificationHandlingDecision } from "./notificationHandling";
 
 const readyState = {
@@ -91,5 +92,17 @@ describe("getNotificationHandlingDecision", () => {
 
   it("handles a fully scoped and ready response", () => {
     expect(getNotificationHandlingDecision(readyState)).toBe("handle");
+  });
+});
+
+
+describe("activity notification recipient scope", () => {
+  const notification = { recipientClerkId: "c1", householdId: "h1" };
+  it("ignores delivered notifications after account or household changes", () => {
+    expect(notificationMatchesRecipient(notification, "c1", "h1")).toBe(true);
+    expect(notificationMatchesRecipient(notification, "c2", "h1")).toBe(false);
+    expect(notificationMatchesRecipient(notification, "c1", "h2")).toBe(false);
+    expect(notificationMatchesRecipient(notification, null, null)).toBe(false);
+    expect(notificationMatchesRecipient({}, "c1", "h1")).toBe(true);
   });
 });

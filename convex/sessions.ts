@@ -1,3 +1,4 @@
+import { queueListActivity } from "./collaborationNotifications";
 import { v } from "convex/values";
 import {
   calculateMonthlyRemaining,
@@ -20,6 +21,10 @@ async function finishList(
   },
 ) {
   await recordCompletedShop(ctx, { sessionId: args.sessionId });
+  const session = await ctx.db.get(args.sessionId);
+  if (session?.shopperId) {
+    await queueListActivity(ctx, args.listId, session.shopperId, args.sessionId);
+  }
 
   await ctx.db.patch(args.listId, {
     isArchived: true,

@@ -182,6 +182,7 @@ export default defineSchema({
     ),
     analyticsConsentUpdatedAt: v.optional(v.number()),
     restockNotificationsEnabled: v.boolean(),
+    householdActivityEnabled: v.optional(v.boolean()),
     notificationTimeMinutesLocal: v.number(),
     notificationTimeZone: v.string(),
     createdAt: v.number(),
@@ -200,7 +201,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_token", ["token"]),
+    .index("by_token", ["token"])
+    .index("by_device_id", ["deviceId"]),
 
   notificationReminders: defineTable({
     userId: v.id("users"),
@@ -209,8 +211,13 @@ export default defineSchema({
       v.literal("restock_review"),
       v.literal("shop_reminder"),
       v.literal("product_learning"),
+      v.literal("list_activity"),
+      v.literal("shop_completed"),
     ),
     productIds: v.optional(v.array(v.id("householdProducts"))),
+    listId: v.optional(v.id("lists")),
+    actorId: v.optional(v.id("users")),
+    shoppingSessionId: v.optional(v.id("shoppingSessions")),
     scheduledFor: v.number(),
     dedupeKey: v.string(),
     status: v.union(
@@ -226,7 +233,13 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_status_and_scheduled_for", ["status", "scheduledFor"])
+    .index("by_kind_and_status_and_scheduled_for", [
+      "kind",
+      "status",
+      "scheduledFor",
+    ])
     .index("by_dedupe_key", ["dedupeKey"])
+    .index("by_user_and_kind_and_status", ["userId", "kind", "status"])
     .index("by_user", ["userId"]),
 
   // Shopping sessions - tracks completed shopping trips with receipts

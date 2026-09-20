@@ -56,3 +56,16 @@ export function getNotificationHandlingDecision({
   }
   return "handle";
 }
+
+/** Legacy planning pushes lack a recipient; activity pushes carry both scopes. */
+export function notificationMatchesRecipient(
+  notification: { recipientClerkId?: string; householdId?: string },
+  userId: string | null | undefined,
+  householdId: string | null | undefined,
+): boolean {
+  return (
+    (!notification.recipientClerkId ||
+      notification.recipientClerkId === userId) &&
+    (!notification.householdId || notification.householdId === householdId)
+  );
+}

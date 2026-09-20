@@ -1,6 +1,6 @@
-export type AnalyticsConsent = "granted" | "denied" | undefined;
+import type { NotificationKind } from "./notificationResponse";
 
-type NotificationKind = "restock_review" | "shop_reminder" | "product_learning";
+export type AnalyticsConsent = "granted" | "denied" | undefined;
 
 export function getItemCountBucket(itemCount: number): "0" | "1-10" | "11+" {
   if (itemCount <= 0) return "0";

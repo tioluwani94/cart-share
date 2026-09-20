@@ -10,7 +10,11 @@ import {
 import { AuthenticatedUserBoundary } from "@/lib/AuthenticatedUserBoundary";
 import { AccountDeletionCleanupBoundary } from "@/lib/AccountDeletionCleanupBoundary";
 import { clerkTokenCache } from "@/lib/clerkTokenCache";
-import { getNotificationHandlingDecision } from "@/lib/notificationHandling";
+import { usePushRegistration } from "@/lib/usePushRegistration";
+import {
+  getNotificationHandlingDecision,
+  notificationMatchesRecipient,
+} from "@/lib/notificationHandling";
 import {
   clearLastRestockNotificationResponse,
   getLastRestockNotificationResponse,
@@ -111,6 +115,12 @@ function InitialLayout() {
     api.notifications.getPreferences,
     isConvexAuthenticated ? {} : "skip",
   );
+
+  usePushRegistration({
+    userId,
+    authenticated: Boolean(isSignedIn && isConvexAuthenticated),
+    preference: notificationPreference,
+  });
 
   const rootSegment = segments[0] as string | undefined;
   const routeKey = segments.join("/");
@@ -214,8 +224,14 @@ function InitialLayout() {
       preferenceViewerId: notificationPreference?.viewerClerkId,
     });
     if (decision === "wait") return;
+    const recipientMatches = notificationMatchesRecipient(
+      pendingNotification,
+      userId,
+      household?._id,
+    );
     if (
       decision === "handle" &&
+      recipientMatches &&
       notificationPreference?.analyticsConsent === "granted"
     ) {
       analytics.track("notification opened", {
@@ -223,10 +239,11 @@ function InitialLayout() {
         kind: pendingNotification.kind,
       });
     }
-    if (decision === "handle") {
+    if (decision === "handle" && recipientMatches) {
       const destination = getNotificationDestination(
         pendingNotification.kind,
         pendingNotification.identifier,
+        pendingNotification.listId,
       ) as Href;
       if (pendingNotification.kind === "product_learning") {
         router.push(destination);

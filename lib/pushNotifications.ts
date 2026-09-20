@@ -33,11 +33,17 @@ export async function getCurrentDeviceId(): Promise<string | undefined> {
   return undefined;
 }
 
-export async function registerForPushNotifications(): Promise<PushRegistrationResult> {
+export async function registerForPushNotifications({
+  requestPermission = true,
+}: { requestPermission?: boolean } = {}): Promise<PushRegistrationResult> {
   if (Platform.OS !== "ios" && Platform.OS !== "android") {
     return { status: "unavailable", reason: "Push is mobile-only" };
   }
   if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("household-activity", {
+      name: "Household activity",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
     await Notifications.setNotificationChannelAsync("restock-reminders", {
       name: "Restock reminders",
       importance: Notifications.AndroidImportance.DEFAULT,
@@ -50,7 +56,9 @@ export async function registerForPushNotifications(): Promise<PushRegistrationRe
   const permission =
     current.status === "granted"
       ? current
-      : await Notifications.requestPermissionsAsync();
+      : requestPermission
+        ? await Notifications.requestPermissionsAsync()
+        : current;
   if (permission.status !== "granted") return { status: "denied" };
 
   const projectId =
@@ -62,9 +70,7 @@ export async function registerForPushNotifications(): Promise<PushRegistrationRe
       reason: "EAS project ID is not configured",
     };
   }
-  const token = (
-    await Notifications.getExpoPushTokenAsync({ projectId })
-  ).data;
+  const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   return {
     status: "granted",
     token,
@@ -85,9 +91,7 @@ export function listenForNotificationResponses(
   });
 }
 
-export async function getLastRestockNotificationResponse(): Promise<
-  RestockNotificationResponse | null
-> {
+export async function getLastRestockNotificationResponse(): Promise<RestockNotificationResponse | null> {
   const response = await Notifications.getLastNotificationResponseAsync();
   if (!response) return null;
   const restockResponse = parseRestockNotificationResponse({

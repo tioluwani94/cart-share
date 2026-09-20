@@ -72,6 +72,7 @@ function harness() {
           return {
             unique: async () => found()[0] ?? null,
             collect: async () => found(),
+            take: async (count: number) => found().slice(0, count),
           };
         },
       }),

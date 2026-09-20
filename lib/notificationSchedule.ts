@@ -98,3 +98,18 @@ export function nextLocalDeliveryTime({
   }
   return candidate;
 }
+
+/** Activity is timely during the day, consolidated until 08:00 overnight. */
+export function nextActivityDeliveryTime(
+  notBefore: number,
+  timeZone: string,
+): number {
+  const parts = localParts(notBefore, timeZone);
+  const minutes = parts.hour * 60 + parts.minute;
+  if (minutes >= 8 * 60 && minutes < 20 * 60) return notBefore;
+  return nextLocalDeliveryTime({
+    notBefore,
+    timeMinutesLocal: 8 * 60,
+    timeZone,
+  });
+}

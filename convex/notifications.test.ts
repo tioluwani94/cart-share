@@ -198,6 +198,7 @@ describe("notifications.getPreferences", () => {
     await expect(readPreferences(ctx, {})).resolves.toEqual({
       analyticsConsent: undefined,
       restockNotificationsEnabled: false,
+      householdActivityEnabled: false,
       notificationTimeMinutesLocal: 18 * 60,
       notificationTimeZone: "Europe/London",
       viewerClerkId: "clerk_1",

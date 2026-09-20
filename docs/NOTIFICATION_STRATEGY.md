@@ -5,7 +5,7 @@ implementation commitment**
 
 Initial market: **UK households, iOS first**
 
-Last updated: **3 September 2026**
+Last updated: **20 September 2026**
 
 ## 1. Purpose
 
@@ -117,6 +117,21 @@ individual products, prices, receipt data, or member activity.
   token, preference, and underlying review remain valid.
 - A retry must not create an additional user-visible reminder after a delivery
   has already been accepted.
+
+## 3.4 Approved household coordination follow-up
+
+The 20 September notification audit follow-up adds a separately opted-in
+**Household activity** setting. Other members receive one grouped list-update
+alert per five-minute household window and one alert when a shop is finished.
+Completion replaces pending edits for that list. Quiet hours apply, payloads
+remain private, and existing reminder consent does not enable this category.
+Changes across lists consolidate; a list-update tap opens the latest changed
+list, while completion opens Recent trips in Spending.
+
+This implementation is awaiting internal UAT and is not deployed. The precise
+behavior, delivery tradeoffs, rollout order and two-device checklist are in
+[Notification fixes UAT](NOTIFICATION_FIXES_UAT.md). The candidates below remain
+hypotheses outside this approved follow-up.
 
 ## 4. Post-MVP notification candidates
 

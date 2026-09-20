@@ -1,3 +1,4 @@
+import { queueListActivity } from "./collaborationNotifications";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
@@ -23,10 +24,7 @@ async function resolveItem(ctx: MutationCtx, reference: ItemReference) {
   throw new Error("An item ID or stable client item reference is required");
 }
 
-async function requireItemAccess(
-  ctx: MutationCtx,
-  item: Doc<"items">,
-) {
+async function requireItemAccess(ctx: MutationCtx, item: Doc<"items">) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
 
@@ -81,7 +79,7 @@ export const getByList = query({
     const membership = await ctx.db
       .query("householdMembers")
       .withIndex("by_household_and_user", (q) =>
-        q.eq("householdId", list.householdId).eq("userId", user._id)
+        q.eq("householdId", list.householdId).eq("userId", user._id),
       )
       .unique();
 
@@ -120,7 +118,7 @@ export const getByList = query({
           ...item,
           addedByUser,
         };
-      })
+      }),
     );
 
     return itemsWithUser;
@@ -167,7 +165,7 @@ export const add = mutation({
     const membership = await ctx.db
       .query("householdMembers")
       .withIndex("by_household_and_user", (q) =>
-        q.eq("householdId", list.householdId).eq("userId", user._id)
+        q.eq("householdId", list.householdId).eq("userId", user._id),
       )
       .unique();
 
@@ -208,6 +206,7 @@ export const add = mutation({
       updatedAt: now,
     });
 
+    await queueListActivity(ctx, args.listId, user._id);
     return { itemId };
   },
 });
@@ -249,7 +248,7 @@ export const toggleComplete = mutation({
     const membership = await ctx.db
       .query("householdMembers")
       .withIndex("by_household_and_user", (q) =>
-        q.eq("householdId", list.householdId).eq("userId", user._id)
+        q.eq("householdId", list.householdId).eq("userId", user._id),
       )
       .unique();
 
@@ -267,6 +266,7 @@ export const toggleComplete = mutation({
       updatedAt: now,
     });
 
+    await queueListActivity(ctx, item.listId, user._id);
     return { success: true, isCompleted: isNowCompleted };
   },
 });
@@ -288,6 +288,8 @@ export const setCompleted = mutation({
     if (!item) throw new Error("Item not found");
     const user = await requireItemAccess(ctx, item);
     const now = Date.now();
+    if (item.isCompleted === args.isCompleted)
+      return { success: true as const, isCompleted: args.isCompleted };
 
     await ctx.db.patch(item._id, {
       isCompleted: args.isCompleted,
@@ -296,6 +298,7 @@ export const setCompleted = mutation({
       updatedAt: now,
     });
 
+    await queueListActivity(ctx, item.listId, user._id);
     return { success: true as const, isCompleted: args.isCompleted };
   },
 });
@@ -320,7 +323,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const item = await resolveItem(ctx, args);
     if (!item) throw new Error("Item not found");
-    await requireItemAccess(ctx, item);
+    const user = await requireItemAccess(ctx, item);
     const now = Date.now();
 
     // Build update object
@@ -366,7 +369,13 @@ export const update = mutation({
     // Update the item
     // Patches only the supplied fields. For overlapping fields, the last
     // mutation applied by Convex wins; client timestamps are not consulted.
+    const changed = Object.entries(updates).some(
+      ([key, value]) =>
+        key !== "updatedAt" && item[key as keyof typeof item] !== value,
+    );
+    if (!changed) return { success: true };
     await ctx.db.patch(item._id, updates);
+    await queueListActivity(ctx, item.listId, user._id);
 
     return { success: true };
   },
@@ -385,10 +394,11 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const item = await resolveItem(ctx, args);
     if (!item) throw new Error("Item not found");
-    await requireItemAccess(ctx, item);
+    const user = await requireItemAccess(ctx, item);
 
     // Delete the item
     await ctx.db.delete(item._id);
+    await queueListActivity(ctx, item.listId, user._id);
 
     return { success: true };
   },

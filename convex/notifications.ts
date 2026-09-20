@@ -31,7 +31,7 @@ interface ExpoPushMessage {
   body: string;
   data: {
     url: string;
-    kind: NotificationKind;
+    kind: Exclude<NotificationKind, "list_activity" | "shop_completed">;
   };
 }
 
@@ -93,7 +93,7 @@ export function canRetryPushDelivery(args: {
 }
 
 function buildPushMessage(args: {
-  kind: NotificationKind;
+  kind: Exclude<NotificationKind, "list_activity" | "shop_completed">;
   candidateCount: number;
   plannedDay: string;
 }): ExpoPushMessage {
@@ -169,6 +169,7 @@ export const getPreferences = query({
       return {
         analyticsConsent: undefined,
         restockNotificationsEnabled: false,
+        householdActivityEnabled: false,
         notificationTimeMinutesLocal: 18 * 60,
         notificationTimeZone: "Europe/London",
         viewerClerkId: identity.subject,
@@ -183,6 +184,7 @@ export const getPreferences = query({
     return {
       analyticsConsent: undefined,
       restockNotificationsEnabled: false,
+      householdActivityEnabled: false,
       notificationTimeMinutesLocal: 18 * 60,
       notificationTimeZone: household?.planningTimeZone ?? "Europe/London",
       viewerClerkId: user.clerkId,
@@ -196,9 +198,11 @@ export const updatePreferences = mutation({
       v.union(v.literal("granted"), v.literal("denied")),
     ),
     restockNotificationsEnabled: v.optional(v.boolean()),
+    householdActivityEnabled: v.optional(v.boolean()),
     notificationTimeMinutesLocal: v.optional(v.number()),
     notificationTimeZone: v.optional(v.string()),
   },
+  returns: v.object({ success: v.literal(true) }),
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
     if (
@@ -228,6 +232,7 @@ export const updatePreferences = mutation({
         analyticsConsentUpdatedAt:
           args.analyticsConsent === undefined ? undefined : now,
         restockNotificationsEnabled: args.restockNotificationsEnabled ?? false,
+        householdActivityEnabled: args.householdActivityEnabled ?? false,
         notificationTimeMinutesLocal:
           args.notificationTimeMinutesLocal ?? 18 * 60,
         notificationTimeZone:
@@ -248,6 +253,9 @@ export const updatePreferences = mutation({
       if (args.restockNotificationsEnabled !== undefined) {
         changes.restockNotificationsEnabled = args.restockNotificationsEnabled;
       }
+      if (args.householdActivityEnabled !== undefined) {
+        changes.householdActivityEnabled = args.householdActivityEnabled;
+      }
       if (args.notificationTimeMinutesLocal !== undefined) {
         changes.notificationTimeMinutesLocal = Math.round(
           args.notificationTimeMinutesLocal,
@@ -259,6 +267,21 @@ export const updatePreferences = mutation({
       await ctx.db.patch(existing._id, changes);
     }
 
+    if (args.householdActivityEnabled === false) {
+      for (const kind of ["list_activity", "shop_completed"] as const) {
+        const pending = await ctx.db
+          .query("notificationReminders")
+          .withIndex("by_user_and_kind_and_status", (q) =>
+            q.eq("userId", user._id).eq("kind", kind).eq("status", "pending"),
+          )
+          .take(1000);
+        for (const reminder of pending)
+          await ctx.db.patch(reminder._id, {
+            status: "cancelled",
+            updatedAt: now,
+          });
+      }
+    }
     if (household) {
       await recalculateHouseholdReminders(ctx, household._id);
     }
@@ -271,10 +294,16 @@ export const registerDevice = mutation({
     token: v.string(),
     platform: v.union(v.literal("ios"), v.literal("android")),
     deviceId: v.optional(v.string()),
+    expectedClerkId: v.optional(v.string()),
+    restoreOnly: v.optional(v.boolean()),
   },
+  returns: v.object({ pushTokenId: v.union(v.id("pushTokens"), v.null()) }),
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
-    if (!/^ExponentPushToken\[[^\]]+\]$/.test(args.token)) {
+    if (args.expectedClerkId && args.expectedClerkId !== user.clerkId) {
+      throw new Error("Push registration account changed");
+    }
+    if (!/^(ExponentPushToken|ExpoPushToken)\[[^\]]+\]$/.test(args.token)) {
       throw new Error("Invalid Expo push token");
     }
     const existing = await ctx.db
@@ -282,15 +311,44 @@ export const registerDevice = mutation({
       .withIndex("by_token", (index) => index.eq("token", args.token))
       .unique();
     const now = Date.now();
+    const preference = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    const enabled =
+      !args.restoreOnly ||
+      Boolean(
+        preference?.restockNotificationsEnabled ||
+        preference?.householdActivityEnabled,
+      );
+    // Retire old tokens on this installation, including a previous account's.
+    if (args.deviceId) {
+      const oldTokens = await ctx.db
+        .query("pushTokens")
+        .withIndex("by_device_id", (q) => q.eq("deviceId", args.deviceId))
+        .take(100);
+      for (const old of oldTokens) {
+        if (old._id !== existing?._id && old.disabledAt === undefined) {
+          await ctx.db.patch(old._id, { disabledAt: now, updatedAt: now });
+        }
+      }
+    }
+    if (!enabled && !existing) return { pushTokenId: null };
     if (existing) {
+      const restored =
+        existing.disabledAt !== undefined || existing.userId !== user._id;
       await ctx.db.patch(existing._id, {
         userId: user._id,
         platform: args.platform,
         deviceId: args.deviceId,
         lastSeenAt: now,
-        disabledAt: undefined,
+        disabledAt: enabled ? undefined : now,
         updatedAt: now,
       });
+      if (enabled && restored) {
+        const household = await currentHousehold(ctx, user._id);
+        if (household) await recalculateHouseholdReminders(ctx, household._id);
+      }
       return { pushTokenId: existing._id };
     }
     const pushTokenId = await ctx.db.insert("pushTokens", {
@@ -302,6 +360,10 @@ export const registerDevice = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    if (enabled) {
+      const household = await currentHousehold(ctx, user._id);
+      if (household) await recalculateHouseholdReminders(ctx, household._id);
+    }
     return { pushTokenId };
   },
 });
@@ -360,6 +422,8 @@ async function cancelPendingForUser(
   for (const reminder of reminders) {
     if (
       reminder.householdId === householdId &&
+      reminder.kind !== "list_activity" &&
+      reminder.kind !== "shop_completed" &&
       (includeProductLearning || reminder.kind !== "product_learning") &&
       reminder.status === "pending" &&
       !keepDedupeKeys.has(reminder.dedupeKey)
@@ -535,7 +599,18 @@ export async function recalculateHouseholdReminders(
           createdAt: now,
           updatedAt: now,
         });
-      } else if (existing.status === "pending") {
+      } else if (
+        existing.status === "cancelled" &&
+        existing.sentAt === undefined &&
+        !existing.expoTicketId
+      ) {
+        await ctx.db.patch(existing._id, {
+          status: "pending",
+          scheduledFor: reminder.scheduledFor,
+          attemptCount: 0,
+          updatedAt: now,
+        });
+      } else if (existing.status === "pending" && !existing.attemptCount) {
         await ctx.db.patch(existing._id, {
           scheduledFor: reminder.scheduledFor,
           updatedAt: now,
@@ -660,12 +735,30 @@ async function inspectReminderDeliveryState(
 export const getDueDeliveries = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
-    const reminders = await ctx.db
-      .query("notificationReminders")
-      .withIndex("by_status_and_scheduled_for", (index) =>
-        index.eq("status", "pending").lte("scheduledFor", now),
-      )
-      .take(100);
+    // Activity uses its own scheduled sender and cannot consume the planning
+    // cron's delivery budget, even if an activity callback has failed.
+    const batches = await Promise.all(
+      (["restock_review", "shop_reminder", "product_learning"] as const).map(
+        async (kind) => {
+          const rows = await ctx.db
+            .query("notificationReminders")
+            .withIndex("by_kind_and_status_and_scheduled_for", (index) =>
+              index
+                .eq("kind", kind)
+                .eq("status", "pending")
+                .lte("scheduledFor", now),
+            )
+            .take(100);
+          return rows
+            .filter((row) => row.kind === kind)
+            .map((row) => ({ ...row, kind }));
+        },
+      ),
+    );
+    const reminders = batches
+      .flat()
+      .sort((a, b) => a.scheduledFor - b.scheduledFor)
+      .slice(0, 100);
 
     return await Promise.all(
       reminders.map(async (reminder) => {
@@ -722,7 +815,12 @@ export const authorizeDeliveryRetry = internalQuery({
   },
   handler: async (ctx, { reminderId, token, now }) => {
     const reminder = await ctx.db.get(reminderId);
-    if (!reminder) return null;
+    if (
+      !reminder ||
+      reminder.kind === "list_activity" ||
+      reminder.kind === "shop_completed"
+    )
+      return null;
     const pushToken = await ctx.db
       .query("pushTokens")
       .withIndex("by_token", (index) => index.eq("token", token))

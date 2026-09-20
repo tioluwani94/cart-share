@@ -93,3 +93,14 @@ describe("getNotificationDestination", () => {
     );
   });
 });
+
+describe("household activity notification entry", () => {
+  it.each(["list_activity", "shop_completed"] as const)("validates recipient and household for %s", (kind) => {
+    const data = { url: "ourpantry://household-activity", kind, listId: "list1", householdId: "household1", recipientClerkId: "clerk1" };
+    const response = parseRestockNotificationResponse({ identifier: "delivery1", data });
+    expect(response).toEqual({ identifier: "delivery1", kind, listId: "list1", householdId: "household1", recipientClerkId: "clerk1" });
+    expect(parseRestockNotificationResponse({ identifier: "delivery1", data: { ...data, recipientClerkId: undefined } })).toBeNull();
+    expect(parseRestockNotificationResponse({ identifier: "delivery1", data: { ...data, listId: "../settings" } })).toBeNull();
+    expect(getNotificationDestination(kind, "delivery1", "list1")).toBe(kind === "list_activity" ? "/list/list1" : "/(tabs)/analytics");
+  });
+});
