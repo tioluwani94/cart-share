@@ -210,7 +210,7 @@ export default function SettingsScreen() {
       .map((value) => ({
         value: String(value),
         label: formatReminderTime(value),
-        accessibilityLabel: `Send reminders at ${formatReminderTime(value)}`,
+        accessibilityLabel: `Send restock reminders at ${formatReminderTime(value)}`,
       }));
   }, [notificationTimeMinutes]);
 
@@ -838,7 +838,7 @@ export default function SettingsScreen() {
             icon={<Bell size={19} color={themeColors.coral} strokeWidth={2} />}
             iconTone="coral"
             title="Shopping insights & reminders"
-            subtitle="Possible regulars and restock prompts, with no item names on the lock screen"
+            subtitle="Reminders one hour before planned shops, plus regulars and restock prompts"
             value={preferences?.restockNotificationsEnabled ?? false}
             onValueChange={(value) => void handleNotificationChange(value)}
             disabled={isSavingPreferences || preferences === undefined}
@@ -867,15 +867,15 @@ export default function SettingsScreen() {
                   strokeWidth={2}
                 />
               }
-              title="Reminder time"
+              title="Restock reminder time"
               subtitle={`Quiet hours 20:00–08:00 · ${preferences.notificationTimeZone}`}
               trailingValue={formatReminderTime(notificationTimeMinutes)}
               disclosure
               onPress={openReminderTimeEditor}
-              accessibilityLabel={`Change reminder time, current time ${formatReminderTime(
+              accessibilityLabel={`Change restock reminder time, current time ${formatReminderTime(
                 notificationTimeMinutes,
               )}`}
-              accessibilityHint="Opens the reminder time picker"
+              accessibilityHint="Opens the restock reminder time picker"
             />
           ) : null}
 

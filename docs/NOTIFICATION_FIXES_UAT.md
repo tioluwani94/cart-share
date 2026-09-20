@@ -186,3 +186,44 @@ choice and development endpoint. Automatic launch was blocked because the
 iPhone was locked; unlock and open OurPantry to test. The simulator installation
 still contains the earlier build, so the prior live results do not validate
 this updated onboarding screen.
+
+## Scheduled-shop reminder follow-up
+
+The user chose **a reminder only, one hour before the shop**. Investigation
+found that the old shop reminder depended on unresolved restock candidates and
+a daily delivery-time window. Tio's development household had no active regulars,
+no saved shop date, and no reminder rows at inspection, so there was no cancelled
+Tio delivery to attribute to the reported attempt.
+
+The corrected backend schedules each member with shopping reminders enabled,
+including the person setting the date, independently of regulars. Saving a shop
+and recalculating reminders now happen atomically. Each reminder is due one hour
+before the explicit shop time; a shop less than an hour away becomes due now.
+This timing is separate from the restock/learning daily time and quiet hours.
+The existing 15-minute worker can add up to 15 minutes of delay. A shop scheduled
+less than a worker interval ahead may pass before delivery; expired reminders
+are cancelled rather than sent late. No immediate scheduling announcement was
+added.
+
+Delivery and retries recheck the exact active-list/date cycle, future date,
+membership, per-person consent, and enabled device. Changed dates, archived or
+completed shops, opt-outs, expired dates, and invalid devices cannot send stale
+reminders. Copy describes the upcoming shop and its local time, with no item
+names or prices. Tapping opens Shop, without a restock-review empty-state
+message. Settings now distinguishes shop reminders from restock timing.
+
+Validation: **108 suites / 592 tests passed**, plus typecheck and ESLint for
+changed production files. New tests cover empty regulars, all opted-in members,
+one-hour timing, short notice, rescheduling/deduplication, cancellation, retry
+authorization, and the actual sender's shop-specific message using mocked HTTP.
+No end-to-end Expo/APNs delivery is claimed for this follow-up.
+
+The backend fix was deployed to development `savory-woodpecker-17`; production
+was not changed. A live authenticated recalculation for Tio succeeded. Its Next
+shop still had no `plannedFor`, so no real scheduled reminder was queued for
+that household. The routing follow-up passed **2 suites / 17 tests** and
+typecheck. End-to-end device delivery remains a manual check after saving a
+real future shop date/time.
+
+The refreshed iPhone 13 Release build succeeded, code signing verified, and
+installation succeeded with the new Settings copy and Shop tap destination.

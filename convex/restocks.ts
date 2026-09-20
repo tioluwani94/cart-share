@@ -830,6 +830,7 @@ export const setNextShop = mutation({
       activeListId: list._id,
       updatedAt: now,
     });
+    await recalculateHouseholdReminders(ctx, list.householdId);
     return { success: true as const };
   },
 });

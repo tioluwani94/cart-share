@@ -49,10 +49,11 @@ completed shop reveals one or more possible regulars.
 | Notification      | Trigger                                                                                          | Cadence                                                                                           | Recipient and timing                                                                                                                             | Destination                |
 | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
 | Restock review    | At least one tracked product becomes eligible for review and is not already on the active list   | Once per member per shopping cycle                                                                | At the member's selected local time, not before the earliest eligible review time                                                                | Plan Quick check cards  |
-| Shop reminder     | Eligible products remain unresolved shortly before a dated Next shop                             | At most once per member per shopping cycle                                                        | Approximately 24 hours before the planned shop, at the member's selected local time; omitted when no valid delivery time remains before the shop | Plan Quick check cards  |
+| Shop reminder     | An active Next shop has a future date/time; tracked regulars are not required                             | At most once per member per shopping cycle                                                        | Due one hour before the shop for each opted-in member, including the scheduler; short-notice shops are due immediately; never sent after the shop | Shop / active list  |
 | Possible regulars | One or more learning products reach two distinct completed-shop observations in the same session | One consolidated prompt per opted-in member and completed shopping session; never one per product | At the member's selected local time after the qualifying shop                                                                                    | Learning section of Pantry |
 
-Restock notification taps open Plan at the Quick check cards. The legacy
+Scheduled-shop reminder taps open Shop at the active list. Restock-review
+notification taps open Plan at the Quick check cards. The legacy
 `ourpantry://restock-review` payload remains compatible with older installed
 clients; updated clients route it to Plan, and `/restock-review` itself redirects
 to Plan. Product-learning notifications continue to open Pantry's Learning filter.
@@ -64,9 +65,11 @@ Notification attribution lasts only for that focused visit to Plan.
 
 - Notifications are off until a member explicitly enables them and the device
   grants notification permission.
-- The default chosen delivery time is **18:00** in the member's saved IANA time
-  zone.
-- Quiet hours are **20:00–08:00**. The selectable window is 08:00 inclusive to
+- The default chosen delivery time for **restock/learning prompts** is **18:00**
+  in the member's saved IANA time zone. Scheduled-shop reminders instead become
+  due **one hour before the explicit shop timestamp**, including early/late
+  shops. They do not use the restock delivery time or activity quiet hours.
+- Quiet hours for restock/learning prompts are **20:00–08:00**. The selectable window is 08:00 inclusive to
   20:00 exclusive.
 - Scheduling uses the member's local calendar time and recalculates UTC delivery
   across daylight-saving changes.
@@ -85,8 +88,12 @@ Before delivery, the backend confirms that:
 - the recipient device token is still enabled and belongs to that member;
 - the household and active list still exist; and
 - the underlying action still exists: either an unresolved restock candidate or
-  at least one qualifying learning product from the notification remains ready
-  for review.
+  at least one qualifying learning product remains ready for review, or the
+  scheduled shop still has the same active list/date and is in the future.
+
+Saving a Next-shop date updates its reminders in the same server mutation.
+Changing the date cancels pending reminders for the old date; sent reminders
+remain terminal. No immediate “shop scheduled” announcement is sent.
 
 Pending reminders are recalculated or cancelled after relevant preference,
 Next-shop, tracked-product, list, or restock-decision changes. Restock products

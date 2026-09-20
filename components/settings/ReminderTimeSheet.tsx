@@ -47,7 +47,7 @@ export const ReminderTimeSheet = forwardRef<
     >
       <GlassBottomSheetView className="px-6 pb-10 pt-2">
         <GlassSheetHeader
-          title="Reminder time"
+          title="Restock reminder time"
           description="Choose when restock prompts should arrive. We still keep 20:00–08:00 quiet."
           icon={<Bell size={21} color={themeColors.coral} strokeWidth={2} />}
           onClose={onClose}

@@ -72,7 +72,7 @@ describe("parseRestockNotificationResponse", () => {
 });
 
 describe("getNotificationDestination", () => {
-  it.each(["restock_review", "shop_reminder"] as const)(
+  it.each(["restock_review"] as const)(
     "routes old %s notification payloads to Plan with an entry identifier",
     (kind) => {
       const response = parseRestockNotificationResponse({
@@ -87,6 +87,13 @@ describe("getNotificationDestination", () => {
       );
     },
   );
+  it("opens the scheduled shop rather than starting a restock review", () => {
+    const response = parseRestockNotificationResponse({
+      identifier: "scheduled-shop",
+      data: { url: "ourpantry://restock-review", kind: "shop_reminder" },
+    })!;
+    expect(getNotificationDestination(response.kind, response.identifier)).toBe("/(tabs)/shop");
+  });
   it("routes learning notifications to the household memory review", () => {
     expect(getNotificationDestination("product_learning")).toBe(
       "/(tabs)/pantry?focus=learning&source=notification",

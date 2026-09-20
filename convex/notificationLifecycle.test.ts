@@ -2,11 +2,15 @@
 import { claim, queueListActivity, send } from "./collaborationNotifications";
 import {
   recalculateHouseholdReminders,
+  getDueDeliveries,
+  authorizeDeliveryRetry,
+  sendDueReminders,
   registerDevice,
   updatePreferences,
 } from "./notifications";
 import { add, setCompleted, update, remove } from "./items";
 import { completeOffline } from "./sessions";
+import { setNextShop } from "./restocks";
 
 const handler = (fn: unknown): ((ctx: any, args: any) => Promise<any>) =>
   (fn as any)._handler;
@@ -462,5 +466,94 @@ describe("registration ownership and reminder recovery", () => {
     if (status === "cancelled") expect(row.attemptCount).toBe(0);
     if (status === "pending_retry") expect(row.scheduledFor).toBe(oldSchedule);
     expect(tables.notificationReminders).toHaveLength(2);
+  });
+});
+
+
+describe("scheduled shop reminders", () => {
+  const HOUR = 60 * 60 * 1000;
+
+  async function scheduledFixture(plannedFor = NOW + 2 * HOUR) {
+    const f = fixture();
+    f.tables.pushTokens.push({ _id: "t2", userId: "u1", token: "ExpoPushToken[owner]" });
+    await handler(setNextShop)(f.ctx, { listId: "l1", plannedFor });
+    return f;
+  }
+
+  it("atomically schedules every opted-in member one hour before a shop without regulars", async () => {
+    const { ctx, tables } = await scheduledFixture();
+    expect(tables.householdProducts).toHaveLength(0);
+    expect(tables.notificationReminders).toHaveLength(2);
+    for (const row of tables.notificationReminders) {
+      expect(row).toMatchObject({ kind: "shop_reminder", status: "pending", scheduledFor: NOW + HOUR });
+    }
+    expect(tables.notificationReminders.map(r => r.userId).sort()).toEqual(["u1", "u2"]);
+    expect(await handler(getDueDeliveries)(ctx, { now: NOW + HOUR - 1 })).toEqual([]);
+    const due = await handler(getDueDeliveries)(ctx, { now: NOW + HOUR });
+    expect(due).toHaveLength(2);
+    expect(due.every((r: any) => r.action === "send" && r.candidateCount === 0)).toBe(true);
+    expect(await handler(authorizeDeliveryRetry)(ctx, {
+      reminderId: tables.notificationReminders[0]._id,
+      token: "ExpoPushToken[owner]", now: NOW + HOUR,
+    })).toMatchObject({ kind: "shop_reminder", candidateCount: 0 });
+  });
+
+  it("makes short-notice shops due now and ignores shops in the past", async () => {
+    const { ctx, tables } = await scheduledFixture(NOW + HOUR / 2);
+    expect(tables.notificationReminders.every(r => r.scheduledFor === NOW)).toBe(true);
+    await handler(setNextShop)(ctx, { listId: "l1", plannedFor: NOW - 1 });
+    expect(tables.notificationReminders.every(r => r.status === "cancelled")).toBe(true);
+  });
+
+  it("reschedules atomically, deduplicates repeated saves, and never revives a sent reminder", async () => {
+    const { ctx, tables } = await scheduledFixture();
+    await handler(setNextShop)(ctx, { listId: "l1", plannedFor: NOW + 3 * HOUR });
+    expect(tables.notificationReminders.slice(0, 2).every(r => r.status === "cancelled")).toBe(true);
+    expect(tables.notificationReminders.slice(2).every(r => r.scheduledFor === NOW + 2 * HOUR)).toBe(true);
+    tables.notificationReminders[2].status = "sent";
+    tables.notificationReminders[2].sentAt = NOW;
+    await handler(setNextShop)(ctx, { listId: "l1", plannedFor: NOW + 3 * HOUR });
+    expect(tables.notificationReminders).toHaveLength(4);
+    expect(tables.notificationReminders[2].status).toBe("sent");
+  });
+
+  it.each(["archived", "completed", "date_removed", "date_changed", "expired", "opted_out", "left_household", "device_disabled"])(
+    "blocks stale delivery and retry when %s", async reason => {
+      const { ctx, tables } = await scheduledFixture();
+      const row = tables.notificationReminders.find(r => r.userId === "u1");
+      let now = NOW + HOUR;
+      if (reason === "archived") tables.lists[0].isArchived = true;
+      if (reason === "completed") tables.households[0].activeListId = undefined;
+      if (reason === "date_removed") tables.lists[0].plannedFor = undefined;
+      if (reason === "date_changed") tables.lists[0].plannedFor += HOUR;
+      if (reason === "expired") now = NOW + 2 * HOUR;
+      if (reason === "opted_out") tables.userPreferences[0].restockNotificationsEnabled = false;
+      if (reason === "left_household") tables.householdMembers.splice(0, 1);
+      if (reason === "device_disabled") tables.pushTokens[1].disabledAt = NOW;
+      const due = await handler(getDueDeliveries)(ctx, { now });
+      expect(due.find((r: any) => r.reminderId === row._id)).toMatchObject({ action: "cancel" });
+      expect(await handler(authorizeDeliveryRetry)(ctx, {
+        reminderId: row._id, token: "ExpoPushToken[owner]", now,
+      })).toBeNull();
+    },
+  );
+
+  it("uses shop-specific private copy with the scheduled local time", async () => {
+    const { ctx } = await scheduledFixture();
+    const deliveries = await handler(getDueDeliveries)(ctx, { now: NOW + HOUR });
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ data: [{ status: "ok", id: "ticket" }] }),
+    } as Response);
+    await handler(sendDueReminders)({
+      runQuery: jest.fn(async () => deliveries.slice(0, 1)),
+      runMutation: jest.fn(async () => undefined),
+      scheduler: { runAfter: jest.fn(async () => undefined) },
+    }, {});
+    const message = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))[0];
+    expect(message.title).toBe("Your household shop is coming up");
+    expect(message.body).toContain("Sunday");
+    expect(message.body).toContain("15:00");
+    expect(message.body).not.toContain("quick check");
+    expect(message.data.kind).toBe("shop_reminder");
   });
 });

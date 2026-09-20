@@ -107,6 +107,13 @@ function buildPushMessage(args: {
       },
     };
   }
+  if (args.kind === "shop_reminder") {
+    return {
+      title: "Your household shop is coming up",
+      body: `Your shop is planned for ${args.plannedDay}. Take a look at your list before you go.`,
+      data: { url: "ourpantry://restock-review", kind: args.kind },
+    };
+  }
   return {
     title: "Your next shop needs a quick check",
     body: `${args.candidateCount} ${args.candidateCount === 1 ? "thing may" : "things may"} need a quick check before ${args.plannedDay}.`,
@@ -551,33 +558,27 @@ export async function recalculateHouseholdReminders(
       );
       continue;
     }
-    if (!earliestReviewAt) {
-      await cancelPendingForUser(ctx, membership.userId, householdId);
-      continue;
-    }
-
     const desired: {
       kind: "restock_review" | "shop_reminder";
       scheduledFor: number;
-    }[] = [
-      {
-        kind: "restock_review" as const,
+    }[] = [];
+    if (earliestReviewAt !== undefined) {
+      desired.push({
+        kind: "restock_review",
         scheduledFor: nextLocalDeliveryTime({
           notBefore: Math.max(now, earliestReviewAt),
           timeMinutesLocal: preference.notificationTimeMinutesLocal,
           timeZone: preference.notificationTimeZone,
         }),
-      },
-    ];
-    if (activeList?.plannedFor) {
-      const scheduledFor = nextLocalDeliveryTime({
-        notBefore: Math.max(now, activeList.plannedFor - DAY_MS),
-        timeMinutesLocal: preference.notificationTimeMinutesLocal,
-        timeZone: preference.notificationTimeZone,
       });
-      if (scheduledFor < activeList.plannedFor) {
-        desired.push({ kind: "shop_reminder", scheduledFor });
-      }
+    }
+    if (activeList?.plannedFor && activeList.plannedFor > now) {
+      // Explicit shop timing is separate from the daily restock delivery time.
+      // Short-notice shops become due now; never schedule after the shop.
+      desired.push({
+        kind: "shop_reminder",
+        scheduledFor: Math.max(now, activeList.plannedFor - 60 * 60 * 1000),
+      });
     }
 
     const keepDedupeKeys = new Set<string>();
@@ -662,6 +663,7 @@ async function inspectReminderDeliveryState(
       household: null,
       activeList: null,
       candidateCount: 0,
+      actionableCount: 0,
     };
   }
   const household = await ctx.db.get(reminder.householdId);
@@ -682,12 +684,32 @@ async function inspectReminderDeliveryState(
       household,
       activeList: null,
       candidateCount,
+      actionableCount: candidateCount,
     };
   }
   const activeListRecord = household?.activeListId
     ? await ctx.db.get(household.activeListId)
     : null;
   const activeList = activeListRecord?.isArchived ? null : activeListRecord;
+  if (reminder.kind === "shop_reminder") {
+    // A dated shop is independently useful even with no tracked regulars.
+    // Bind delivery/retries to the same list and date that created this row.
+    const currentKey = `${reminder.userId}:${reminder.householdId}:${activeList?._id}:${activeList?.plannedFor}:shop_reminder`;
+    const isUpcoming =
+      activeList?.householdId === reminder.householdId &&
+      activeList.plannedFor !== undefined &&
+      activeList.plannedFor > now &&
+      reminder.dedupeKey === currentKey;
+    return {
+      membershipExists: true,
+      notificationsEnabled: true,
+      preference,
+      household,
+      activeList,
+      candidateCount: 0,
+      actionableCount: isUpcoming ? 1 : 0,
+    };
+  }
   const products = household
     ? await ctx.db
         .query("householdProducts")
@@ -729,6 +751,7 @@ async function inspectReminderDeliveryState(
     household,
     activeList,
     candidateCount: candidates.length,
+    actionableCount: candidates.length,
   };
 }
 
@@ -768,7 +791,7 @@ export const getDueDeliveries = internalQuery({
           !state.notificationsEnabled ||
           !state.household ||
           !state.preference ||
-          state.candidateCount === 0
+          state.actionableCount === 0
         ) {
           return { reminderId: reminder._id, action: "cancel" as const };
         }
@@ -787,6 +810,9 @@ export const getDueDeliveries = internalQuery({
         const plannedDay = state.activeList?.plannedFor
           ? new Intl.DateTimeFormat("en-GB", {
               weekday: "long",
+              ...(reminder.kind === "shop_reminder"
+                ? { hour: "2-digit" as const, minute: "2-digit" as const }
+                : {}),
               timeZone: state.preference.notificationTimeZone,
             }).format(state.activeList.plannedFor)
           : "your next shop";
@@ -832,12 +858,15 @@ export const authorizeDeliveryRetry = internalQuery({
       notificationsEnabled: state.notificationsEnabled,
       tokenBelongsToRecipient: pushToken?.userId === reminder.userId,
       tokenEnabled: pushToken !== null && pushToken.disabledAt === undefined,
-      unresolvedCandidateCount: state.candidateCount,
+      unresolvedCandidateCount: state.actionableCount,
     });
     if (!authorized || !state.preference) return null;
     const plannedDay = state.activeList?.plannedFor
       ? new Intl.DateTimeFormat("en-GB", {
           weekday: "long",
+          ...(reminder.kind === "shop_reminder"
+            ? { hour: "2-digit" as const, minute: "2-digit" as const }
+            : {}),
           timeZone: state.preference.notificationTimeZone,
         }).format(state.activeList.plannedFor)
       : "your next shop";
@@ -970,7 +999,7 @@ export const finalizeRateLimitedDelivery = internalMutation({
       state.membershipExists &&
       state.notificationsEnabled &&
       state.household &&
-      state.candidateCount > 0
+      state.actionableCount > 0
         ? "failed"
         : "cancelled";
     await ctx.db.patch(reminderId, { status, updatedAt: now });

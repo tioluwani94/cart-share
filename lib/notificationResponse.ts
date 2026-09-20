@@ -21,6 +21,7 @@ export function getNotificationDestination(
   if (kind === "list_activity")
     return listId ? `/list/${encodeURIComponent(listId)}` : "/(tabs)/shop";
   if (kind === "shop_completed") return "/(tabs)/analytics";
+  if (kind === "shop_reminder") return "/(tabs)/shop";
   return kind === "product_learning"
     ? "/(tabs)/pantry?focus=learning&source=notification"
     : `/(tabs)?source=notification${identifier ? `&notificationId=${encodeURIComponent(identifier)}` : ""}`;

@@ -362,14 +362,14 @@ describe("SettingsScreen", () => {
     });
 
     const reminderTime = renderer.root.findByProps({
-      accessibilityLabel: "Change reminder time, current time 18:00",
+      accessibilityLabel: "Change restock reminder time, current time 18:00",
     });
 
     act(() => reminderTime.props.onPress());
     expect(mockPresentSignOutSheet).toHaveBeenCalledTimes(1);
 
     const morning = renderer.root.findByProps({
-      accessibilityLabel: "Send reminders at 09:00",
+      accessibilityLabel: "Send restock reminders at 09:00",
     });
 
     await act(async () => {
