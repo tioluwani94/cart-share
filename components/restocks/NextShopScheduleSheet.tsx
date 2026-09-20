@@ -7,7 +7,6 @@ import {
   GlassBottomSheetScrollView,
   GlassSegmentedControl,
   GlassSheetHeader,
-  Input,
   type GlassBottomSheetRef,
 } from "@/components/ui";
 import { themeColors } from "@/lib/theme";
@@ -18,6 +17,7 @@ import {
   shopScheduleFields,
   shopScheduleTimestamp,
 } from "@/lib/shopSchedule";
+import { ShoppingTimePicker } from "./shopping-time-picker";
 
 interface Props {
   plannedFor?: number;
@@ -59,10 +59,10 @@ export function NextShopScheduleSheet({
   const save = async () => {
     if (savingRef.current || !isOnline) return;
     Keyboard.dismiss();
-    const timestamp = shopScheduleTimestamp(date, time.trim(), timeZone);
+    const timestamp = shopScheduleTimestamp(date, time, timeZone);
     if (timestamp === null) {
       setError(
-        "Enter a valid time in 24-hour format, like 10:30. This time must exist in your household’s time zone.",
+        "Choose another time. This time doesn’t exist in your household’s time zone because the clocks change.",
       );
       return;
     }
@@ -180,16 +180,13 @@ export function NextShopScheduleSheet({
             )}
           </View>
         </View>
-        <Input
-          label="Time (24-hour)"
+        <ShoppingTimePicker
           value={time}
-          onChangeText={setTime}
-          placeholder="10:30"
-          maxLength={5}
-          autoCorrect={false}
-          autoCapitalize="none"
-          editable={!saving}
-          containerClassName="mt-5"
+          onChange={(nextTime) => {
+            setTime(nextTime);
+            setError(null);
+          }}
+          disabled={saving}
         />
         <Text className="mt-2 text-sm leading-5 text-ink-secondary">
           {timeZone.replace(/_/g, " ")} · household time

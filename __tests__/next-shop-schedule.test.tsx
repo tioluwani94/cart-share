@@ -6,6 +6,12 @@ import { OtherPlansSection } from "../components/restocks/OtherPlansSection";
 import type { Id } from "../convex/_generated/dataModel";
 
 const mockDismiss = jest.fn();
+jest.mock("@react-native-community/datetimepicker", () => {
+  const { View } = jest.requireActual("react-native");
+  return function MockDateTimePicker(props: import("@react-native-community/datetimepicker").IOSNativeProps) {
+    return <View testID="time-picker" {...props} />;
+  };
+});
 jest.mock("@/components/ui", () => {
   const React = jest.requireActual("react");
   const { View } = jest.requireActual("react-native");
@@ -19,7 +25,6 @@ jest.mock("@/components/ui", () => {
     }),
     GlassBottomSheetScrollView: View,
     GlassSheetHeader: (props: any) => <View testID="header" {...props} />,
-    Input: (props: any) => <View testID="time" {...props} />,
     GlassSegmentedControl: (props: any) => <View testID="mode" {...props} />,
     Button: (props: any) => <View testID="save" {...props} />,
   };
@@ -37,11 +42,11 @@ describe("Next shop editor", () => {
     act(() => tree?.unmount());
     jest.restoreAllMocks();
   });
-  function mount(isOnline = true) {
+  function mount(isOnline = true, plannedFor = Date.parse("2026-09-12T09:00:00Z")) {
     act(() => {
       tree = TestRenderer.create(
         <NextShopScheduleSheet
-          plannedFor={Date.parse("2026-09-12T09:00:00Z")}
+          plannedFor={plannedFor}
           shoppingMode="in_store"
           locale="en-GB"
           timeZone="Europe/London"
@@ -55,10 +60,27 @@ describe("Next shop editor", () => {
   function props(id: string) {
     return tree.root.findByProps({ testID: id }).props as Record<string, any>;
   }
+  function openTimePicker() {
+    if (tree.root.findAllByProps({ testID: "time-picker" }).length === 0) {
+      act(() => {
+        (tree.root.findAllByProps({ accessibilityLabel: "Choose shopping time" })[0]
+          .props.onPress as () => void)();
+      });
+    }
+  }
+  function chooseTime(time: string) {
+    openTimePicker();
+    act(() => {
+      props("time-picker").onChange(
+        { type: "set" },
+        new Date(`2000-01-01T${time}:00Z`),
+      );
+    });
+  }
   it("saves the chosen calendar date, household-local time and mode together", async () => {
     mount();
+    chooseTime("14:30");
     act(() => {
-      props("time").onChangeText("14:30");
       props("mode").onValueChange("online");
     });
     const day = tree.root.findAllByProps({
@@ -76,20 +98,13 @@ describe("Next shop editor", () => {
   });
   it("dismisses without saving when cancelled", () => {
     mount();
-    act(() => {
-      props("time").onChangeText("15:00");
-    });
+    chooseTime("15:00");
     act(() => props("header").onClose());
     expect(onSave).not.toHaveBeenCalled();
   });
-  it("rejects invalid clocks and stays open after a failed save", async () => {
+  it("stays open after a failed save", async () => {
     mount();
-    act(() => props("time").onChangeText("25:00"));
-    await act(async () => {
-      props("save").onPress();
-    });
-    expect(onSave).not.toHaveBeenCalled();
-    act(() => props("time").onChangeText("10:30"));
+    chooseTime("10:30");
     onSave.mockRejectedValueOnce(new Error("offline"));
     await act(async () => {
       props("save").onPress();
@@ -99,6 +114,53 @@ describe("Next shop editor", () => {
       tree.root.findAllByProps({ accessibilityRole: "alert" })[0].props
         .children,
     ).toContain("Please try again");
+  });
+  it("initializes the picker with household time and preserves every minute", async () => {
+    mount(true, Date.parse("2026-09-12T23:07:00Z"));
+    openTimePicker();
+    expect(props("time-picker").value.toISOString()).toBe("2000-01-01T00:07:00.000Z");
+    expect(props("time-picker").timeZoneName).toBe("UTC");
+    chooseTime("00:07");
+    await act(async () => props("save").onPress());
+    expect(onSave).toHaveBeenCalledWith(Date.parse("2026-09-12T23:07:00Z"), "in_store");
+  });
+  it("rejects a time skipped by daylight saving and clears the error on selection", async () => {
+    mount(true, Date.parse("2027-03-28T09:00:00Z"));
+    chooseTime("01:30");
+    await act(async () => props("save").onPress());
+    expect(onSave).not.toHaveBeenCalled();
+    expect(tree.root.findAllByProps({ accessibilityRole: "alert" })[0].props.children)
+      .toContain("clocks change");
+    chooseTime("02:30");
+    expect(tree.root.findAllByProps({ accessibilityRole: "alert" })).toHaveLength(0);
+    await act(async () => props("save").onPress());
+    expect(onSave).toHaveBeenCalledWith(Date.parse("2027-03-28T01:30:00Z"), "in_store");
+  });
+  it("uses the platform picker and ignores dismissed selections", async () => {
+    mount();
+    openTimePicker();
+    expect(props("time-picker").display).toBe(
+      process.env.EXPO_OS === "android" ? "default" : "spinner",
+    );
+    expect(props("time-picker").value.toISOString()).toBe("2000-01-01T10:00:00.000Z");
+    act(() => props("time-picker").onChange({ type: "dismissed" }));
+    if (process.env.EXPO_OS === "android") {
+      expect(tree.root.findAllByProps({ testID: "time-picker" })).toHaveLength(0);
+    }
+    await act(async () => props("save").onPress());
+    expect(onSave).toHaveBeenCalledWith(Date.parse("2026-09-12T09:00:00Z"), "in_store");
+  });
+  it("disables time editing until an in-flight save completes", async () => {
+    let finishSave!: () => void;
+    onSave.mockImplementation(() => new Promise<void>((resolve) => { finishSave = resolve; }));
+    mount();
+    chooseTime("12:45");
+    await act(async () => props("save").onPress());
+    expect(tree.root.findAllByProps({ accessibilityLabel: "Choose shopping time" })[0]
+      .props.disabled).toBe(true);
+    expect(tree.root.findAllByProps({ testID: "time-picker" })).toHaveLength(0);
+    await act(async () => finishSave());
+    expect(mockDismiss).toHaveBeenCalledTimes(1);
   });
   it("does not submit while offline", async () => {
     mount(false);
