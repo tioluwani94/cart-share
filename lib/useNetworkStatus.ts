@@ -31,6 +31,7 @@ function removeOfflineRefreshConsumer(consumerId: symbol): void {
 }
 
 export interface NetworkStatus {
+  /** Usable connection: a network exists and internet is not known to be unreachable. */
   isConnected: boolean;
   isInternetReachable: boolean | null;
   type: string | null;
@@ -60,8 +61,12 @@ export function useNetworkStatus(): NetworkStatus {
 
   const handleNetworkChange = useCallback(
     (state: NetInfoState) => {
-      const isConnected = state.isConnected ?? true;
       const isInternetReachable = state.isInternetReachable;
+      // Being attached to a cellular network does not imply usable data (for
+      // example, an exhausted allowance or a Wi-Fi captive portal). Unknown
+      // reachability may still attempt sync; local edits never wait for it.
+      const isConnected =
+        (state.isConnected ?? true) && isInternetReachable !== false;
 
       // Detect if we just came back online
       const justCameOnline = wasOfflineRef.current && isConnected;

@@ -87,6 +87,11 @@ function useOfflineQueueController(scope: OfflineScope | null) {
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   const syncStatus = useSyncStatusSafe();
+  const startSyncing = syncStatus?.startSyncing;
+  const finishSyncing = syncStatus?.finishSyncing;
+  const syncStatusRef = useRef(syncStatus);
+  syncStatusRef.current = syncStatus;
+  const syncAnnouncementTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const addItem = useMutation(api.items.add);
   const setCompleted = useMutation(api.items.setCompleted);
@@ -172,7 +177,17 @@ function useOfflineQueueController(scope: OfflineScope | null) {
     inFlightOperationIdsRef.current = replayIds;
     setIsProcessing(true);
     setHasSyncError(false);
-    syncStatus?.startSyncing(replay.length);
+    // Ordinary online edits now use this durable queue too. Only announce
+    // delivery when it takes long enough to matter, avoiding a banner and
+    // success haptic for every quick checkmark.
+    let announcedSync = syncStatusRef.current?.status === "error";
+    if (announcedSync) startSyncing?.(replay.length);
+    syncAnnouncementTimer.current = setTimeout(() => {
+      if (scopeRef.current && scopesMatch(scopeRef.current, processingScope)) {
+        announcedSync = true;
+        startSyncing?.(replay.length);
+      }
+    }, 1000);
 
     // Stop at the first retryable failure so later writes never overtake an
     // earlier dependency. Terminal conflicts are recorded and skipped so
@@ -193,6 +208,10 @@ function useOfflineQueueController(scope: OfflineScope | null) {
       conflicts: replayConflicts,
       remaining,
     } = replayResult;
+    if (syncAnnouncementTimer.current) {
+      clearTimeout(syncAnnouncementTimer.current);
+      syncAnnouncementTimer.current = null;
+    }
 
     const operationsQueuedDuringReplay = getStoredQueue(processingScope).filter(
       (operation) => !replayIds.has(operation.id),
@@ -213,14 +232,14 @@ function useOfflineQueueController(scope: OfflineScope | null) {
       setQueue(nextQueue);
       setConflicts(nextConflicts);
       setHasSyncError(failed > 0 || replayConflicts.length > 0);
+      setIsProcessing(false);
+      if (announcedSync || failed > 0) finishSyncing?.({ success, failed });
     }
 
     processingRef.current = false;
     inFlightOperationIdsRef.current = new Set();
-    setIsProcessing(false);
-    syncStatus?.finishSyncing({ success, failed });
     return { success, failed };
-  }, [executeOperation, syncStatus]);
+  }, [executeOperation, startSyncing, finishSyncing]);
 
   const clearQueue = useCallback(() => {
     if (!scope) return;
@@ -252,6 +271,9 @@ function useOfflineQueueController(scope: OfflineScope | null) {
   useEffect(
     () => () => {
       scopeRef.current = null;
+      if (syncAnnouncementTimer.current) {
+        clearTimeout(syncAnnouncementTimer.current);
+      }
     },
     [],
   );
