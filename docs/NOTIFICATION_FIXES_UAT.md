@@ -2,7 +2,7 @@
 
 20 September 2026. The initial implementation was validated locally. The
 follow-up below records the requested rebase and development UAT. No production
-deployment, TestFlight upload, Git push, or production data export was performed.
+deployment, TestFlight upload, or production data export was performed.
 
 ## Implemented behavior
 
@@ -227,3 +227,12 @@ real future shop date/time.
 
 The refreshed iPhone 13 Release build succeeded, code signing verified, and
 installation succeeded with the new Settings copy and Shop tap destination.
+
+## Main integration follow-up
+
+Rebased the notification work onto `origin/main` at `a8abfee` (native time
+picker for Next-shop scheduling). The rebase had no conflicts. The combined
+code passed **108 suites / 596 tests**, typecheck, and lint (**0 errors, 17
+warnings**); `git diff --check` passed. These checks prepare the branch for the
+user-requested fast-forward publication to main. The live delivery/manual UAT
+limitations documented above remain unchanged.
