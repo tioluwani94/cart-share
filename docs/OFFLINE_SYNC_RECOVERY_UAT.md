@@ -57,4 +57,5 @@ production TestFlight regression testing.
 
 Actual recovery time still depends on network quality and Convex retry backoff.
 A simulator cannot reproduce an exhausted cellular allowance. These client-only
-changes require a new app build for TestFlight UAT; no Convex deployment is needed.
+changes are included in internal TestFlight 1.0.0 (14). No Convex source changes
+were needed; both existing backend deployments were confirmed current.

@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **The owner accepted the local iPhone 13 sync-recovery fixes and requested commit/push, deployment and a new internal TestFlight build on 21 September 2026. The Plan learning empty state now has one card, Open Pantry as primary and Create new shop as a white/red outline secondary action. Release packaging is in progress. Build 13 is the latest uploaded internal build; build 12 remains the accepted external beta. The isolated sign-out crash investigation remains deferred.**
+Status: **Development and production Convex are current. Production iOS 1.0.0 (14), built from `bc565be`, is verified and available in the Team (Expo) internal TestFlight group on 21 September 2026. The sync fixes passed local iPhone 13 UAT; build 14 adds the consolidated Plan card and white/red secondary button for production regression testing. Build 12 remains the accepted external beta; build 14 has not been submitted for external review. The isolated sign-out crash investigation remains deferred.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,34 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 21 September 2026 internal build 14 — completed
+
+- Committed and pushed the tested sync recovery, Plan empty-state changes and
+  pending product/backlog documentation as `bc565be23ff449bc156179a2df1e487d2b7cdfdd`.
+- Confirmed development `savory-woodpecker-17` and production
+  `tangible-mink-681` through successful deployments with function typechecking
+  and schema validation. Convex source is unchanged since build 13; no new
+  schema/index changes or migrations were required.
+- Built the production binary from an isolated checkout of that exact commit.
+  EAS build: `c14f87ab-b05a-4b45-8dde-06e72c39488e`, **1.0.0 (14)**,
+  completed `2026-09-21T00:29:08.964Z`.
+- Verified the IPA signature, app/team identity, iPhone device family,
+  production Convex and Clerk configuration, production APNs entitlement and
+  disabled debugging entitlement. Confirmed the bundled native recovery fix,
+  saved-locally feedback, combined Plan CTA, existing notification handling and
+  native date-time picker. IPA SHA-256:
+  `b666df2b9936e052a9b99c473a9acdbae2576d3f9f8e2e112c07977e3349f5e5`.
+- EAS submission `73f16720-e13f-43e0-9249-48c12a2e8df1` uploaded successfully.
+  Apple build `982e5c94-cd82-4d69-9397-605b43fe9c0c` is **VALID** and
+  **IN_BETA_TESTING**, confirmed present in **Team (Expo)**
+  (`ce7e4af5-19a0-471f-8d8d-cd0a72a108b5`).
+- Saved and read back the exact en-US What to Test notes directly through Apple.
+  They cover network recovery, offline reopen/check/uncheck/completion, pending
+  indicators, the combined Plan card and notification regression checks.
+- External state is **READY_FOR_BETA_SUBMISSION**. No external group assignment
+  or external beta review was requested. Production TestFlight UAT is next.
+
 
 ### 21 September 2026 sync recovery and Plan follow-up
 
