@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Development and production Convex are current. Production iOS 1.0.0 (14), built from `bc565be`, is verified and available in the Team (Expo) internal TestFlight group on 21 September 2026. The sync fixes passed local iPhone 13 UAT; build 14 adds the consolidated Plan card and white/red secondary button for production regression testing. Build 12 remains the accepted external beta; build 14 has not been submitted for external review. The isolated sign-out crash investigation remains deferred.**
+Status: **Production iOS 1.0.0 (14), built from `bc565be`, passed the owner’s internal TestFlight UAT and is approved and available in Family closed beta on 21 September 2026. Apple reports external IN_BETA_TESTING and beta review APPROVED. The existing group’s public link remains disabled and automatic tester notification is enabled. Development and production Convex are current. The isolated sign-out crash investigation remains deferred.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,23 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 21 September 2026 external beta promotion — build 14
+
+- The owner accepted internal TestFlight build 14 and explicitly requested
+  promotion to beta testers. Reused the verified production binary; no rebuild
+  or backend deployment was needed.
+- Confirmed valid build processing, saved testing notes, review contact and demo
+  account details, and the existing **Family closed beta** group
+  (`cf101fa9-359a-4ea1-a30c-f1569d8bce34`). Credential values were not logged.
+- Assigned Apple build `982e5c94-cd82-4d69-9397-605b43fe9c0c` to the group and
+  submitted it for beta review. The initial submission returned
+  **WAITING_FOR_REVIEW**; the immediate read-back returned **APPROVED** and
+  external **IN_BETA_TESTING**. Group membership was verified after assignment.
+- Build **1.0.0 (14)** is available to existing external testers. Automatic tester
+  notification was already enabled and remains enabled; the group’s public
+  link remains disabled. Previous builds were not expired.
+
 
 ### 21 September 2026 internal build 14 — completed
 
