@@ -31,6 +31,7 @@ export function QuickCheckSection({
   onShop,
   onPantry,
   onChooseRegulars,
+  onCreateShop,
   fromNotification = false,
   isReviewFromCache = false,
 }: {
@@ -46,6 +47,7 @@ export function QuickCheckSection({
   onShop: () => void;
   onPantry: () => void;
   onChooseRegulars: () => void;
+  onCreateShop?: () => void;
   fromNotification?: boolean;
   isReviewFromCache?: boolean;
 }) {
@@ -316,6 +318,12 @@ export function QuickCheckSection({
           onAction={
             kind === "new" ? onChooseRegulars : pantryAction ? onPantry : onShop
           }
+          secondaryAction={onCreateShop ? {
+            label: "Create new shop",
+            onPress: onCreateShop,
+            disabled: !isOnline,
+            accessibilityLabel: isOnline ? "Create new shop" : "Reconnect to create a new shop",
+          } : undefined}
         />
       ) : null}
       {error && (

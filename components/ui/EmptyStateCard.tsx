@@ -22,6 +22,12 @@ export interface EmptyStateCardProps {
   actionLabel?: string;
   actionAccessibilityLabel?: string;
   onAction?: () => void;
+  secondaryAction?: {
+    label: string;
+    onPress: () => void;
+    disabled?: boolean;
+    accessibilityLabel?: string;
+  };
   variant?: EmptyStateCardVariant;
   density?: EmptyStateCardDensity;
   className?: string;
@@ -45,6 +51,7 @@ export function EmptyStateCard({
   actionLabel,
   actionAccessibilityLabel,
   onAction,
+  secondaryAction,
   variant = "surface",
   density = "regular",
   className,
@@ -127,6 +134,18 @@ export function EmptyStateCard({
           {actionLabel}
         </Button>
       ) : null}
+      {secondaryAction && (
+        <Button
+          forceSolid
+          variant="outline"
+          onPress={secondaryAction.onPress}
+          disabled={secondaryAction.disabled}
+          accessibilityLabel={secondaryAction.accessibilityLabel ?? secondaryAction.label}
+          className="mt-3 w-full"
+        >
+          {secondaryAction.label}
+        </Button>
+      )}
     </Animated.View>
   );
 }

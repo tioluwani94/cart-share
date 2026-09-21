@@ -66,6 +66,11 @@ maintained in
 [`POST_MVP_PRODUCT_AND_MONETISATION.md`](POST_MVP_PRODUCT_AND_MONETISATION.md).
 That strategy does not expand the approved MVP scope.
 
+The [consolidated V2 backlog](V2_PRODUCT_BACKLOG.md) now proposes line-item
+purchase imports, product matching and free-form entry after the V1 beta. It
+maps reuse of this MVP's restock and shopping capabilities; the V1 exclusions
+above remain the historical MVP boundary, not exclusions from all future work.
+
 ## 5. Information architecture proposal
 
 This navigation structure was approved in checkpoint A and is implemented.

@@ -109,6 +109,7 @@ function ShoppingListDetail({ listId }: { listId: Id<"lists"> }) {
     removeItem: offlineRemoveItem,
     updateItem: offlineUpdateItem,
     isPendingSync,
+    showSyncStatus,
     isOnline,
     queueLength,
     hasQueuedCompletion,
@@ -455,7 +456,7 @@ function ShoppingListDetail({ listId }: { listId: Id<"lists"> }) {
             estimatedPricePence={item.estimatedPricePence}
             isCompleted={item.isCompleted}
             addedByUser={item.addedByUser}
-            isPendingSync={item.isPendingSync || isPendingSync(item._id)}
+            isPendingSync={showSyncStatus && isPendingSync(item._id)}
             onToggle={handleToggle}
             onDelete={handleDelete}
             onEdit={handleEdit}

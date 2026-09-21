@@ -27,6 +27,7 @@ import {
 import { SyncStatusProvider } from "@/lib/SyncStatusContext";
 import { getAuthRoutingDecision } from "@/lib/authRouting";
 import { OfflineQueueProvider } from "@/lib/useScopedOfflineQueue";
+import { NativeConvexWebSocket } from "@/lib/NativeConvexWebSocket";
 import type { OfflineScope } from "@/lib/offlineQueue";
 import { themeColors } from "@/lib/theme";
 import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/expo";
@@ -49,7 +50,7 @@ import { Asset } from "expo-asset";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Keyboard, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReducedMotion } from "react-native-reanimated";
 import "../global.css";
@@ -64,6 +65,7 @@ const convex = new ConvexReactClient(
   process.env.EXPO_PUBLIC_CONVEX_URL as string,
   {
     unsavedChangesWarning: false,
+    ...(Platform.OS !== "web" && { webSocketConstructor: NativeConvexWebSocket }),
   },
 );
 

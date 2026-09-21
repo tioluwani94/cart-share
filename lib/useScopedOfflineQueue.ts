@@ -180,7 +180,7 @@ function useOfflineQueueController(scope: OfflineScope | null) {
     // Ordinary online edits now use this durable queue too. Only announce
     // delivery when it takes long enough to matter, avoiding a banner and
     // success haptic for every quick checkmark.
-    let announcedSync = syncStatusRef.current?.status === "error";
+    let announcedSync = ["error", "syncing"].includes(syncStatusRef.current?.status ?? "idle");
     if (announcedSync) startSyncing?.(replay.length);
     syncAnnouncementTimer.current = setTimeout(() => {
       if (scopeRef.current && scopesMatch(scopeRef.current, processingScope)) {
@@ -194,7 +194,19 @@ function useOfflineQueueController(scope: OfflineScope | null) {
     // unrelated work later in the queue can still sync.
     const replayResult = await replayOfflineOperations(
       replay,
-      executeOperation,
+      async (operation) => {
+        await executeOperation(operation);
+        // Convex resolves a mutation after its query updates are available.
+        // Retire this acknowledged intent now, so it cannot keep masking
+        // partner updates while a later request in this batch is stalled.
+        const pending = getStoredQueue(processingScope).filter(
+          (candidate) => candidate.id !== operation.id,
+        );
+        saveQueue(processingScope, pending);
+        if (scopeRef.current && scopesMatch(scopeRef.current, processingScope)) {
+          setQueue(pending);
+        }
+      },
       () => {
         const activeScope = scopeRef.current;
         return Boolean(
@@ -233,7 +245,12 @@ function useOfflineQueueController(scope: OfflineScope | null) {
       setConflicts(nextConflicts);
       setHasSyncError(failed > 0 || replayConflicts.length > 0);
       setIsProcessing(false);
-      if (announcedSync || failed > 0) finishSyncing?.({ success, failed });
+      if (failed > 0 || replayConflicts.length > 0) {
+        finishSyncing?.({ success, failed: failed + replayConflicts.length });
+      } else if (announcedSync) {
+        if (nextQueue.length > 0) startSyncing?.(nextQueue.length);
+        else finishSyncing?.({ success, failed });
+      }
     }
 
     processingRef.current = false;
@@ -279,10 +296,16 @@ function useOfflineQueueController(scope: OfflineScope | null) {
   );
 
   useEffect(() => {
-    if (isConnected && queue.length > 0 && !processingRef.current) {
+    if (!isConnected || queue.length === 0 || isProcessing || processingRef.current) return;
+    if (!hasSyncError) {
       void processQueue();
+      return;
     }
-  }, [isConnected, processQueue, queue.length]);
+    // Retry a rejected request without requiring another edit or a network
+    // toggle. Keep failures bounded; never overtake an in-flight mutation.
+    const retry = setTimeout(() => { void processQueue(); }, 15000);
+    return () => clearTimeout(retry);
+  }, [isConnected, processQueue, queue.length, isProcessing, hasSyncError]);
 
   return {
     scope,

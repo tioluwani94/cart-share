@@ -4,7 +4,13 @@ Status: **Strategy and validation hypotheses — not an implementation commitmen
 
 Initial market: **UK households, iOS first**
 
-Last updated: **2 September 2026**
+Last updated: **21 September 2026**
+
+V2 scope and overlap audit: **[Consolidated V2 product backlog](V2_PRODUCT_BACKLOG.md)**.
+That backlog is the canonical feature-level sequence; this document retains the
+broader strategy, research and monetisation hypotheses. The 21 September update
+promotes purchase capture into the core cycle and combines it with free-form
+entry. Existing market research and pricing hypotheses have not been refreshed.
 
 ## 1. Purpose
 
@@ -124,6 +130,12 @@ A healthy product may reduce the number of sessions while increasing completed
 shopping cycles and reducing forgotten items. Daily active users and raw screen
 opens are therefore poor primary success measures.
 
+V2 adds another entry point into this same cycle: **record what was bought from
+a receipt, order screenshot or text, confirm it once, then review likely restocks
+before the next shop**. A household does not need to maintain a shopping list
+before recording a purchase. This extends grocery memory without requiring
+exact remaining stock or consumption logging.
+
 ## 7. Post-MVP product opportunities
 
 ### Tranche A — Strengthen the core cycle
@@ -143,8 +155,32 @@ finished. Reduce capture to one short action through:
 - natural-language entry such as “two packs of chicken from Tesco”; and
 - recent, frequent, and household-favourite product shortcuts.
 
-The capture action must default to the household's Next shop and work without
-forcing the user to navigate through list management.
+For needs, capture must default to the household's Next shop and work without
+forcing the user to navigate through list management. V2 distinguishes **We
+need…** (shopping intent) from **We bought…** (confirmed purchase evidence).
+Amy-style batch text entry and receipt/order-image capture share matching and
+editable previews; they are not separate product-memory systems. See V2-01–04 in
+the [V2 backlog](V2_PRODUCT_BACKLOG.md).
+
+#### 7.1a Record a whole shop with minimal entry
+
+Promote receipt line-item capture from the later price-intelligence tranche into
+the core cycle. Its first job is to remove manual purchase entry and improve
+restock history; price history remains a later consumer of the same data.
+
+- Import a receipt photo or online order screenshot without a pre-entered list.
+- Confirm extracted items in one editable preview, with uncertainty highlighted.
+- Match household products, remember corrections and reconcile duplicate imports
+  or purchases already recorded through a list.
+- Feed confirmed received purchases into the existing restock learning system.
+  Unfulfilled orders do not count as received goods.
+- Retain household approval for tracking regulars and quick corrections such as
+  “Still have some”; do not turn purchases into exact stock or expiry claims.
+
+Jev is a candidate for matching and categorisation, subject to evaluation. It is
+not a prerequisite for shipping the flow or a commitment to AI depletion dates.
+Detailed boundaries and acceptance criteria live in V2-01–03, avoiding a second
+receipt backlog here.
 
 #### 7.2 Make the prepared shop the recurring pull
 
@@ -207,7 +243,8 @@ remembered items or avoided duplicates without defensible evidence.
 ### Tranche B — Build the savings and price-intelligence layer
 
 These features should follow evidence that households consistently finish shops
-and record spend.
+and record spend. Core line-item capture now belongs to Tranche A (§7.1a);
+reliable prices and unit comparisons build on that foundation later.
 
 #### 7.7 Actionable budget guidance
 
@@ -232,14 +269,15 @@ weak product matches as fact.
 
 #### 7.9 Line-item receipt capture
 
-Extend receipt processing only when the correction experience is fast enough
-that it does not become household bookkeeping. Candidate capabilities include:
+**Reprioritised on 21 September 2026:** core capture, matching and correction are
+now Tranche A work (§7.1a), tracked once as V2-01–03 in the
+[V2 backlog](V2_PRODUCT_BACKLOG.md). This heading is retained for continuity with
+earlier plans, not as a separate implementation project.
 
-- line-item OCR;
-- retailer-aware parsing;
-- suggested product matches;
-- one-tap correction and merge; and
-- a confidence threshold below which the app asks instead of assuming.
+The later financial extension adds verified line prices, quantity/unit
+normalisation and trustworthy comparisons. Successful product extraction alone
+does not establish accurate price history. Correction must remain faster than
+manual entry.
 
 Open Banking transaction totals do not replace this work because merchant-level
 transactions do not provide a dependable grocery line-item history.
@@ -452,6 +490,11 @@ they do not establish market share or forecast demand.
 - [Research on contextually placed reminder cues](https://doi.org/10.1086/725110)
 
 ## 13. Relationship to implementation planning
+
+Use [V2_PRODUCT_BACKLOG.md](V2_PRODUCT_BACKLOG.md) for proposed V2 priorities,
+existing-capability overlaps, acceptance criteria and deferred opportunities.
+Restock review, cadence learning, shared lists and basic spending are existing
+foundations; V2 extends them rather than counting them as new features.
 
 This strategy does not approve dependencies, schema changes, navigation changes,
 retailer integrations, production services, or monetisation implementation.

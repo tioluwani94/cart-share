@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 
 /**
  * Sync status states for the offline queue.
@@ -44,6 +44,9 @@ export function SyncStatusProvider({ children }: { children: React.ReactNode }) 
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+  }, []);
 
   const startSyncing = useCallback((count: number) => {
     // Clear any pending reset timeout
@@ -57,10 +60,14 @@ export function SyncStatusProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const finishSyncing = useCallback((result: SyncResult) => {
+    if (resetTimeoutRef.current) {
+      clearTimeout(resetTimeoutRef.current);
+      resetTimeoutRef.current = null;
+    }
     setLastResult(result);
     setPendingCount(0);
 
-    if (result.failed > 0 && result.success === 0) {
+    if (result.failed > 0) {
       setStatus("error");
       console.log(`[SyncStatus] Sync failed: ${result.failed} items`);
     } else {

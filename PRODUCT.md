@@ -32,6 +32,12 @@ and monetisation hypotheses are maintained in
 That document is directional and does not expand the approved MVP or authorise
 implementation without the checkpoints required by `AGENT.md`.
 
+The proposed V2 scope and its overlap with implemented beta features are
+consolidated in [`docs/V2_PRODUCT_BACKLOG.md`](docs/V2_PRODUCT_BACKLOG.md).
+V2 prioritises recording a whole shop from receipts/order screenshots, reliable
+household product matching, and free-form entry, feeding the existing restock
+loop with less manual work. Broader post-MVP ideas remain evidence-gated.
+
 The current notification contract and proposed future notification cadences are
 maintained separately in
 [`docs/NOTIFICATION_STRATEGY.md`](docs/NOTIFICATION_STRATEGY.md). Future entries

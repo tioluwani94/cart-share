@@ -230,6 +230,17 @@ export default function PlanScreen() {
   }
 
   const activeList = review.activeList;
+  const combineLearningEmptyState =
+    !activeList &&
+    otherLists.length === 0 &&
+    review.trackedProductCount === 0 &&
+    review.learningProductCount > 0 &&
+    review.candidates.length === 0 &&
+    notificationEntry.source !== "notification";
+  const createNextShop = () => {
+    setCreateAsNextShop(true);
+    bottomSheetRef.current?.present();
+  };
 
   return (
     <View className="flex-1 bg-background-light">
@@ -280,6 +291,7 @@ export default function PlanScreen() {
             onChooseRegulars={() =>
               router.push("/choose-regulars?from=plan" as Href)
             }
+            onCreateShop={combineLearningEmptyState ? createNextShop : undefined}
           />
 
           {activeList ? (
@@ -295,19 +307,16 @@ export default function PlanScreen() {
               onEdit={() => setEditingSchedule(true)}
               onOpen={() => router.navigate("/(tabs)/shop" as Href)}
             />
-          ) : (
+          ) : !combineLearningEmptyState ? (
             <NextShopChooser
               choosingListId={choosingListId}
               error={nextShopError}
               existingLists={otherLists}
               isOnline={isOnline}
               onChoose={(listId) => void chooseExistingList(listId)}
-              onCreate={() => {
-                setCreateAsNextShop(true);
-                bottomSheetRef.current?.present();
-              }}
+              onCreate={createNextShop}
             />
-          )}
+          ) : null}
 
           {activeList && (
             <OtherPlansSection

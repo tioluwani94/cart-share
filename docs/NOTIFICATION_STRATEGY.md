@@ -5,7 +5,10 @@ implementation commitment**
 
 Initial market: **UK households, iOS first**
 
-Last updated: **20 September 2026**
+Last updated: **21 September 2026**
+
+V2 sequencing is maintained in the [consolidated backlog](V2_PRODUCT_BACKLOG.md).
+Existing notification behaviour below is unchanged by that planning update.
 
 ## 1. Purpose
 
@@ -145,6 +148,15 @@ hypotheses outside this approved follow-up.
 These candidates should be introduced individually and only when the stated
 evidence gate is met. Cadences are starting hypotheses for beta testing, not
 approved product requirements.
+
+For V2, confirmed purchase imports should feed the existing learning and restock
+families, with purchase deduplication and current-state cancellation. Do not add
+a push for every extracted item or require a new reminder family just because
+the purchase came from a screenshot. V2-03 owns that integration; V2-05 covers
+factual recaps and V2-06 the optional shopping-started handoff. Grouped activity,
+completion alerts and registration recovery are already implemented in the
+follow-up documented above; remaining delivery UAT is beta maintenance, not a
+duplicate V2 feature.
 
 | Candidate                | Proposed trigger and cadence                                                                                                                                                                                                                           | Default channel                                               | Evidence gate                                                                                                        |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |

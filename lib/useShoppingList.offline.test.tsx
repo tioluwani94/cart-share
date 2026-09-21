@@ -376,3 +376,89 @@ it("keeps checked state visible after a replay failure and retries it without lo
   expect(mockSyncStatus).toBe("synced");
   expect(current.items?.[0].isCompleted).toBe(true);
 });
+
+it("delays online pending feedback, shows it immediately offline, and clears it when saved", async () => {
+  jest.useFakeTimers();
+  let resume!: () => void;
+  const setOnServer = mockSetCompleted.getMockImplementation()!;
+  mockSetCompleted.mockImplementationOnce(async (args) => {
+    await new Promise<void>((resolve) => { resume = resolve; });
+    return setOnServer(args);
+  });
+  await act(async () => current.toggleComplete("rice" as Id<"items">));
+  expect(current.showSyncStatus).toBe(false);
+  expect(current.items?.[0].isCompleted).toBe(true);
+  act(() => jest.advanceTimersByTime(999));
+  expect(current.showSyncStatus).toBe(false);
+  act(() => jest.advanceTimersByTime(1));
+  expect(current.showSyncStatus).toBe(true);
+  await act(async () => resume());
+  expect(current.showSyncStatus).toBe(false);
+  await network(false);
+  await act(async () => current.toggleComplete("rice" as Id<"items">));
+  expect(current.showSyncStatus).toBe(true);
+});
+
+it("retires acknowledged edits while the next request stalls, without masking partner changes or newer local intent", async () => {
+  await network(false);
+  await act(async () => current.toggleComplete("rice" as Id<"items">));
+  await act(async () => current.toggleComplete("fish" as Id<"items">));
+  const setOnServer = mockSetCompleted.getMockImplementation()!;
+  let resume!: () => void;
+  mockSetCompleted.mockImplementationOnce(setOnServer).mockImplementationOnce(async (args) => {
+    await new Promise<void>((resolve) => { resume = resolve; });
+    return setOnServer(args);
+  });
+  await network(true);
+  expect(current.queueLength).toBe(1);
+  expect(current.items?.[0].isPendingSync).toBe(false);
+  expect(current.items?.[1].isPendingSync).toBe(true);
+  // Partner unchecks the already-acknowledged item while our second request waits.
+  mockServerItems = mockServerItems.map((entry) => ({ ...entry, isCompleted: false }));
+  await network(true);
+  expect(current.items?.[0].isCompleted).toBe(false);
+  await act(async () => current.toggleComplete("rice" as Id<"items">));
+  expect(current.items?.[0].isCompleted).toBe(true);
+  await act(async () => resume());
+  expect(current.queueLength).toBe(0);
+  expect(current.items?.map((entry) => entry.isCompleted)).toEqual([true, false]);
+});
+
+it("never announces all synced between batches when more edits arrived during replay", async () => {
+  jest.useFakeTimers();
+  let resumeAdd!: () => void;
+  let resumeCheck!: () => void;
+  const addOnServer = mockAdd.getMockImplementation()!;
+  const setOnServer = mockSetCompleted.getMockImplementation()!;
+  mockAdd.mockImplementationOnce(async (args) => {
+    await new Promise<void>((resolve) => { resumeAdd = resolve; });
+    return addOnServer(args);
+  });
+  mockSetCompleted.mockImplementationOnce(async (args) => {
+    await new Promise<void>((resolve) => { resumeCheck = resolve; });
+    return setOnServer(args);
+  });
+  await act(async () => current.addItem("Milk"));
+  act(() => jest.advanceTimersByTime(1000));
+  await act(async () => current.toggleComplete("rice" as Id<"items">));
+  await act(async () => resumeAdd());
+  expect(current.queueLength).toBe(1);
+  expect(mockFinishSyncing).not.toHaveBeenCalled();
+  await act(async () => resumeCheck());
+  expect(current.queueLength).toBe(0);
+  expect(mockFinishSyncing).toHaveBeenCalledTimes(1);
+});
+
+it("retries a failed request automatically at a bounded interval, preserving the last intended value", async () => {
+  jest.useFakeTimers();
+  mockSetCompleted.mockRejectedValueOnce(new Error("Temporary failure"));
+  await act(async () => current.toggleComplete("rice" as Id<"items">));
+  expect(current.hasSyncError).toBe(true);
+  expect(current.items?.[0].isCompleted).toBe(true);
+  await act(async () => jest.advanceTimersByTime(14999));
+  expect(mockSetCompleted).toHaveBeenCalledTimes(1);
+  await act(async () => jest.advanceTimersByTime(1));
+  expect(mockSetCompleted).toHaveBeenCalledTimes(2);
+  expect(current.queueLength).toBe(0);
+  expect(current.items?.[0].isCompleted).toBe(true);
+});

@@ -148,6 +148,7 @@ function ActiveShop({
     removeItem,
     updateItem,
     isPendingSync,
+    showSyncStatus,
     isOnline,
     queueLength,
     isProcessing,
@@ -188,7 +189,7 @@ function ActiveShop({
     : !isOnline
       ? "Offline changes are saved on this device. You can finish now and sync later."
       : queueLength > 0
-        ? `${queueLength} ${queueLength === 1 ? "change is" : "changes are"} syncing before you can finish.`
+        ? `${queueLength} ${queueLength === 1 ? "change is" : "changes are"} saved on this device, waiting to sync. You can finish now and sync later.`
         : "Showing saved items while the latest version loads.";
   const finishUnavailableMessage =
     totalCount === 0
@@ -410,7 +411,7 @@ function ActiveShop({
           tripBudgetPence={list.tripBudgetPence}
         />
 
-        {(isFromCache || !isOnline || queueLength > 0) && (
+        {(isFromCache || !isOnline || showSyncStatus) && (
           <View className="mt-3 flex-row items-start rounded-xl border border-yellow/50 bg-yellow/20 px-3 py-2.5">
             <CloudOff size={17} color={themeColors.warningInk} />
             <Text className="ml-2 flex-1 text-sm leading-5 text-yellow-900">
@@ -524,7 +525,7 @@ function ActiveShop({
               estimatedPricePence={item.estimatedPricePence}
               isCompleted={item.isCompleted}
               addedByUser={item.addedByUser}
-              isPendingSync={item.isPendingSync || isPendingSync(item._id)}
+              isPendingSync={showSyncStatus && isPendingSync(item._id)}
               onToggle={(itemId) => {
                 setOpenSwipeItemId(null);
                 void toggleComplete(itemId);

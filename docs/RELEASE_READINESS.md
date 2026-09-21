@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **The owner accepted internal TestFlight UAT for iOS 1.0.0 (12). Build 12 is submitted to Apple Beta App Review for the Family closed beta group and is Waiting for Review. Development and production Convex are deployed. The owner has deferred the isolated sign-out crash investigation until it can be reproduced reliably.**
+Status: **The owner accepted the local iPhone 13 sync-recovery fixes and requested commit/push, deployment and a new internal TestFlight build on 21 September 2026. The Plan learning empty state now has one card, Open Pantry as primary and Create new shop as a white/red outline secondary action. Release packaging is in progress. Build 13 is the latest uploaded internal build; build 12 remains the accepted external beta. The isolated sign-out crash investigation remains deferred.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,116 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 21 September 2026 sync recovery and Plan follow-up
+
+- Local iPhone 13 UAT was accepted for native connection recovery, immediate
+  offline edits and queue feedback. Standalone builds included the current fixes
+  and development configuration, were signature-verified, installed and launched.
+- The Plan learning empty state combines the two empty cards. Open Pantry stays
+  primary; Create new shop uses the existing white/red outline button and opens
+  the existing Next shop creation sheet. Existing-list choices remain available.
+- Final checks: **110 suites / 604 tests passed**, TypeScript passed, and lint
+  reported **0 errors / 17 existing warnings**. No dependency, schema, native
+  module or Convex function changes were needed for this follow-up.
+- The owner explicitly authorized committing/pushing all pending changes and a
+  new internal TestFlight build/upload. Production build and Apple processing
+  details will be recorded after verification. No external submission is included.
+
+
+### 21 September 2026 internal release deployment
+
+- The owner explicitly authorized development/production Convex deployment and
+  a new production iOS build/upload for internal testing.
+- Development `savory-woodpecker-17` deployed successfully with `convex dev
+  --once --typecheck enable`; production `tangible-mink-681` deployed
+  successfully with `convex deploy --typecheck enable --yes`. Schema validation
+  passed; the three notification/device indexes listed below were added to
+  production, and no indexes were deleted.
+- Release source is `fb3d9d69d7f61850c756bb61183c7b46e25f8af1`, built from an
+  isolated checkout of that commit. Uncommitted product/backlog documentation
+  in the working checkout is not part of this release artifact.
+- EAS production build `85e3094a-d7e0-43b6-9627-7d96bfcd3af8` was created as
+  **1.0.0 (13)** with production environment variables and the existing Apple
+  distribution credentials. It completed successfully at
+  `2026-09-20T23:25:21.023Z` (00:25 BST on 21 September).
+- Downloaded IPA SHA-256:
+  `5fceaabb1221c643bbeeac58ed08a5d8a689e944865d28d7fbb29426610bfb1f`.
+  Verified version/bundle identity, iPhone-only device family, production Convex
+  endpoint with no development deployment reference, production Clerk key,
+  household-activity/routing code, internet reachability code, and the compiled
+  native date-time picker. Strict/deep code-signature verification passed.
+  Entitlements contain production APNs, TestFlight support, the expected Apple
+  team, and `get-task-allow: false`.
+- EAS submission `c8722112-6998-4d9f-b54d-c854c6132f60` successfully uploaded
+  this exact binary to App Store Connect app `6809059306`, targeting the existing
+  **Team (Expo)** internal group. The first Apple read-back did not yet list
+  build 13. Processing, internal install availability and saved What to Test
+  notes will be verified when Apple exposes the build. No external beta review
+  or external-group assignment was requested for build 13.
+- Subsequent Apple read-back confirmed build
+  `70606c32-378c-4ae2-8d5c-2f7e944af59e` is **VALID**, **IN_BETA_TESTING**
+  internally and present in **Team (Expo)**. This resolves the processing and
+  internal-availability checkpoint above. External state remains
+  **READY_FOR_BETA_SUBMISSION**, not submitted or approved for external testing.
+- Saved and read back matching `en-US` What to Test notes covering stalled
+  connections/offline replay, native time selection, grouped activity/Finish
+  shop alerts, quiet hours, one-hour shop reminders, sign-out/sign-in recovery,
+  and opt-out behavior. Actual device installation and two-phone delivery UAT
+  remain the owner's next acceptance step.
+
+### 21 September 2026 merged release preparation
+
+- Fast-forwarded clean local `main` from `a8abfee` to `fb3d9d6`. The combined
+  candidate includes persisted item edits through stalled connections, the native
+  shopping-time picker, push registration recovery, reminder reactivation,
+  grouped household activity/completion alerts, both notification choices during
+  onboarding, and a shop reminder due one hour before the saved date/time.
+- Synchronized dependencies to the committed lockfile under Node 22.17.0 and
+  pnpm 10.6.4. **108 suites / 596 tests passed**, app TypeScript passed, and lint
+  had **0 errors / 17 existing test warnings**. Expo SDK dependency checks passed.
+- Expo Doctor passed **17/18** checks. The remaining existing warning is native
+  app-config synchronization because native projects are checked in. Since build
+  12's source, the only change under app/native release configuration is
+  `ios/Podfile.lock`; it includes `RNDateTimePicker 8.4.4` and matches the installed
+  Pods manifest. A new signed native binary still needs to be built.
+- iOS production-mode JavaScript/Hermes and asset export passed locally. This
+  used the local development environment and is a packaging check, not a signed
+  production artifact or device acceptance test.
+- Production Convex dry run against `tangible-mink-681` passed function
+  typechecking and schema validation. It would add
+  `notificationReminders.by_kind_and_status_and_scheduled_for`,
+  `notificationReminders.by_user_and_kind_and_status`, and
+  `pushTokens.by_device_id`; no indexes would be deleted. The expanded optional
+  schema is compatible with existing rows and needs no backfill. The dry run
+  did not apply the production deployment.
+- Production Google and Apple OAuth initiation preflight passed. This checks
+  provider redirects, not authenticated device sign-in/callback completion.
+- Read-only EAS checks confirmed the latest production iOS build is still
+  **1.0.0 (12)**, `f99a1e6a-b2e6-4d81-96a7-7f5b264784c9`. No newer build was
+  queued or uploaded. The production profile uses remote build numbering and
+  automatic increment; verify the assigned number when starting the next build.
+
+Release sequence after explicit deployment authorization:
+
+1. Deploy the validated additive Convex schema/functions to production before
+   distributing the updated client. Development deployment is recorded in
+   [Notification fixes UAT](NOTIFICATION_FIXES_UAT.md).
+2. Build/upload the production iOS binary to internal TestFlight and verify
+   its production endpoints, APNs entitlement, native picker, and installability.
+3. Complete physical-device UAT for grouped list activity, Finish shop delivery
+   and tap routing, sign-out/sign-in token recovery, consent/account isolation,
+   scheduled-shop reminders, and the native date/time controls. Existing users
+   must explicitly enable Household activity; installation does not opt them in.
+   Scheduled-shop reminders use a 15-minute worker, so delivery can be up to
+   15 minutes after the one-hour-before target and expired reminders are skipped.
+4. Run [connected-without-internet UAT](UNREACHABLE_NETWORK_UAT.md), including
+   reopening the app and checking the other household device after reconnection.
+5. After internal UAT acceptance, add the build to the existing external group
+   and follow Apple's required beta-review/distribution state for that build.
+
+No live push was sent during this preparation, and the two-device delivery gaps
+recorded in the notification handoff are not marked as passed.
 
 ### 11 September 2026 external beta submission
 

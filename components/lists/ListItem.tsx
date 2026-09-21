@@ -480,7 +480,7 @@ export function ListItem({
                   <View
                     className="ml-2"
                     accessibilityLabel="Pending sync"
-                    accessibilityHint="This item will sync when you're back online"
+                    accessibilityHint="Saved on this device, waiting to sync with your household"
                   >
                     <RefreshCw
                       size={16}

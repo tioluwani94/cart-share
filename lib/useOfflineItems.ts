@@ -9,6 +9,7 @@ import {
   getShopCompletionMode,
 } from "./shoppingList";
 import { useScopedOfflineQueue } from "./useScopedOfflineQueue";
+import { usePendingSyncFeedback } from "./usePendingSyncFeedback";
 import {
   getItemsCacheKey,
   getItem,
@@ -77,6 +78,7 @@ export function useOfflineItems(
     isOnline,
     processQueue,
   } = useScopedOfflineQueue(scope);
+  const showSyncStatus = usePendingSyncFeedback(queue, isOnline);
 
   const createSession = useMutation(api.sessions.create);
 
@@ -343,6 +345,7 @@ export function useOfflineItems(
 
     // Status
     isOnline,
+    showSyncStatus,
     isPendingSync,
     pendingCount: queue.filter(
       (operation) =>
