@@ -16,6 +16,10 @@ from deployment or automated tests.
 
 ## Behaviour
 
+- Kitchen Check now creates an active **Next shop** automatically on the first
+  **Need this** choice when no active shop exists. Subsequent choices reuse it.
+  The same behavior applies when entering from a push notification. Offline
+  choices create or reuse the active shop when they sync.
 - View list → Shop tab; Choose a few regulars → Pantry tab.
 - Right swipe / Need this → existing add decision. Left / Still have it → existing cadence adjustment and review delay; never delete an existing Shop item.
 - Not sure → existing `not_this_time` delay (next planned shop + one day, or one day from now if unplanned).
@@ -24,6 +28,26 @@ from deployment or automated tests.
 - Empty states distinguish completed, nothing due, no tracked products, learning-only and all-paused. Product artwork comes from the existing local catalogue with its fallback.
 
 ## Undo safety / deployment
+
+### Automatic shop creation — 23 September 2026
+
+Automated coverage passes for first-item creation, multiple items sharing one
+shop, absent/archived/deleted shops, retry deduplication, Undo, notification
+entry, and offline queue replay. Development and production functions have
+been deployed. Physical-device acceptance remains a beta-testing step:
+
+1. With due Kitchen Check items and no active shop, tap **Need this** or swipe
+   right. Verify a new **Next shop** appears with the chosen item.
+2. Choose more items before or after the shop appears. Verify there is one
+   active shop containing all of them without duplicate lines.
+3. Open a Kitchen Check push notification with no active shop and repeat.
+4. Repeat offline using a saved check, then reconnect. Verify the choices sync
+   into one active shop. If another member created a shop meanwhile, use it.
+5. Undo the first online choice. Verify its untouched item is removed and its
+   reminder is restored; the new shop remains available.
+6. With no active shop, choose **Still have it** or **Not sure**. Verify no shop
+   is created. Existing selected-shop conflict protection must still apply if
+   another member switches or finishes that shop before a queued add syncs.
 
 The additive `restockUndoRecords` schema stores a server-owned comparison receipt, previous reminder fields, the creating user, and only the ID/snapshot of an item this decision actually created. It expires after five minutes and is deleted by a scheduled internal mutation. Account/household deletion also clears receipts.
 

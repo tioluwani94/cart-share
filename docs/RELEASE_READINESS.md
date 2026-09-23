@@ -1,6 +1,6 @@
 # OurPantry Release Readiness
 
-Status: **Production iOS 1.0.0 (14), built from `bc565be`, passed the owner’s internal TestFlight UAT and is approved and available in Family closed beta on 21 September 2026. Apple reports external IN_BETA_TESTING and beta review APPROVED. The existing group’s public link remains disabled and automatic tester notification is enabled. Development and production Convex are current. The isolated sign-out crash investigation remains deferred.**
+Status: **Kitchen Check automatic shop creation is deployed to development and production on 23 September 2026. Production iOS 1.0.0 (15), built from `78baae7`, is verified, approved, and available to Team (Expo) and Family closed beta testers. Apple reports VALID processing, external IN_BETA_TESTING, and beta review APPROVED. Testing notes are saved, automatic tester notification is enabled, and the external group's public link remains disabled. The isolated sign-out crash investigation remains deferred.**
 
 This checklist is the source of truth for the closed iOS beta. The initial
 receipt, currency, date, unit, and retailer adapter remains GB-specific. This
@@ -8,6 +8,45 @@ document does not authorize any further production deployment. Repository checkp
 `AGENT.md` still apply.
 
 ## Completed locally
+
+### 23 September 2026 Kitchen Check automatic shop creation
+
+- Kitchen Check creates an active **Next shop** and adds the first needed item
+  atomically when no active shop exists. Later choices reuse the same list.
+  Push-notification entry and offline replay use the same behavior; retry
+  deduplication, Undo, and existing selected-list conflicts remain covered.
+- Release source: `78baae75c7a8bb3916cb95713a8d8d12ed683f3b`.
+  **110 suites / 620 tests passed**, TypeScript passed, and lint passed with
+  zero errors. No schema or index changes were needed.
+- With explicit owner deployment approval, development `savory-woodpecker-17`
+  and production `tangible-mink-681` deployed successfully with typechecking.
+  Production schema validation passed and no indexes were deleted. A read-back
+  of the production `restocks:decide` contract confirms the nullable selected
+  list argument is deployed.
+- EAS production build `8e96438a-2f4c-40b9-a922-26142618b28b`, **1.0.0 (15)**,
+  completed successfully at `2026-09-23T00:48:16.056Z`. EAS confirms the source
+  commit above, production environment, and existing Apple distribution credentials.
+- Downloaded and verified the IPA: `app.ourpantry`, build 15, iPhone-only,
+  production Convex/Clerk configuration, production APNs, TestFlight entitlement,
+  and disabled debugging. The bundled JavaScript no longer contains the
+  Kitchen Check selected-shop gate. Strict/deep signature verification passed.
+  IPA SHA-256: `b18bc9532210eba9fa2a1592c5c2058a4c425241b0ad37ccd01fff5e3744dd3b`.
+- EAS submission `4b54b1cc-bbba-4bc1-8923-b38b69fe0e59` uploaded this exact
+  binary successfully to App Store Connect app `6809059306`, targeting the
+  existing internal **Team (Expo)** group. Apple build
+  `fbcba316-85ab-461a-8541-1bb818596692` is **VALID** and **IN_BETA_TESTING**
+  internally; group assignment was read back successfully.
+- Saved and read back the exact en-US What to Test notes covering automatic
+  list creation, multiple items, notification entry, offline sync and Undo.
+  Existing review contact and demo-account details were verified present
+  without printing their values.
+- Assigned the same Apple build to existing **Family closed beta** group
+  `cf101fa9-359a-4ea1-a30c-f1569d8bce34` and submitted it for beta review.
+  The submission initially returned **WAITING_FOR_REVIEW**; the read-back
+  returned **APPROVED** and external **IN_BETA_TESTING**. Verified the group
+  contains build 15, automatic tester notification is enabled, and its public
+  link remains disabled. Previous builds were not expired.
+- Device acceptance scenarios are recorded in `docs/QUICK_CHECK_UAT.md`.
 
 ### 21 September 2026 external beta promotion — build 14
 
