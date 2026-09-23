@@ -60,16 +60,18 @@ describe("useRestockDecisionActions", () => {
   function Harness({
     candidateProductIds = [householdProductId],
     hasActiveList = true,
+    source = "plan",
   }: {
     candidateProductIds?: readonly Id<"householdProducts">[];
     hasActiveList?: boolean;
+    source?: "plan" | "notification";
   }) {
     actions = useRestockDecisionActions({
       candidateProductIds,
       activeListId: hasActiveList ? ("list_1" as Id<"lists">) : undefined,
       householdId: "household_1" as Id<"households">,
       marketCountryCode: "GB",
-      source: "plan",
+      source,
       userId: "clerk_1",
     });
     return null;
@@ -156,20 +158,49 @@ describe("useRestockDecisionActions", () => {
     });
   });
 
-  it("does not queue an Add that cannot succeed without a Next shop", async () => {
-    mockQueueState.isOnline = false;
-    act(() => {
-      TestRenderer.create(<Harness hasActiveList={false} />);
-    });
+  it.each([
+    [true, "plan"],
+    [false, "plan"],
+    [true, "notification"],
+    [false, "notification"],
+  ] as const)(
+    "adds without a Next shop (online: %s, source: %s)",
+    async (isOnline, source) => {
+      mockQueueState.isOnline = isOnline;
+      act(() => {
+        TestRenderer.create(<Harness hasActiveList={false} source={source} />);
+      });
 
-    await act(async () => {
-      await actions.makeDecision(householdProductId, "add");
-    });
+      await act(async () => {
+        expect(
+          await actions.makeDecision(householdProductId, "add"),
+        ).toMatchObject({ saved: true });
+      });
 
-    expect(mockAddToQueue).not.toHaveBeenCalled();
-    expect(mockDecide).not.toHaveBeenCalled();
-    expect(actions.error).toBe("Choose a Next shop before adding restocks.");
-  });
+      const args = {
+        householdProductId,
+        decision: "add",
+        operationId: expect.stringMatching(/^restock_/),
+        expectedActiveListId: null,
+      };
+      if (isOnline) {
+        expect(mockDecide).toHaveBeenCalledWith(args);
+        expect(mockAddToQueue).not.toHaveBeenCalled();
+      } else {
+        expect(mockAddToQueue).toHaveBeenCalledWith({
+          type: "restocks.decide",
+          args,
+        });
+        expect(mockDecide).not.toHaveBeenCalled();
+      }
+      expect(actions.error).toBeNull();
+      expect(actions.hiddenProductIds.has(householdProductId)).toBe(true);
+      expect(mockTrack).toHaveBeenCalledWith(
+        "restock decision made",
+        expect.objectContaining({ source }),
+      );
+    },
+  );
 
   it("keeps a committed decision successful when reminder refresh fails", async () => {
     const consoleError = jest.spyOn(console, "error").mockImplementation();

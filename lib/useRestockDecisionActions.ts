@@ -110,10 +110,6 @@ export function useRestockDecisionActions({
       householdProductId: Id<"householdProducts">,
       decision: RestockDecision,
     ): Promise<RestockDecisionOutcome> => {
-      if (decision === "add" && !activeListId) {
-        setError("Choose a Next shop before adding restocks.");
-        return { saved: false };
-      }
       activeListConflicts
         .filter(
           (conflict) => conflict.householdProductId === householdProductId,
@@ -134,7 +130,7 @@ export function useRestockDecisionActions({
                 householdProductId,
                 decision,
                 operationId,
-                expectedActiveListId: activeListId!,
+                expectedActiveListId: activeListId ?? null,
               }
             : { householdProductId, decision, operationId };
         if (isOnline) {

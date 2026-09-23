@@ -890,8 +890,16 @@ export const decide = mutation({
     ),
     operationId: v.string(),
     enableUndo: v.optional(v.boolean()),
-    expectedActiveListId: v.optional(v.id("lists")),
+    // null means the check started without a shop: reuse or create one.
+    expectedActiveListId: v.optional(v.union(v.id("lists"), v.null())),
   },
+  returns: v.object({
+    applied: v.boolean(),
+    itemId: v.optional(v.id("items")),
+    conflict: v.optional(v.literal("active_list_changed")),
+    undoId: v.optional(v.id("restockUndoRecords")),
+    undoExpiresAt: v.optional(v.number()),
+  }),
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
     const product = await ctx.db.get(args.householdProductId);
@@ -952,7 +960,7 @@ export const decide = mutation({
 
     if (
       args.decision === "add" &&
-      args.expectedActiveListId !== undefined &&
+      args.expectedActiveListId != null &&
       args.expectedActiveListId !== activeList?._id
     ) {
       return {
@@ -979,12 +987,27 @@ export const decide = mutation({
 
     let itemId: Id<"items"> | undefined;
     let createdItemId: Id<"items"> | undefined;
+    let targetListId = activeList?._id;
     if (result.addToShop) {
-      if (!activeList) {
-        throw new Error("Choose a Next shop before adding restocks");
+      if (!targetListId) {
+        const now = Date.now();
+        // This mutation reads and updates the household atomically, so
+        // simultaneous choices retry against and share the same active shop.
+        targetListId = await ctx.db.insert("lists", {
+          householdId: household._id,
+          name: "Next shop",
+          isArchived: false,
+          createdBy: user._id,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await ctx.db.patch(household._id, {
+          activeListId: targetListId,
+          updatedAt: now,
+        });
       }
 
-      const existingItem = await findLinkedItem(activeList._id);
+      const existingItem = await findLinkedItem(targetListId);
       if (existingItem && !existingItem.householdProductId) {
         await ctx.db.patch(existingItem._id, {
           householdProductId: product._id,
@@ -994,7 +1017,7 @@ export const decide = mutation({
       itemId =
         existingItem?._id ??
         (await ctx.db.insert("items", {
-          listId: activeList._id,
+          listId: targetListId,
           clientId: `restock:${product._id}:${args.operationId}`,
           householdProductId: product._id,
           name: product.displayName,
@@ -1008,7 +1031,7 @@ export const decide = mutation({
         }));
       if (!existingItem) {
         createdItemId = itemId;
-        await queueListActivity(ctx, activeList._id, user._id);
+        await queueListActivity(ctx, targetListId, user._id);
       }
     }
 
@@ -1031,7 +1054,7 @@ export const decide = mutation({
         userId: user._id,
         productId: product._id,
         operationId: args.operationId,
-        listId: result.addToShop ? activeList?._id : undefined,
+        listId: result.addToShop ? targetListId : undefined,
         createdItemId,
         expectedItem: createdItem ? restockSnapshot(createdItem) : undefined,
         expectedProduct: restockSnapshot(updatedProduct!),

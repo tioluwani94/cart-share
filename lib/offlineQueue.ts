@@ -36,7 +36,8 @@ type RestockDecisionArgs = {
 } & (
   | {
       decision: "add";
-      expectedActiveListId: Id<"lists">;
+      // null explicitly requests an active shop, creating one if needed.
+      expectedActiveListId: Id<"lists"> | null;
     }
   | {
       decision: Exclude<RestockDecision, "add">;
@@ -189,7 +190,7 @@ export async function executeOfflineOperation(
     case "restocks.decide":
       if (
         operation.args.decision === "add" &&
-        !operation.args.expectedActiveListId
+        operation.args.expectedActiveListId === undefined
       ) {
         // Legacy queued Adds did not record which list the household approved.
         // Dropping them into today's Next shop would be an unsafe guess.
@@ -308,7 +309,7 @@ export async function replayOfflineOperations(
           occurredAt: Date.now(),
           type: error.conflictType,
           householdProductId: operation.args.householdProductId,
-          intendedListId: operation.args.expectedActiveListId,
+          intendedListId: operation.args.expectedActiveListId ?? undefined,
         });
         continue;
       }

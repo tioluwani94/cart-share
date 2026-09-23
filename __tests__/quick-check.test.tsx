@@ -174,12 +174,19 @@ describe("native Quick check", () => {
     expect(tree.root.findAllByProps({ testID: "card" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "progress" })).toHaveLength(0);
   });
-  it("does not enable adding when there is no Next shop", () => {
-    const p = props();
-    p.review.activeList = null;
-    mount(p);
-    expect(tree.root.findByProps({ testID: "card" }).props.canAdd).toBe(false);
-  });
+  it.each([false, true])(
+    "adds without a Next shop (from notification: %s)",
+    async (fromNotification) => {
+      const p = props();
+      p.review.activeList = null;
+      mount({ ...p, fromNotification });
+      await act(async () => {
+        await choose("add");
+      });
+      expect(p.makeDecision).toHaveBeenCalledWith(product, "add");
+      expect(tree.root.findByProps({ testID: "progress" }).props.value).toBe(1);
+    },
+  );
   it("starts cards when fresh candidates arrive after an empty cached review", () => {
     const p = props();
     const freshReview = p.review;

@@ -271,7 +271,6 @@ export function QuickCheckSection({
           }
           explanation={`Based on the saved dates and your current ${candidate.cadenceDays}-day rhythm, it may be due around ${formatDateWithWeekday(candidate.expectedDueAt, { locale: review.household.locale, timeZone: review.household.planningTimeZone })}. You can adjust the rhythm or pause tracking in Pantry.`}
           remaining={remaining.length}
-          canAdd={Boolean(review.activeList)}
           busy={Boolean(busy) || undoing}
           onDecision={decide}
         />

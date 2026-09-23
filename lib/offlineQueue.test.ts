@@ -247,6 +247,42 @@ describe("offline queue", () => {
     );
   });
 
+  it("replays an explicit request to create a shop when none was selected", async () => {
+    const queued = operation(
+      {
+        type: "restocks.decide",
+        args: {
+          householdProductId: "milk" as Id<"householdProducts">,
+          decision: "add",
+          operationId: "restock_no_shop",
+          expectedActiveListId: null,
+        },
+      },
+      1,
+    );
+    const adapter = {
+      addItem: jest.fn(),
+      setCompleted: jest.fn(),
+      updateItem: jest.fn(),
+      removeItem: jest.fn(),
+      decideRestock: jest.fn(),
+      completeShop: jest.fn(),
+      recalculateReminders: jest.fn(),
+    };
+    const result = await replayOfflineOperations(
+      JSON.parse(JSON.stringify([queued])),
+      (entry) => executeOfflineOperation(entry, adapter),
+    );
+    expect(adapter.decideRestock).toHaveBeenCalledWith(queued.args);
+    expect(adapter.recalculateReminders).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      success: 1,
+      failed: 0,
+      conflicts: [],
+      remaining: [],
+    });
+  });
+
   it("turns a legacy unbound restock Add into a visible conflict", async () => {
     const householdProductId =
       "household_product_legacy" as Id<"householdProducts">;

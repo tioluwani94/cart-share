@@ -20,7 +20,11 @@ const mockReviewData = {
   activeList: { _id: "list", name: "Next shop" },
   candidates: [{ householdProductId: "milk", isAdded: false }],
 };
-let mockReview: typeof mockReviewData | undefined = mockReviewData;
+let mockReview:
+  | (Omit<typeof mockReviewData, "activeList"> & {
+      activeList: typeof mockReviewData.activeList | null;
+    })
+  | undefined = mockReviewData;
 let mockReviewFromCache = false;
 let mockOnline = true;
 
@@ -158,6 +162,27 @@ describe("Plan notification landing", () => {
     act(() => (check().props.onChooseRegulars as () => void)());
     expect(mockRouter.push).toHaveBeenCalledWith("/choose-regulars?from=plan");
   });
+
+  it.each([true, false])(
+    "opens Kitchen Check without a shop from a push (online: %s)",
+    (isOnline) => {
+      mockOnline = isOnline;
+      mockReviewFromCache = !isOnline;
+      mockParams = { source: "notification", notificationId: "no-shop" };
+      mockReview = { ...mockReviewData, activeList: null };
+      mount();
+      expect(check().props.fromNotification).toBe(true);
+      expect(check().props.review).toMatchObject({ activeList: null });
+      expect(typeof check().props.makeDecision).toBe("function");
+      expect(mockActions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          activeListId: undefined,
+          source: "notification",
+          enableUndo: true,
+        }),
+      );
+    },
+  );
 
   it("starts a fresh check and scrolls to it for each notification while Plan is already open", () => {
     mount();

@@ -98,6 +98,137 @@ function harness() {
   };
 }
 
+describe("Kitchen Check without a shop", () => {
+  const add = (ctx: unknown, productId = "product", operationId = "op") =>
+    handler(decide)(ctx, {
+      householdProductId: productId,
+      decision: "add",
+      operationId,
+      expectedActiveListId: null,
+      enableUndo: true,
+    });
+
+  it.each(["absent", "archived", "deleted"])(
+    "creates an active shop and its first item when the previous shop is %s",
+    async (state) => {
+      const h = harness();
+      if (state === "absent") delete h.rows.get("house")!.activeListId;
+      if (state === "archived") h.rows.get("list")!.isArchived = true;
+      if (state === "deleted") h.rows.delete("list");
+      Object.assign(h.rows.get("product")!, {
+        defaultQuantity: 2,
+        defaultUnit: "litres",
+        category: "Dairy",
+      });
+
+      const first = await add(h.ctx);
+      const listId = h.rows.get("house")!.activeListId;
+      expect(listId).not.toBe("list");
+      expect(h.rows.get(listId)).toMatchObject({
+        name: "Next shop",
+        householdId: "house",
+        isArchived: false,
+        createdBy: "user",
+      });
+      expect(h.rows.get(first.itemId)).toMatchObject({
+        listId,
+        name: "Milk",
+        householdProductId: "product",
+        isCompleted: false,
+        quantity: 2,
+        unit: "litres",
+        category: "Dairy",
+        addedBy: "user",
+      });
+      expect(h.rows.get(first.undoId)).toMatchObject({
+        listId,
+        createdItemId: first.itemId,
+      });
+
+      // Retries and further choices made before the UI receives the new list
+      // must all reuse it, including queued choices made while offline.
+      expect(await add(h.ctx)).toMatchObject({
+        applied: false,
+        itemId: first.itemId,
+        undoId: first.undoId,
+      });
+      expect(await add(h.ctx, "product", "another-choice")).toMatchObject({
+        itemId: first.itemId,
+      });
+      h.rows.set("bread", {
+        ...h.rows.get("product"),
+        _id: "bread",
+        displayName: "Bread",
+        normalizedName: "bread",
+        recentOperationIds: [],
+      });
+      const second = await add(h.ctx, "bread", "bread-choice");
+      expect(h.rows.get(second.itemId)).toMatchObject({
+        listId,
+        name: "Bread",
+      });
+      expect(
+        [...h.rows.keys()].filter((id) => id.startsWith("lists_")),
+      ).toHaveLength(1);
+      expect(
+        [...h.rows.keys()].filter((id) => id.startsWith("items_")),
+      ).toHaveLength(2);
+    },
+  );
+
+  it("reuses a shop another member selected before the choice arrives", async () => {
+    const h = harness();
+    const result = await add(h.ctx);
+    expect(h.rows.get(result.itemId)).toMatchObject({ listId: "list" });
+    expect(
+      [...h.rows.keys()].filter((id) => id.startsWith("lists_")),
+    ).toHaveLength(0);
+  });
+
+  it("can undo the first item without deleting the newly created shop", async () => {
+    const h = harness();
+    delete h.rows.get("house")!.activeListId;
+    const original = { ...h.rows.get("product")! };
+    const result = await add(h.ctx);
+    const listId = h.rows.get("house")!.activeListId;
+    expect(
+      await handler(undoDecision)(h.ctx, { undoId: result.undoId }),
+    ).toEqual({ undone: true, productId: "product" });
+    expect(h.rows.has(result.itemId)).toBe(false);
+    expect(h.rows.get("product")).toMatchObject({
+      cadenceDays: original.cadenceDays,
+      reviewAfter: original.reviewAfter,
+    });
+    expect(h.rows.get(listId)).toMatchObject({ isArchived: false });
+    expect(h.rows.get("house")!.activeListId).toBe(listId);
+  });
+
+  it.each(["still_have_some", "not_this_time", "stop_tracking"])(
+    "does not create a shop for %s",
+    async (decision) => {
+      const h = harness();
+      delete h.rows.get("house")!.activeListId;
+      await h.choose(decision);
+      expect(h.rows.get("house")!.activeListId).toBeUndefined();
+      expect(
+        [...h.rows.keys()].filter((id) => /^(lists|items)_/.test(id)),
+      ).toHaveLength(0);
+    },
+  );
+
+  it("preserves the intended-list conflict when a previously selected shop is gone", async () => {
+    const h = harness();
+    delete h.rows.get("house")!.activeListId;
+    expect(await h.choose()).toEqual({
+      applied: false,
+      conflict: "active_list_changed",
+    });
+    expect(
+      [...h.rows.keys()].filter((id) => /^(lists|items)_/.test(id)),
+    ).toHaveLength(0);
+  });
+});
+
 describe("safe restock Undo", () => {
   it("restores timing and removes only its own untouched new item", async () => {
     const h = harness(),

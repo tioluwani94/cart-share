@@ -31,7 +31,6 @@ export function QuickCheckCard({
   note,
   explanation,
   remaining,
-  canAdd,
   busy,
   onDecision,
 }: {
@@ -39,7 +38,6 @@ export function QuickCheckCard({
   note: string;
   explanation: string;
   remaining: number;
-  canAdd: boolean;
   busy: boolean;
   onDecision: (decision: Choice) => Promise<void>;
 }) {
@@ -54,7 +52,7 @@ export function QuickCheckCard({
   const artwork = pantryArtwork[resolvePantryArtwork(name)];
   const commit = useCallback(
     async (decision: Choice) => {
-      if (committing.current || busy || (decision === "add" && !canAdd)) return;
+      if (committing.current || busy) return;
       committing.current = true;
       try {
         await onDecision(decision);
@@ -66,7 +64,7 @@ export function QuickCheckCard({
         );
       }
     },
-    [busy, canAdd, committed, onDecision, reduceMotion, x],
+    [busy, committed, onDecision, reduceMotion, x],
   );
   const pan = useMemo(
     () =>
@@ -87,7 +85,7 @@ export function QuickCheckCard({
           const projected = x.get() + event.velocityX * 0.18;
           const right = projected > width * 0.27;
           const left = projected < -width * 0.27;
-          if ((right && canAdd) || left) {
+          if (right || left) {
             committed.set(true);
             if (!reduceMotion)
               x.set(
@@ -118,7 +116,7 @@ export function QuickCheckCard({
                 : withSpring(0, { duration: 400, dampingRatio: 1 }),
             );
         }),
-    [busy, canAdd, commit, committed, reduceMotion, start, width, x],
+    [busy, commit, committed, reduceMotion, start, width, x],
   );
   const cardStyle = useAnimatedStyle(() => ({
     transform: reduceMotion
@@ -126,7 +124,7 @@ export function QuickCheckCard({
       : [{ translateX: x.get() }, { rotateZ: `${x.get() / 40}deg` }],
   }));
   const yesStyle = useAnimatedStyle(() => ({
-    opacity: canAdd ? Math.min(1, Math.max(0, x.get() / 80)) : 0,
+    opacity: Math.min(1, Math.max(0, x.get() / 80)),
   }));
   const noStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, Math.max(0, -x.get() / 80)),
@@ -215,7 +213,7 @@ export function QuickCheckCard({
               </Button>
               <Button
                 forceSolid
-                disabled={busy || !canAdd}
+                disabled={busy}
                 className={fontScale >= 1.5 ? "w-full" : "flex-1"}
                 onPress={() => void commit("add")}
                 accessibilityLabel={`Add ${name} to Shop`}
@@ -238,11 +236,6 @@ export function QuickCheckCard({
                 className="mt-1 text-center text-sm text-ink-secondary"
               >
                 Saving your choice…
-              </Text>
-            )}
-            {!canAdd && (
-              <Text className="mt-2 text-center text-sm text-ink-secondary">
-                Choose a Next shop below before adding products.
               </Text>
             )}
             <View
